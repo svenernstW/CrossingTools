@@ -1,0 +1,143 @@
+#' Segregation variance for DH lines from specified crosses
+#'
+#' Calculate expected genomic estimated breeding values (EGBV), segregation
+#' variance, and superior progeny value (SPV) for doubled haploid (DH) lines
+#' derived after \code{t} rounds of random mating.
+#'
+#' @param crosses A data.frame or matrix (n_crosses x 2) of parental indices
+#'   (row indices into \code{M}) specifying the crosses.
+#' @param M Numeric marker matrix (markers in columns, genotypes in rows) with
+#'   entries in \code{c(0, 2)} corresponding to \code{c("AA", "BB")}.
+#' @param genetic.map A data.frame with columns:
+#'   \itemize{
+#'     \item \code{site}: integer marker index (1..ncol(M))
+#'     \item \code{chr}: chromosome identifier (numeric)
+#'     \item \code{pos}: position on the chromosome in cM (numeric)
+#'   }
+#'   All markers in \code{M} must appear in \code{genetic.map$site}.
+#' @param U Numeric matrix of marker effects (markers in rows, traits in columns).
+#'   Must have \code{nrow(U) == ncol(M)}.
+#' @param t Integer. Number of random‐mating generations before DH creation.
+#' @param intensity Double. Standardized selection differential.
+#' @param covariance Logical. If \code{TRUE}, also compute the segregation
+#'   covariance matrix between all supplied traits.
+#' @param method Character. Which method to use; one of
+#'   \code{c("osthushenrich", "lehermeier")}.
+#'
+#' @return If \code{covariance = TRUE}, a list with element \code{cross_values}
+#'   (a data.frame) whose columns are named \code{EGBV1, var1, SPV1, EGBV2, ...}.
+#'   If \code{covariance = FALSE}, a data.frame with the same column naming.
+#'
+#' @examples
+#' \dontrun{
+#' out <- calculate_variances_DH(
+#'   crosses = matrix(c(1,2, 3,4), ncol = 2, byrow = TRUE),
+#'   genetic.map = data.frame(site = 1:ncol(M), chr = 1, pos = seq_len(ncol(M))),
+#'   M = M,
+#'   U = matrix(rnorm(ncol(M)), ncol = 1),
+#'   t = 0,
+#'   intensity = 1.0,
+#'   covariance = FALSE,
+#'   method = "lehermeier"
+#' )
+#' }
+#' @export
+calculate_variances_DH <- function(crosses, genetic.map, M, U, t, intensity, covariance, method, nThreads = 4L) {
+  #  Input normalization
+  if (!is.matrix(M)) M <- as.matrix(M)
+  if (!is.matrix(U)) U <- as.matrix(U)
+  crosses <- as.matrix(crosses)
+
+  # Validate method early
+  method <- match.arg(method, c("osthushenrich", "lehermeier"))
+
+  # Basic shape checks
+  if (ncol(M) <= 0L) stop("M must have markers in columns.")
+  if (nrow(U) != ncol(M)) {
+    stop("U must have nrow(U) == ncol(M). Found: nrow(U) = ", nrow(U), ", ncol(M) = ", ncol(M), ".")
+  }
+  if (!is.logical(covariance) || length(covariance) != 1L) {
+    stop("`covariance` must be a single logical (TRUE/FALSE).")
+  }
+  if (!is.numeric(t) || length(t) != 1L || t < 0 || abs(t - round(t)) > .Machine$double.eps^0.5) {
+    stop("`t` must be a single non-negative integer (number of random-mating generations).")
+  }
+  if (!is.numeric(intensity) || length(intensity) != 1L) {
+    stop("`intensity` must be a single numeric (standardized selection differential).")
+  }
+
+  #  Validate crosses against M
+  genos <- unique(as.vector(crosses))
+  if (any(!is.finite(genos))) stop("`crosses` contains non-finite entries.")
+  if (any(genos < 1 | genos > nrow(M))) {
+    stop("Some genotype indices in `crosses` are outside 1..nrow(M).")
+  }
+
+  #  Validate and align genetic.map with M
+  req_cols <- c("site", "chr", "pos")
+  if (!all(req_cols %in% names(genetic.map))) {
+    stop("`genetic.map` must contain columns: ", paste(req_cols, collapse = ", "), ".")
+  }
+  # sites referenced must be within 1..ncol(M)
+  if (any(genetic.map$site < 1 | genetic.map$site > ncol(M))) {
+    stop("`genetic.map$site` contains indices outside 1..ncol(M).")
+  }
+  # every marker in M must be in genetic.map
+  if (!all(seq_len(ncol(M)) %in% genetic.map$site)) {
+    stop("Some markers in M are missing from `genetic.map$site`.")
+  }
+
+  # Reorder M's columns to match the map order
+  M <- as.matrix(M[, genetic.map$site, drop = FALSE])
+  U <- U[genetic.map$site,  , drop = FALSE]
+
+  #  Build per-chromosome position matrices for C++
+  # list of matrices, one per chromosome, each being a column vector of positions
+  chrs <- unique(genetic.map$chr)
+  genmap_list <- lapply(chrs, function(x) {
+    as.matrix(genetic.map[genetic.map$chr == x, "pos", drop = TRUE])
+  })
+
+  # If there is only one trait column, covariance=TRUE doesn't make sense; force FALSE locally
+  if (ncol(U) == 1) {
+    covariance <- FALSE
+  }
+
+  if (method=="lehermeier") {
+    temp <- cpp_calculate_covariance_lehermeier(
+      Crosses   = crosses,
+      genMap    = genmap_list,
+      M         = M,
+      U         = U,
+      t         = as.integer(t),
+      intensity = intensity,
+      covariance = covariance,
+      nThreads = nThreads
+    )
+  } else { # "osthushenrich"
+    temp <- cpp_calculate_covariance_osthushenrich(
+      Crosses   = crosses,
+      genMap    = genmap_list,
+      M         = M,
+      U         = U,
+      t         = as.integer(t),
+      intensity = intensity,
+      covariance = covariance,
+      nThreads = nThreads
+    )
+  }
+
+  #  Format outputs
+  name_vec <- paste0(rep(c("EGBV", "var", "SPV"), each = ncol(U)), seq_len(ncol(U)))
+
+  if (covariance) {
+    # Expect a list with $cross_values
+    temp$cross_values <- as.data.frame(temp$cross_values)
+    names(temp$cross_values) <- name_vec
+    temp
+  } else {
+    out <- as.data.frame(temp)
+    names(out) <- name_vec
+    out
+  }
+}
