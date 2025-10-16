@@ -16,20 +16,20 @@ inline double qjk(double x, double y, double t) {
   double diff = std::abs(x - y);
   double rcf  = 0.5 * (1.0 - std::exp(-2.0 * diff));
   double oneMinusRcf = 1.0 - rcf;
-  return 0.5 + ((1.0 - 2.0 * rcf) / 2.0) * std::pow(oneMinusRcf, t);
+  return 0.5 + ((1.0 - 2.0 * rcf) / (2.0 - 4 * rcf)) * std::pow(oneMinusRcf, t);
 }
 
 // [[Rcpp::export]]
-SEXP cpp_calculate_covariance_osthushenrich(const NumericMatrix& Crosses,
-                                            const List& genMap,
-                                            const NumericMatrix& M,
-                                            const NumericMatrix& U,
-                                            double t,
-                                            double intensity,
-                                            const NumericVector& gains,
-                                            bool covariance = false,
-                                            bool calcgains = false,
-                                            int nThreads = 4) {
+SEXP cpp_calculate_covariance_RIL_osthushenrich(const NumericMatrix& Crosses,
+                                                const List& genMap,
+                                                const NumericMatrix& M,
+                                                const NumericMatrix& U,
+                                                double t,
+                                                double intensity,
+                                                const NumericVector& gains,
+                                                bool covariance = false,
+                                                bool calcgains = false,
+                                                int nThreads = 4) {
 #ifdef _OPENMP
   omp_set_num_threads(nThreads);  // set OpenMP threads
 #endif
@@ -42,11 +42,11 @@ SEXP cpp_calculate_covariance_osthushenrich(const NumericMatrix& Crosses,
   // Convert inputs to Armadillo
   arma::mat M_mat = as<arma::mat>(M);   // (n_individuals × numMarkers)
   arma::mat U_mat = as<arma::mat>(U);   // (numMarkers × numTrait)
+  arma::vec gains_vec = as<arma::vec>(gains);  // length == numTrait
 
   const arma::uword OFF_EG  = 0;
   const arma::uword OFF_VAR = numTrait;
   const arma::uword OFF_SPV = 2 * numTrait;
-  arma::vec gains_vec = as<arma::vec>(gains);  // length == numTrait
 
   // Precompute recombination fractions for each chromosome
   arma::mat QJK(numMarkers, numMarkers, fill::zeros);

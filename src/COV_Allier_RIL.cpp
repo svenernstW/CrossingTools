@@ -11,14 +11,12 @@
 using namespace Rcpp;
 using namespace arma;
 
-// ---------------------------------------------
-// Recombination helper (same math as before)
-// ---------------------------------------------
+
 inline double cjl(double x, double y, int t) {
   double diff = std::abs(x - y);
-  double rcf  = 0.5 * (1.0 - std::exp(-2.0 * diff));
-  return ((2.0 * rcf) / (1.0 + 2.0 * rcf)) *
-    (1.0 - std::pow(0.5, t) * std::pow(1.0 - 2.0 * rcf, t));
+  double rcf  = 0.5 * (1 - std::exp(-2 * diff));
+  return ((2 * rcf) / (1 + 2 * rcf)) *
+    (1 - std::pow(0.5, t) * std::pow(1 - 2 * rcf, t));
 }
 
 // ---------------------------------------------
@@ -41,16 +39,16 @@ inline void tri_set(std::vector<double>& tri, size_t i, size_t j, size_t n, doub
 }
 
 // [[Rcpp::export]]
-SEXP cpp_calculate_covariance_allier(const NumericMatrix& Crosses,
-                                     const List& genMap,
-                                     const NumericMatrix& M,
-                                     const NumericMatrix& U,
-                                     double t,
-                                     double intensity,
-                                     const NumericVector& gains,
-                                     bool covariance = false,
-                                     bool calcgains = false,
-                                     int nThreads = 4) {
+SEXP cpp_calculate_covariance_RIL_allier(const NumericMatrix& Crosses,
+                                         const List& genMap,
+                                         const NumericMatrix& M,
+                                         const NumericMatrix& U,
+                                         double t,
+                                         double intensity,
+                                         const NumericVector& gains,
+                                         bool covariance = false,
+                                         bool calcgains = false,
+                                         int nThreads = 4) {
 #ifdef _OPENMP
   omp_set_dynamic(1);
   omp_set_num_threads(nThreads);
@@ -103,26 +101,22 @@ SEXP cpp_calculate_covariance_allier(const NumericMatrix& Crosses,
 
     // Packed arrays length = nc*(nc+1)/2
     const std::size_t L = static_cast<std::size_t>(nc) * (static_cast<std::size_t>(nc) + 1) / 2;
-    std::vector<double> CK_pack(L), CK1_pack(L), C1_pack(L);
+    std::vector<double> CK1_pack(L), CK2_pack(L);
 
-    const int tm1 = static_cast<int>(t) - 1;
     for (int i = 0; i < nc; ++i) {
       for (int j = i; j < nc; ++j) {
         double pi = chrPos[chrIdx][i];
         double pj = chrPos[chrIdx][j];
 
         double cj_t   = cjl(pi, pj, static_cast<int>(t));
-        double cj_tm1 = cjl(pi, pj, tm1);
         double cj_1   = cjl(pi, pj, 1);
 
-        double ck  = 1.0 - 2.0 * cj_t;   // CK
-        double ck1 = cj_tm1;             // CK1
-        double c1  = 1.0 - 2.0 * cj_1;   // C1
+        double ck1  = 1 - 2 * cj_t - std::pow(0.5 * (1 - 2 * cj_1),t);   // CK
+        double ck2 = (1 - cj_t) * (1 - 2 *cj_1);             // CK1
 
-        tri_set(CK_pack,  i, j, nc, ck);
-        tri_set(CK1_pack, i, j, nc, ck1);
-        tri_set(C1_pack,  i, j, nc, c1);
-      }
+        tri_set(CK1_pack,  i, j, nc, ck1);
+        tri_set(CK2_pack, i, j, nc, ck2);
+        }
     }
 
 #ifdef _OPENMP
@@ -158,7 +152,7 @@ SEXP cpp_calculate_covariance_allier(const NumericMatrix& Crosses,
         for (arma::uword tj = ti; tj < numTrait; ++tj) {
           if(!covariance && ti!= tj) continue;
 
-          double add = 0.0;
+          double add = 0;
           for (std::size_t ii = 0; ii < chrDiff.size(); ++ii) {
             const int gi = chrDiff[ii];
             const int li = gi - startC; // local 0..nc-1
@@ -177,15 +171,14 @@ SEXP cpp_calculate_covariance_allier(const NumericMatrix& Crosses,
               double D23 = 0.0625 * ((M_mat(P2,gi)-M_mat(P3,gi))*(M_mat(P2,gj)-M_mat(P3,gj)));
               double phi2 = D14 + D13 + D24 + D23;
 
-              double ck  = tri_get(CK_pack,  static_cast<std::size_t>(li), static_cast<std::size_t>(lj), static_cast<std::size_t>(nc));
-              double ck1 = tri_get(CK1_pack, static_cast<std::size_t>(li), static_cast<std::size_t>(lj), static_cast<std::size_t>(nc));
-              double c1  = tri_get(C1_pack,  static_cast<std::size_t>(li), static_cast<std::size_t>(lj), static_cast<std::size_t>(nc));
+              double ck1  = tri_get(CK1_pack,  static_cast<std::size_t>(li), static_cast<std::size_t>(lj), static_cast<std::size_t>(nc));
+              double ck2 = tri_get(CK2_pack, static_cast<std::size_t>(li), static_cast<std::size_t>(lj), static_cast<std::size_t>(nc));
 
-              double Dcomb   = (ck * phi2) + ((ck + ck1) * c1 * phi1);
+              double Dcomb   = (ck1 * phi2) + (ck2 * phi1);
 
               // Use marker indices gi/gj for U
               double contrib = U_mat(gi, ti) * Dcomb * U_mat(gj, tj);
-              add += (ii == jj) ? contrib : 2.0 * contrib;
+              add += (ii == jj) ? contrib : 2 * contrib;
             }
           }
 
@@ -208,62 +201,62 @@ SEXP cpp_calculate_covariance_allier(const NumericMatrix& Crosses,
       }
     }
   }
-    // If requested, convert each row to an nTrait×nTrait symmetric matrix
-    if (covariance) {
-      std::vector<arma::mat> covs(numCrosses);
+  // If requested, convert each row to an nTrait×nTrait symmetric matrix
+  if (covariance) {
+    std::vector<arma::mat> covs(numCrosses);
 
 #pragma omp parallel for schedule(dynamic)
-      for (arma::uword x = 0; x < numCrosses; ++x) {
-        arma::mat G(numTrait, numTrait, arma::fill::zeros);
-        for (arma::uword ti = 0; ti < numTrait; ++ti) {
-          for (arma::uword tj = ti; tj < numTrait; ++tj) {
-            const arma::uword k = tri_u_idx_incl(ti, tj); // 0..Ktri-1
-            const double v = results1(x, k);
-            G(ti, tj) = v;
-            G(tj, ti) = v;
-          }
-        }
-        covs[x] = std::move(G);
-
-        if (calcgains) {
-          arma::mat V = covs[x];
-          arma::mat L;
-          bool spd = arma::chol(L, V);
-          if (!spd) {
-            arma::vec eval; arma::mat evec;
-            arma::eig_sym(eval, evec, V);                 // O(n^3) but n is tiny
-            double tol = std::max(1e-12, 1e-8 * eval.max());
-            for (auto& l : eval) if (l < tol) l = tol;    // clamp
-            V = evec * arma::diagmat(eval) * evec.t();    // PSD → SPD (since tol>0)
-            arma::chol(L, V);                             // must succeed now
-          }
-
-
-          arma::vec w;
-          arma::solve(w, V, gains_vec, arma::solve_opts::likely_sympd);
-
-          double sigma_gains = arma::as_scalar(w.t() * V * w);
-
-          double index =
-            arma::as_scalar( results2.row(x).cols(0, numTrait - 1) * w );
-
-          double spvi = index + intensity * std::sqrt(sigma_gains);
-
-          results2(x, 3 * numTrait + 0) = index;
-          results2(x, 3 * numTrait + 1) = sigma_gains;
-          results2(x, 3 * numTrait + 2) = spvi;
+    for (arma::uword x = 0; x < numCrosses; ++x) {
+      arma::mat G(numTrait, numTrait, arma::fill::zeros);
+      for (arma::uword ti = 0; ti < numTrait; ++ti) {
+        for (arma::uword tj = ti; tj < numTrait; ++tj) {
+          const arma::uword k = tri_u_idx_incl(ti, tj); // 0..Ktri-1
+          const double v = results1(x, k);
+          G(ti, tj) = v;
+          G(tj, ti) = v;
         }
       }
+      covs[x] = std::move(G);
 
-      // wrap covariances into an R list
-      Rcpp::List out(numCrosses);
-      for (arma::uword x = 0; x < numCrosses; ++x) out[x] = Rcpp::wrap(covs[x]);
+      if (calcgains) {
+        arma::mat V = covs[x];
+        arma::mat L;
+        bool spd = arma::chol(L, V);
+        if (!spd) {
+          arma::vec eval; arma::mat evec;
+          arma::eig_sym(eval, evec, V);                 // O(n^3) but n is tiny
+          double tol = std::max(1e-12, 1e-8 * eval.max());
+          for (auto& l : eval) if (l < tol) l = tol;    // clamp
+          V = evec * arma::diagmat(eval) * evec.t();    // PSD → SPD (since tol>0)
+          arma::chol(L, V);                             // must succeed now
+        }
 
-      return Rcpp::List::create(
-        Rcpp::Named("cross_values") = results2,
-        Rcpp::Named("covariances")  = out
-      );
+
+        arma::vec w;
+        arma::solve(w, V, gains_vec, arma::solve_opts::likely_sympd);
+
+        double sigma_gains = arma::as_scalar(w.t() * V * w);
+
+        double index =
+          arma::as_scalar( results2.row(x).cols(0, numTrait - 1) * w );
+
+        double spvi = index + intensity * std::sqrt(sigma_gains);
+
+        results2(x, 3 * numTrait + 0) = index;
+        results2(x, 3 * numTrait + 1) = sigma_gains;
+        results2(x, 3 * numTrait + 2) = spvi;
+      }
     }
 
-    return Rcpp::wrap(results2);    // returns upper triangle of the covariance matrix in vectorized form
+    // wrap covariances into an R list
+    Rcpp::List out(numCrosses);
+    for (arma::uword x = 0; x < numCrosses; ++x) out[x] = Rcpp::wrap(covs[x]);
+
+    return Rcpp::List::create(
+      Rcpp::Named("cross_values") = results2,
+      Rcpp::Named("covariances")  = out
+    );
   }
+
+  return Rcpp::wrap(results2);    // returns upper triangle of the covariance matrix in vectorized form
+}

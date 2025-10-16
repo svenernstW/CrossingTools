@@ -25,11 +25,18 @@
 #' @param intensity Numeric. Standardized selection differential.
 #' @param covariance Logical. If \code{TRUE}, also compute the segregation
 #'   covariance matrix between all supplied traits.
+#' @param calculate.gains Logical. If \code{TRUE}, calculate the desired gains index
+#'  based on segregation (co)variances. This only works if covariance is TRUE, else will be ignored.
+#' @param gains a vector of length equal to the number of traits with values representing the desired gains
+#'
 #' @param nThreads Integer (default 4). Number of OpenMP threads (if enabled at compile time).
 #'
 #' @return If \code{covariance = TRUE}, a list with element \code{cross_values}
-#'   (a data.frame) whose columns are named \code{EGBV1, var1, SPV1, EGBV2, ...}.
-#'   If \code{covariance = FALSE}, a data.frame with the same column naming.
+#'   (a data.frame) whose columns are named \code{EGBV1, var1, SPV1, EGBV2, ...} and a list with element \code{covariances} with segregation covariance matrix for each cross.
+#'   If \code{covariance = TRUE}, a list with element \code{cross_values}
+#'   (a data.frame) whose columns are named \code{EGBV1, var1, SPV1, EGBV2, ...}, element \code{gains} (a data.frame) with \code{EGBV_DG, varDG, SPVDG} for the desired gains index
+#'   and a list with element \code{covariances} with segregation covariance matrix for each cross.
+#'   If \code{covariance = FALSE}, a data.frame with the same columns \code{EGBV1, var1, SPV1, EGBV2, ...}.
 #'
 #' @examples
 #' \dontrun{
@@ -44,7 +51,7 @@
 #' )
 #' }
 #' @export
-calculate_variances_4W_DH <- function(crosses, genetic.map, M, U, t, intensity, covariance, nThreads = 4L) {
+calculate_variances_4W_DH <- function(crosses, genetic.map, M, U, t, intensity, covariance=FALSE, calculate.gains=FALSE, gains=NULL, nThreads = 4L) {
   # ---- Normalize ----
   if (!is.matrix(M)) M <- as.matrix(M)
   if (!is.matrix(U)) U <- as.matrix(U)
@@ -59,6 +66,28 @@ calculate_variances_4W_DH <- function(crosses, genetic.map, M, U, t, intensity, 
   if (!is.numeric(intensity) || length(intensity) != 1L)
     stop("`intensity` must be a single numeric.")
   if (ncol(crosses) != 4L) stop("`crosses` must have 4 columns (four-/three-way).")
+  if(!covariance & calculate.gains){
+    print("covariance == FALSE, ignoring desired gains related arguments")
+    calculate.gains <- FALSE
+    gains <- rep(0,ncol(U))
+  }
+
+  if(calculate.gains & is.null((gains))){
+    print("gains == NULL, ignoring desired gains related arguments")
+    calculate.gains <- FALSE
+    gains <- rep(0,ncol(U))
+  }
+
+  if(length(gains)!= ncol(U)){
+    print("length(gains)!= ncol(U), ignoring desired gains related arguments")
+    calculate.gains <- FALSE
+    gains <- rep(0,ncol(U))
+  }
+
+  if(t<=0){
+    print("t needs to be larger or equal to 1, seting t=1")
+    t=1
+  }
 
   # Validate crosses
   genos <- unique(as.vector(crosses))
@@ -96,9 +125,11 @@ calculate_variances_4W_DH <- function(crosses, genetic.map, M, U, t, intensity, 
     genMap    = genmap_list,
     M         = M,
     U         = U,
-    t         = as.numeric(t)+1,
+    t         = as.numeric(t),
     intensity = intensity,
     covariance = covariance,
+    calcgains = calculate.gains,
+    gains = gains,
     nThreads  = nThreads
   )
 
@@ -106,21 +137,22 @@ calculate_variances_4W_DH <- function(crosses, genetic.map, M, U, t, intensity, 
   name_vec <- paste0(rep(c("EGBV","var","SPV"), each = ncol(U)), seq_len(ncol(U)))
 
   if (covariance) {
-    temp$cross_values <- as.data.frame(temp$cross_values)
-    names(temp$cross_values) <- name_vec
+    if(calculate.gains){
+     temp1 <- as.data.frame(temp$cross_values)[1:(3*ncol(U))]
+     names(temp1) <- name_vec
+     temp2 <- as.data.frame(temp$cross_values)[((3*ncol(U))+1):ncol(as.data.frame(temp$cross_values))]
+     names(temp2) <- c("IDG_A","VARIDG_A","SPVIDG_A")
+     return(list(cross_values=temp1,gains=temp2,covariances=temp$covariances))
+    }else{
+      temp1 <- as.data.frame(temp$cross_values)[1:(3*ncol(U))]
+      names(temp1) <- name_vec
+     return(list(cross_values=temp1,covariances=temp$covariances))
+    }
 
-    # optional: clamp tiny negatives to zero (avoid NaN from sqrt inside C++ on some compilers)
-    vcols <- grep("^var", names(temp$cross_values))
-    if (length(vcols)) temp$cross_values[vcols] <- lapply(temp$cross_values[vcols], function(x) pmax(x, 0))
-
-    return(temp)
   } else {
     out <- as.data.frame(temp)
     names(out) <- name_vec
 
-    # optional: clamp tiny negatives to zero
-    vcols <- grep("^var", names(out))
-    if (length(vcols)) out[vcols] <- lapply(out[vcols], function(x) pmax(x, 0))
 
     return(out)
   }

@@ -1,7 +1,7 @@
-#' Segregation variance for DH lines from specified crosses
+#' Segregation variance for recombinant inbred lines from specified crosses
 #'
 #' Calculate expected genomic estimated breeding values (EGBV), segregation
-#' variance, and superior progeny value (SPV) for doubled haploid (DH) lines
+#' variance, and superior progeny value (SPV) for recombinant inbred lines (RIL)
 #' derived after \code{t} rounds of random mating.
 #'
 #' @param crosses A data.frame or matrix (n_crosses x 2) of parental indices
@@ -17,7 +17,7 @@
 #'   All markers in \code{M} must appear in \code{genetic.map$site}.
 #' @param U Numeric matrix of marker effects (markers in rows, traits in columns).
 #'   Must have \code{nrow(U) == ncol(M)}.
-#' @param t Integer. Number of random‐mating generations before DH creation.
+#' @param t Integer. Number of random‐mating generations before RIL creation.
 #' @param intensity Double. Standardized selection differential.
 #' @param covariance Logical. If \code{TRUE}, also compute the segregation
 #'   covariance matrix between all supplied traits.
@@ -38,7 +38,7 @@
 #'
 #' @examples
 #' \dontrun{
-#' out <- calculate_variances_DH(
+#' out <- calculate_variances_RIL(
 #'   crosses = matrix(c(1,2, 3,4), ncol = 2, byrow = TRUE),
 #'   genetic.map = data.frame(site = 1:ncol(M), chr = 1, pos = seq_len(ncol(M))),
 #'   M = M,
@@ -50,7 +50,7 @@
 #' )
 #' }
 #' @export
-calculate_variances_DH <- function(crosses, genetic.map, M, U, t, intensity, covariance=FALSE, calculate.gains=FALSE, gains=NULL, method = "osthushenrich", nThreads = 4L) {
+calculate_variances_RIL <- function(crosses, genetic.map, M, U, t, intensity, covariance=FALSE, calculate.gains=FALSE, gains=NULL, method = "osthushenrich", nThreads = 4L) {
   #  Input normalization
   if (!is.matrix(M)) M <- as.matrix(M)
   if (!is.matrix(U)) U <- as.matrix(U)
@@ -129,7 +129,7 @@ calculate_variances_DH <- function(crosses, genetic.map, M, U, t, intensity, cov
   }
 
   if (method=="lehermeier") {
-    temp <- cpp_calculate_covariance_lehermeier(
+    temp <- cpp_calculate_covariance_RIL_lehermeier(
       Crosses   = crosses,
       genMap    = genmap_list,
       M         = M,
@@ -142,7 +142,7 @@ calculate_variances_DH <- function(crosses, genetic.map, M, U, t, intensity, cov
       nThreads  = nThreads
     )
   } else { # "osthushenrich"
-    temp <- cpp_calculate_covariance_osthushenrich(
+    temp <- cpp_calculate_covariance_RIL_osthushenrich(
       Crosses   = crosses,
       genMap    = genmap_list,
       M         = M,

@@ -22,18 +22,20 @@
 #' @param D Numeric matrix of dominance marker effects (markers in rows, traits in columns).
 #'   Must have \code{nrow(D) == ncol(hap1)} and \code{ncol(D) == ncol(U)}.
 #' @param intensity Double. Standardized selection differential (used for SPV).
-#' @param covariance Logical. If \code{TRUE}, also return additive and dominance
-#'   segregation covariance matrices for each cross.
-#' @param n_threads Integer (default 4). Threads for the C++ routine (if compiled with OpenMP).
+#' @param covariance Logical. If \code{TRUE}, also compute the segregation
+#'   covariance matrix between all supplied traits.
+#' @param calculate.gains Logical. If \code{TRUE}, calculate the desired gains index
+#'  based on segregation (co)variances. This only works if covariance is TRUE, else will be ignored.
+#' @param gains a vector of length equal to the number of traits with values representing the desired gains
 #'
-#' @return If \code{covariance = FALSE}, a data.frame with columns
-#'   \code{EGBV1, ETGV1, var_a1, SPV1, var_d1, TSPV1, EGBV2, ...}.
-#'   If \code{covariance = TRUE}, a list with:
-#'   \itemize{
-#'     \item \code{cross_values}: data.frame as above
-#'     \item \code{covariances}: list with elements \code{additive} and \code{dominance},
-#'           each a list of \code{n_trait} x \code{n_trait} symmetric matrices (one per cross)
-#'   }
+#' @param nThreads Integer (default 4). Number of OpenMP threads (if enabled at compile time).
+#'
+#' @return If \code{covariance = TRUE}, a list with element \code{cross_values}
+#'   (a data.frame) whose columns are named \code{EGBV1, ETGV1, varA1, SPV1, varD, SPTV1,  EGBV2, ...} and a list with element \code{covariances} with segregation covariance matrix for each cross.
+#'   If \code{covariance = TRUE}, a list with element \code{cross_values}
+#'   (a data.frame) whose columns are named \code{EGBV1, ETGV1, varA1, SPV1, varD, SPTV1,  EGBV2, ...}, element \code{gains} (a data.frame) with \code{EGBVDG, ETGVDG, varADG, SPVDG, varDDG, SPTVDG} for the desired gains index
+#'   and a list with element \code{covariances} with segregation covariance matrix for each cross.
+#'   If \code{covariance = FALSE}, a data.frame with the same columns \code{EGBV1, ETGV1, varA1, SPV1, varD, SPTV1,  EGBV2, ....}.
 #'
 #' @examples
 #' \dontrun{
@@ -47,7 +49,7 @@
 #' out <- calculate_variances_F1(crosses, genetic.map, hap1, hap2, U, D, intensity = 1.0, covariance = FALSE)
 #' }
 #' @export
-calculate_variances_F1 <- function(crosses, genetic.map, hap1, hap2, U, D, intensity, covariance, n_threads = 4L) {
+calculate_variances_F1 <- function(crosses, genetic.map, hap1, hap2, U, D, intensity, covariance,calculate.gains=FALSE, gains=NULL, n_threads = 4L) {
 
   hap1 <- as.matrix(hap1); hap2 <- as.matrix(hap2)
   U <- as.matrix(U); D <- as.matrix(D)
@@ -75,6 +77,24 @@ calculate_variances_F1 <- function(crosses, genetic.map, hap1, hap2, U, D, inten
   if (ncol(D) != ncol(U)) stop("U and D must have the same number of trait columns.")
 
   if (ncol(crosses) != 2L) stop("`crosses` must have exactly 2 columns (P1, P2).")
+
+  if(!covariance & calculate.gains){
+    print("covariance == FALSE, ignoring desired gains related arguments")
+    calculate.gains <- FALSE
+    gains <- rep(0,ncol(U))
+  }
+
+  if(calculate.gains & is.null((gains))){
+    print("gains == NULL, ignoring desired gains related arguments")
+    calculate.gains <- FALSE
+    gains <- rep(0,ncol(U))
+  }
+
+  if(length(gains)!= ncol(U)){
+    print("length(gains)!= ncol(U), ignoring desired gains related arguments")
+    calculate.gains <- FALSE
+    gains <- rep(0,ncol(U))
+  }
 
   #  Validate crosses against haplotypes
   genos <- unique(as.vector(crosses))
@@ -118,20 +138,30 @@ calculate_variances_F1 <- function(crosses, genetic.map, hap1, hap2, U, D, inten
     D         = D,
     intensity = intensity,
     covariance = covariance,
+    calcgains = calculate.gains,
+    gains = gains,
     nThreads  = as.integer(n_threads)
   )
 
   #  Format outputs
   name_vec <- paste0(rep(c("EGBV","ETGV","var_a","SPV","var_d","TSPV"), each = ncol(U)), seq_len(ncol(U)))
 
-  if (isTRUE(covariance)) {
-    # Expect a list with $cross_values and $covariances
-    temp$cross_values <- as.data.frame(temp$cross_values)
-    names(temp$cross_values) <- name_vec
-    temp
+  if (covariance) {
+    if (calculate.gains) {
+      temp1 <- as.data.frame(temp$cross_values)[ , 1:(6*ncol(U)), drop = FALSE]
+      names(temp1) <- name_vec
+      temp2 <- as.data.frame(temp$cross_values)[ , (6*ncol(U) + 1):(6*ncol(U) + 6), drop = FALSE]
+      names(temp2) <- c("IDG_A","VARIDG_A","SPVIDG_A","IDG_AD","VARIDG_AD","SPVIDG_AD")
+      return(list(cross_values = temp1, gains = temp2, additive_covariances = temp$covA, dominance_covariances = temp$covD))
+    } else {
+      temp1 <- as.data.frame(temp$cross_values)[ , 1:(6*ncol(U)), drop = FALSE]
+      names(temp1) <- name_vec
+      return(list(cross_values = temp1, additive_covariances = temp$covA, dominance_covariances = temp$covD))
+    }
   } else {
     out <- as.data.frame(temp)
     names(out) <- name_vec
-    out
+    return(out)
   }
+
 }

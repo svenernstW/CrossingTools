@@ -1,27 +1,20 @@
 // [[Rcpp::depends(RcppArmadillo)]]
 // [[Rcpp::plugins(openmp)]]
 #include <RcppArmadillo.h>
-#ifdef _OPENMP
-#include <omp.h>
-#endif
 #include <cmath>
 #include <vector>
-
 
 using namespace Rcpp;
 using namespace arma;
 
 // [[Rcpp::export]]
 DataFrame cpp_calcOHV(const NumericMatrix& Crosses, const List& HBlocks, const NumericMatrix& M, const NumericVector& mu_vec, int nThreads=4) {
-#ifdef _OPENMP
-  omp_set_num_threads(nThreads);
-#endif
-
+  omp_set_num_threads(nThreads); //Sets number of threads for OpenMP
   int numCrosses = Crosses.nrow();
-
+  
   // Result column
   NumericVector OHV_col(numCrosses);
-
+  
   // Convert inputs to Armadillo structures
   rowvec mu = as<rowvec>(mu_vec);
   mat M_mat = as<mat>(M);
@@ -52,15 +45,13 @@ DataFrame cpp_calcOHV(const NumericMatrix& Crosses, const List& HBlocks, const N
   }
 
   // Parallel computation of OHV
-#ifdef _OPENMP
 #pragma omp parallel for
-#endif
   for (int x = 0; x < numCrosses; ++x) {
     int P1_index = Crosses(x, 0) - 1;
     int P2_index = Crosses(x, 1) - 1;
 
     // Validate parent indices
-    if (P1_index < 0 || P1_index >= static_cast<int>(M_mat.n_rows) ||
+    if (P1_index < 0 || P1_index >= static_cast<int>(M_mat.n_rows) || 
         P2_index < 0 || P2_index >= static_cast<int>(M_mat.n_rows)) {
       continue;
     }

@@ -4,7 +4,13 @@
 \alias{calculate_optimal_haploid_value}
 \title{Optimal Haplotypic Value (OHV) for proposed crosses}
 \usage{
-calculate_optimal_haploid_value(crosses, haplotype.blocks, M, u, nthreads = 4L)
+calculate_optimal_haploid_value(
+  crosses,
+  haplotype.blocks = NULL,
+  M,
+  U,
+  nthreads = 4L
+)
 }
 \arguments{
 \item{crosses}{A numeric matrix or data.frame with two columns (P1, P2), giving
@@ -16,7 +22,7 @@ each marker is used as a separate block.}
 
 \item{M}{Numeric genotype/marker matrix (individuals x markers).}
 
-\item{u}{Numeric vector of marker effects (length \code{ncol(M)}).}
+\item{U}{Numeric vector of marker effects (length \code{ncol(M)}).}
 
 \item{nthreads}{Integer \(\ge 1\). OpenMP threads (if enabled at compile time).}
 }
