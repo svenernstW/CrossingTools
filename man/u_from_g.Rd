@@ -48,7 +48,7 @@ required if \code{calcPriorVcov=TRUE}.}
 
 \item{PEV}{\code{NULL} or numeric matrix of size \code{(n*k) x (n*k)} (prediction error variance).}
 
-\item{nThreads}{Integer \(\ge 1\); OpenMP threads (if enabled at compile time).}
+\item{nThreads}{Integer larger 1; OpenMP threads (if enabled at compile time).}
 }
 \value{
 A list with elements matching the C++ return:

@@ -15,7 +15,7 @@ calculate_variances_F1(
   covariance,
   calculate.gains = FALSE,
   gains = NULL,
-  n_threads = 4L
+  nThreads = 4L
 )
 }
 \arguments{

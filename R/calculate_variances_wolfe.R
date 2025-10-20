@@ -49,7 +49,7 @@
 #' out <- calculate_variances_F1(crosses, genetic.map, hap1, hap2, U, D, intensity = 1.0, covariance = FALSE)
 #' }
 #' @export
-calculate_variances_F1 <- function(crosses, genetic.map, hap1, hap2, U, D, intensity, covariance,calculate.gains=FALSE, gains=NULL, n_threads = 4L) {
+calculate_variances_F1 <- function(crosses, genetic.map, hap1, hap2, U, D, intensity, covariance,calculate.gains=FALSE, gains=NULL, nThreads = 4L) {
 
   hap1 <- as.matrix(hap1); hap2 <- as.matrix(hap2)
   U <- as.matrix(U); D <- as.matrix(D)
@@ -62,8 +62,8 @@ calculate_variances_F1 <- function(crosses, genetic.map, hap1, hap2, U, D, inten
   if (!is.numeric(intensity) || length(intensity) != 1L) {
     stop("`intensity` must be a single numeric (standardized selection differential).")
   }
-  if (!is.numeric(n_threads) || length(n_threads) != 1L || n_threads < 1) {
-    stop("`n_threads` must be a positive integer.")
+  if (!is.numeric(nThreads) || length(nThreads) != 1L || nThreads < 1) {
+    stop("`nThreads` must be a positive integer.")
   }
 
   if (ncol(hap1) <= 0L) stop("hap1 must have markers in columns.")
@@ -140,7 +140,7 @@ calculate_variances_F1 <- function(crosses, genetic.map, hap1, hap2, U, D, inten
     covariance = covariance,
     calcgains = calculate.gains,
     gains = gains,
-    nThreads  = as.integer(n_threads)
+    nThreads  = as.integer(nThreads)
   )
 
   #  Format outputs

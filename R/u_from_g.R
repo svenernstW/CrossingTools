@@ -18,7 +18,7 @@
 #'   required if \code{calcPriorVcov=TRUE}.
 #' @param calcPosteriorVcov Logical; if \code{TRUE}, compute posterior Vcov using \code{PEV}.
 #' @param PEV \code{NULL} or numeric matrix of size \code{(n*k) x (n*k)} (prediction error variance).
-#' @param nThreads Integer \(\ge 1\); OpenMP threads (if enabled at compile time).
+#' @param nThreads Integer larger 1; OpenMP threads (if enabled at compile time).
 #'
 #' @return A list with elements matching the C++ return:
 #' \describe{

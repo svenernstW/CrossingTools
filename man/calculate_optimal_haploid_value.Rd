@@ -24,7 +24,7 @@ each marker is used as a separate block.}
 
 \item{U}{Numeric vector of marker effects (length \code{ncol(M)}).}
 
-\item{nthreads}{Integer \(\ge 1\). OpenMP threads (if enabled at compile time).}
+\item{nthreads}{Integer larger 1. OpenMP threads (if enabled at compile time).}
 }
 \value{
 A data.frame with column \code{OHV}.

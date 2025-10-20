@@ -10,7 +10,7 @@
 #'   each marker is used as a separate block.
 #' @param M Numeric genotype/marker matrix (individuals x markers).
 #' @param U Numeric vector of marker effects (length \code{ncol(M)}).
-#' @param nthreads Integer \(\ge 1\). OpenMP threads (if enabled at compile time).
+#' @param nthreads Integer larger 1. OpenMP threads (if enabled at compile time).
 #'
 #' @return A data.frame with column \code{OHV}.
 #' @export
