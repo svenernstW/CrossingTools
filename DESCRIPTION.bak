@@ -39,7 +39,7 @@ LinkingTo:
     Rcpp, 
     RcppArmadillo, 
     RcppParallel
-SystemRequirements: C++17
+SystemRequirements: C++17, GNU make, (optional) OpenMP
 Suggests:
     knitr,
     rmarkdown,

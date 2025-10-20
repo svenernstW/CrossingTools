@@ -7,7 +7,7 @@
 #' @param u              numeric length K: utility for each row of `crosses`
 #' @param u.fixed        numeric length F: utility for each row of `fixed.crosses` (can be length 0)
 #' @param G              numeric square GRM (nInd x nInd)
-#' @param propability.mutate numeric in [0,1]
+#' @param propability.mutate numeric in \[0-1]
 #' @param nmutate, nselect, npop, max.generation, max.iteration integers
 #' @param angle.penalty  numeric >= 0
 #' @param nthreads       integer >= 1

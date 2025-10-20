@@ -1,0 +1,10 @@
+CXX_STD = CXX17
+
+# Ask RcppParallel for the right flags/libs at build time.
+PKG_CPPFLAGS = $(shell "${R_HOME}/bin/Rscript" -e "RcppParallel::RcppParallelCxxFlags()")
+PKG_LIBS     = $(shell "${R_HOME}/bin/Rscript" -e "RcppParallel::RcppParallelLibs()")
+
+# If you truly use OpenMP in *your* code (not RcppParallel’s TBB), keep these;
+# they expand to empty on macOS, so harmless. Otherwise you can drop them.
+PKG_CXXFLAGS += $(SHLIB_OPENMP_CXXFLAGS)
+PKG_LIBS     += $(SHLIB_OPENMP_LDFLAGS) $(LAPACK_LIBS) $(BLAS_LIBS) $(FLIBS)

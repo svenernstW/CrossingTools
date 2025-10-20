@@ -37,7 +37,7 @@ optimal_cross_selection(
 
 \item{G}{numeric square GRM (nInd x nInd)}
 
-\item{propability.mutate}{numeric in \link{0,1}}
+\item{propability.mutate}{numeric in [0-1]}
 
 \item{nmutate, }{nselect, npop, max.generation, max.iteration integers}
 

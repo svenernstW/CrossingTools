@@ -1,20 +1,16 @@
-// [[Rcpp::depends(RcppArmadillo)]]
+// [[Rcpp::depends(RcppArmadillo, RcppParallel)]]
 #include <RcppArmadillo.h>
 #include <cmath>
 #include <vector>
-
-#ifdef _OPENMP
-#include <omp.h>
-#endif
+#include "parallel_backend.h"  // OpenMP when available, else RcppParallel
 
 using namespace Rcpp;
 using namespace arma;
 
-
 // Inline function to calculate recombination fraction
 inline double qjk(double x, double y) {
   double diff = std::abs(x - y);
-  double rcf = 0.5 * (1 - std::exp(-2 * diff));
+  double rcf  = 0.5 * (1 - std::exp(-2 * diff));
   return 1 - 2 * rcf;
 }
 
@@ -30,9 +26,8 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
                                     bool covariance = false,
                                     bool calcgains = false,
                                     int nThreads = 4) {
-#ifdef _OPENMP
-  omp_set_num_threads(nThreads);  // set OpenMP threads
-#endif
+  // portable thread setup
+  ct_set_threads(nThreads);
 
   const arma::uword numCrosses   = Crosses.nrow();
   const arma::uword numMarkers   = Hap1.ncol();
@@ -42,26 +37,23 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
   // Convert inputs to Armadillo
   arma::mat Hap1_mat = as<arma::mat>(Hap1);   // (n_individuals × numMarkers)
   arma::mat Hap2_mat = as<arma::mat>(Hap2);   // (n_individuals × numMarkers)
-  arma::mat M_mat = Hap1_mat+Hap2_mat;
-  arma::mat U_mat = as<arma::mat>(U);   // (numMarkers × numTrait)
-  arma::mat D_mat = as<arma::mat>(D);   // (numMarkers × numTrait)
-  arma::vec gains_vec = as<arma::vec>(gains);  // length == numTrait
+  arma::mat M_mat    = Hap1_mat + Hap2_mat;   // dosage 0..2
+  arma::mat U_mat    = as<arma::mat>(U);      // (numMarkers × numTrait)
+  arma::mat D_mat    = as<arma::mat>(D);      // (numMarkers × numTrait)
+  arma::vec gains_vec = as<arma::vec>(gains); // length == numTrait
 
-  const arma::uword OFF_EG  = 0;
-  const arma::uword OFF_ETG  = numTrait;
+  const arma::uword OFF_EG    = 0;
+  const arma::uword OFF_ETG   = numTrait;
   const arma::uword OFF_VAR_A = 2 * numTrait;
-  const arma::uword OFF_SPV = 3 * numTrait;
+  const arma::uword OFF_SPV   = 3 * numTrait;
   const arma::uword OFF_VAR_D = 4 * numTrait;
-  const arma::uword OFF_TSPV = 5 * numTrait;
-
+  const arma::uword OFF_TSPV  = 5 * numTrait;
 
   // Precompute chromosome ranges
-
   std::vector<std::pair<int, int>> chromosomeRanges;
   {
     int startIdx = 0;
     for (int i = 0; i < genMap.size(); ++i) {
-
       NumericMatrix genMapMatrix = as<NumericMatrix>(genMap[i]);
       int n = genMapMatrix.nrow();
       chromosomeRanges.emplace_back(startIdx, startIdx + n - 1);
@@ -69,13 +61,11 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
     }
   }
 
-  // Precompute recombination fractions for each generation scenario
-
-  mat RC(numMarkers, numMarkers, fill::zeros);
+  // Precompute recombination correlation RC(i,j) = 1 - 2r_ij
+  arma::mat RC(numMarkers, numMarkers, fill::zeros);
   {
     int startIdx = 0;
     for (int i = 0; i < genMap.size(); ++i) {
-
       NumericMatrix genMapMatrix = as<NumericMatrix>(genMap[i]);
       int n = genMapMatrix.nrow();
       for (int j = 0; j < n; ++j) {
@@ -89,9 +79,6 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
     }
   }
 
-
-
-
   // Copy parent indices out of Crosses (1-based in R → 0-based here)
   arma::Col<int> P1_idx(numCrosses), P2_idx(numCrosses);
   for (arma::uword x = 0; x < numCrosses; ++x) {
@@ -102,63 +89,58 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
   // Results
   arma::mat results1A(numCrosses, numTraitComb, arma::fill::zeros);
   arma::mat results1D(numCrosses, numTraitComb, arma::fill::zeros);
-  arma::mat results2(numCrosses, numTrait*6+6, arma::fill::zeros);
+  arma::mat results2(numCrosses, numTrait * 6 + 6, arma::fill::zeros);
 
   // Helper to map (ti, tj) with 0 ≤ ti ≤ tj < numTrait to column index
   auto tri_u_idx_incl = [numTrait](arma::uword ti, arma::uword tj) -> arma::uword {
     return ti * numTrait - (ti * (ti - 1)) / 2 + (tj - ti);
   };
 
-#pragma omp parallel for schedule(dynamic)
-  for (R_xlen_t x = 0; x < (R_xlen_t)numCrosses; ++x) {
+  // Parallel over crosses
+  ct_parallel_for(0, static_cast<int>(numCrosses), [&](int xi) {
+    R_xlen_t x = static_cast<R_xlen_t>(xi);
     const int P1 = P1_idx[x];
     const int P2 = P2_idx[x];
+    const arma::uword nInd = M_mat.n_rows;
+    if (P1 < 0 || P2 < 0 || P1 >= (int)nInd || P2 >= (int)nInd) return;
 
+    // Markers that are heterozygous in exactly one parent (dosage == 1 in either parent)
     arma::uvec differingMarkers = arma::find(
       (M_mat.row(P1) == 1.0) + (M_mat.row(P2) == 1.0)
     );
 
     for (arma::uword ti = 0; ti < numTrait; ++ti) {
       for (arma::uword tj = ti; tj < numTrait; ++tj) {
-        if(!covariance && ti!= tj) continue;
+        if (!covariance && ti != tj) continue;
 
         double SigmaSqAP1P2 = 0.0;
         double SigmaSqDP1P2 = 0.0;
 
         for (const auto& chrRange : chromosomeRanges) {
           int startC = chrRange.first;
-          int endC = chrRange.second;
+          int endC   = chrRange.second;
 
           arma::uvec chrDiff = differingMarkers( arma::find(
-            (differingMarkers >= (arma::uword)startC) % (differingMarkers <= (arma::uword)endC)  // element-wise AND
+            (differingMarkers >= (arma::uword)startC) %
+              (differingMarkers <= (arma::uword)endC)
           ));
-
-          if (chrDiff.n_elem == 0) {
-            continue;
-          }
-
+          if (chrDiff.n_elem == 0) continue;
 
           for (uword i = 0; i < chrDiff.n_elem; ++i) {
             int marker_i = (int)chrDiff[i];
             for (uword j = i; j < chrDiff.n_elem; ++j) {
               int marker_j = (int)chrDiff[j];
-              // Subset recombination fractions
+
+              // Recombination correlation
               double rcf_ij = RC(marker_i, marker_j);
 
-              arma::uword row_idx_P1  = static_cast<arma::uword>(P1);
-              arma::uword row_idx_P2  = static_cast<arma::uword>(P2);
+              // Build small 2×2 haplotype matrices per parent (markers i,j)
+              arma::uword row_idx_P1 = static_cast<arma::uword>(P1);
+              arma::uword row_idx_P2 = static_cast<arma::uword>(P2);
+              arma::uvec cols(2); cols(0) = (arma::uword)marker_i; cols(1) = (arma::uword)marker_j;
 
-              arma::uword col_idx1 = static_cast<arma::uword>(marker_i);
-              arma::uword col_idx2 = static_cast<arma::uword>(marker_j);
-
-              arma::uvec cols(2);
-              cols(0) = col_idx1;
-              cols(1) = col_idx2;
-
-              // Extract rows for marker_i and marker_j
               arma::rowvec Hap1_P1 = Hap1_mat(arma::uvec{row_idx_P1}, cols);
               arma::rowvec Hap2_P1 = Hap2_mat(arma::uvec{row_idx_P1}, cols);
-
               arma::rowvec Hap1_P2 = Hap1_mat(arma::uvec{row_idx_P2}, cols);
               arma::rowvec Hap2_P2 = Hap2_mat(arma::uvec{row_idx_P2}, cols);
 
@@ -168,24 +150,17 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
               arma::mat Hap_P1 = join_cols(Hap1_P1, Hap2_P1);
               arma::mat Hap_P2 = join_cols(Hap1_P2, Hap2_P2);
 
-              mat D1 = 0.5 * Hap_P1.t() * Hap_P1 - P1_means.t() * P1_means;
-              mat D2 = 0.5 * Hap_P2.t() * Hap_P2 - P2_means.t() * P2_means;
+              arma::mat D1 = 0.5 * Hap_P1.t() * Hap_P1 - P1_means.t() * P1_means;
+              arma::mat D2 = 0.5 * Hap_P2.t() * Hap_P2 - P2_means.t() * P2_means;
 
+              // DGen for the pair (i,j)
+              double DGen_ij = (rcf_ij * D1.at(0,1)) + (rcf_ij * D2.at(0,1));
 
-              //Compute DGen for the pair (marker_i, marker_j)
-              double DGen_ij = (rcf_ij * D1.at(0,1)) + (rcf_ij *D2.at(0,1));
-
-
-
-              double contribA = U_mat(marker_j,tj) * DGen_ij * U_mat(marker_i,ti);
+              double contribA = U_mat(marker_j, tj) * DGen_ij * U_mat(marker_i, ti);
               SigmaSqAP1P2 += (i == j) ? contribA : 2 * contribA;
 
-
-              double contribD = D_mat(marker_j,tj) * (DGen_ij * DGen_ij) * D_mat(marker_i,ti);
+              double contribD = D_mat(marker_j, tj) * (DGen_ij * DGen_ij) * D_mat(marker_i, ti);
               SigmaSqDP1P2 += (i == j) ? contribD : 2 * contribD;
-
-
-
             }
           }
         }
@@ -197,7 +172,6 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
         if (ti == tj) {
           double G1 = arma::dot(M_mat.row(P1), U_mat.col(ti));
           double G2 = arma::dot(M_mat.row(P2), U_mat.col(ti));
-
           double eG = 0.5 * (G1 + G2);
 
           arma::rowvec pk = M_mat.row(P1);
@@ -206,22 +180,19 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
           const arma::colvec v1 = (pk - qk - ykl).t();
           const arma::colvec v2 = (2.0 * (pk % qk) + (ykl % (pk - qk))).t();
 
-          double eTG = arma::dot(U_mat.col(ti), v1)
-            + arma::dot(D_mat.col(ti), v2);
+          double eTG = arma::dot(U_mat.col(ti), v1) + arma::dot(D_mat.col(ti), v2);
 
-
-          results2(x, OFF_EG  + ti) = eG;
-          results2(x, OFF_VAR_A + ti) = SigmaSqAP1P2;
-          results2(x, OFF_SPV + ti) = eG + intensity * std::sqrt(SigmaSqAP1P2);
-          results2(x, OFF_VAR_D + ti) = SigmaSqDP1P2;
-          results2(x, OFF_ETG + ti) = eTG;
-          results2(x, OFF_TSPV + ti) = eTG + (std::sqrt(SigmaSqAP1P2)+std::sqrt(SigmaSqDP1P2));
-
-
+          results2(x, OFF_EG   + ti) = eG;
+          results2(x, OFF_VAR_A+ ti) = SigmaSqAP1P2;
+          results2(x, OFF_SPV  + ti) = eG + intensity * std::sqrt(SigmaSqAP1P2);
+          results2(x, OFF_VAR_D+ ti) = SigmaSqDP1P2;
+          results2(x, OFF_ETG  + ti) = eTG;
+          results2(x, OFF_TSPV + ti) = eTG + (std::sqrt(SigmaSqAP1P2) + std::sqrt(SigmaSqDP1P2));
         }
       }
     }
-  }
+  });
+
   if (covariance) {
     std::vector<arma::mat> covsA(numCrosses);
     std::vector<arma::mat> covsD(numCrosses);
@@ -234,10 +205,9 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
     const arma::uword OFF_VARIDX_AD = 6 * numTrait + 4;
     const arma::uword OFF_SPVI_AD   = 6 * numTrait + 5;
 
-#ifdef _OPENMP
-#pragma omp parallel for schedule(dynamic)
-#endif
-    for (arma::uword x = 0; x < numCrosses; ++x) {
+    ct_parallel_for(0, static_cast<int>(numCrosses), [&](int xi) {
+      arma::uword x = static_cast<arma::uword>(xi);
+
       // Build symmetric covariance matrices GA (additive) and GD (dominance)
       arma::mat GA(numTrait, numTrait, arma::fill::zeros);
       arma::mat GD(numTrait, numTrait, arma::fill::zeros);
@@ -266,11 +236,11 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
           arma::chol(L, VA);
         }
         arma::vec wA = arma::solve(arma::trimatu(L.t()),
-                                   arma::solve(arma::trimatl(L),gains_vec));
+                                   arma::solve(arma::trimatl(L), gains_vec));
 
         double var_index_A = arma::as_scalar(wA.t() * GA * wA);
         var_index_A = std::max(0.0, var_index_A); // numeric safety
-        double index_A = arma::as_scalar( results2.row(x).cols(0, numTrait - 1) * wA );
+        double index_A = arma::as_scalar(results2.row(x).cols(0, numTrait - 1) * wA);
         double spvi_A  = index_A + intensity * std::sqrt(var_index_A);
 
         results2(x, OFF_IDX_A)    = index_A;
@@ -287,18 +257,18 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
           arma::chol(L, VAD);
         }
         arma::vec wAD = arma::solve(arma::trimatu(L.t()),
-                                    arma::solve(arma::trimatl(L),gains_vec));
+                                    arma::solve(arma::trimatl(L), gains_vec));
 
         double var_index_AD = arma::as_scalar(wAD.t() * VAD * wAD);
         var_index_AD = std::max(0.0, var_index_AD);
-        double index_AD = arma::as_scalar( results2.row(x).cols(numTrait, 2*numTrait - 1) * wAD );
+        double index_AD = arma::as_scalar(results2.row(x).cols(numTrait, 2 * numTrait - 1) * wAD);
         double spvi_AD  = index_AD + intensity * std::sqrt(var_index_AD);
 
         results2(x, OFF_IDX_AD)    = index_AD;
         results2(x, OFF_VARIDX_AD) = var_index_AD;
         results2(x, OFF_SPVI_AD)   = spvi_AD;
       }
-    }
+    });
 
     Rcpp::List out_A(numCrosses), out_D(numCrosses);
     for (arma::uword x = 0; x < numCrosses; ++x) {
@@ -312,7 +282,6 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
       Rcpp::Named("covD")         = out_D
     );
   }
-
 
   return Rcpp::wrap(results2);
 }

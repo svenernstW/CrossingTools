@@ -1,8 +1,8 @@
-// [[Rcpp::depends(RcppArmadillo)]]
-// [[Rcpp::plugins(openmp)]]
+// [[Rcpp::depends(RcppArmadillo, RcppParallel)]]
 #include <RcppArmadillo.h>
 #include <cmath>
 #include <vector>
+#include "parallel_backend.h"   // backend switch (OpenMP or RcppParallel)
 
 using namespace Rcpp;
 using namespace arma;
@@ -25,9 +25,7 @@ SEXP cpp_calculate_covariance_lehermeier(const NumericMatrix& Crosses,
                                          bool covariance = false,
                                          bool calcgains = false,
                                          int nThreads = 4) {
-#ifdef _OPENMP
-  omp_set_num_threads(nThreads);  // set OpenMP threads
-#endif
+  ct_set_threads(nThreads);
 
   const arma::uword numCrosses   = Crosses.nrow();
   const arma::uword numMarkers   = M.ncol();
@@ -66,7 +64,6 @@ SEXP cpp_calculate_covariance_lehermeier(const NumericMatrix& Crosses,
   if (startIdx != numMarkers)
     stop("Sum of genMap marker counts (%d) != numMarkers (%d).", (int)startIdx, (int)numMarkers);
 
-
   // Copy parent indices out of Crosses (1-based in R → 0-based here)
   arma::Col<int> P1_idx(numCrosses), P2_idx(numCrosses);
   for (arma::uword x = 0; x < numCrosses; ++x) {
@@ -83,15 +80,16 @@ SEXP cpp_calculate_covariance_lehermeier(const NumericMatrix& Crosses,
     return ti * numTrait - (ti * (ti - 1)) / 2 + (tj - ti);
   };
 
-#pragma omp parallel for schedule(dynamic)
-  for (R_xlen_t x = 0; x < (R_xlen_t)numCrosses; ++x) {
+  ct_parallel_for(0, static_cast<int>(numCrosses), [&](int xi) {
+    R_xlen_t x = static_cast<R_xlen_t>(xi);
+
     const int P1 = P1_idx[x];
     const int P2 = P2_idx[x];
-    if (P1 < 0 || P2 < 0 || P1 >= (int)nInd || P2 >= (int)nInd) continue;
+    if (P1 < 0 || P2 < 0 || P1 >= (int)nInd || P2 >= (int)nInd) return;
 
     // Markers that differ between the two parents (exact compare; use tolerance if needed)
     arma::uvec differing = find(abs(M_mat.row(P1) - M_mat.row(P2)) > 1e-12);
-    if (differing.n_elem == 0) continue;
+    if (differing.n_elem == 0) return;
 
     for (arma::uword ti = 0; ti < numTrait; ++ti) {
       for (arma::uword tj = ti; tj < numTrait; ++tj) {
@@ -109,17 +107,16 @@ SEXP cpp_calculate_covariance_lehermeier(const NumericMatrix& Crosses,
           if (idx.n_elem == 0) continue;
           arma::uvec chrDiff = differing.elem(idx);
 
-          // If no differing markers on this chromosome, continue
-          if (chrDiff.n_elem == 0) {
-            continue;
-          }
+          if (chrDiff.n_elem == 0) continue;
 
           // Now only loop over these chromosome-specific markers
           for (uword i = 0; i < chrDiff.n_elem; ++i) {
             int marker_i = chrDiff[i];
             for (uword j = i; j < chrDiff.n_elem; ++j) {
               int marker_j = chrDiff[j];
-              double Dprime = (0.0625 * ((M_mat(P1, marker_i)-M_mat(P2, marker_i))*(M_mat(P1, marker_j)-M_mat(P2, marker_j))));
+              double Dprime = 0.0625 *
+                ((M_mat(P1, marker_i)-M_mat(P2, marker_i))*
+                (M_mat(P1, marker_j)-M_mat(P2, marker_j)));
 
               double D = (4 * Dprime) * (1 - 2 * QJK(marker_i, marker_j));
 
@@ -144,20 +141,18 @@ SEXP cpp_calculate_covariance_lehermeier(const NumericMatrix& Crosses,
         }
       }
     }
-  }
-  // If requested, convert each row to an nTrait×nTrait symmetric matrix
-  // assumes: results1 is arma::mat (numCrosses x Ktri), results2 is arma::mat,
-  // gains is arma::vec length numTrait, intensity is double, calcgains is bool
+  });
 
+  // If requested, convert each row to an nTrait×nTrait symmetric matrix
   if (covariance) {
     std::vector<arma::mat> covs(numCrosses);
 
-#pragma omp parallel for schedule(dynamic)
-    for (arma::uword x = 0; x < numCrosses; ++x) {
+    ct_parallel_for(0, static_cast<int>(numCrosses), [&](int xi) {
+      arma::uword x = static_cast<arma::uword>(xi);
       arma::mat G(numTrait, numTrait, arma::fill::zeros);
       for (arma::uword ti = 0; ti < numTrait; ++ti) {
         for (arma::uword tj = ti; tj < numTrait; ++tj) {
-          const arma::uword k = tri_u_idx_incl(ti, tj); // 0..Ktri-1
+          const arma::uword k = tri_u_idx_incl(ti, tj);
           const double v = results1(x, k);
           G(ti, tj) = v;
           G(tj, ti) = v;
@@ -171,31 +166,26 @@ SEXP cpp_calculate_covariance_lehermeier(const NumericMatrix& Crosses,
         bool spd = arma::chol(L, V);
         if (!spd) {
           arma::vec eval; arma::mat evec;
-          arma::eig_sym(eval, evec, V);                 // O(n^3) but n is tiny
+          arma::eig_sym(eval, evec, V);
           double tol = std::max(1e-12, 1e-8 * eval.max());
-          for (auto& l : eval) if (l < tol) l = tol;    // clamp
-          V = evec * arma::diagmat(eval) * evec.t();    // PSD → SPD (since tol>0)
-          arma::chol(L, V);                             // must succeed now
+          for (auto& l : eval) if (l < tol) l = tol;
+          V = evec * arma::diagmat(eval) * evec.t();
+          arma::chol(L, V);
         }
-
 
         arma::vec w;
         arma::solve(w, V, gains_vec, arma::solve_opts::likely_sympd);
 
         double sigma_gains = arma::as_scalar(w.t() * V * w);
-
-        double index =
-          arma::as_scalar( results2.row(x).cols(0, numTrait - 1) * w );
-
-        double spvi = index + intensity * std::sqrt(sigma_gains);
+        double index = arma::as_scalar(results2.row(x).cols(0, numTrait - 1) * w);
+        double spvi  = index + intensity * std::sqrt(sigma_gains);
 
         results2(x, 3 * numTrait + 0) = index;
         results2(x, 3 * numTrait + 1) = sigma_gains;
         results2(x, 3 * numTrait + 2) = spvi;
       }
-    }
+    });
 
-    // wrap covariances into an R list
     Rcpp::List out(numCrosses);
     for (arma::uword x = 0; x < numCrosses; ++x) out[x] = Rcpp::wrap(covs[x]);
 
@@ -205,5 +195,5 @@ SEXP cpp_calculate_covariance_lehermeier(const NumericMatrix& Crosses,
     );
   }
 
-  return Rcpp::wrap(results2);    // returns upper triangle of the covariance matrix in vectorized form
+  return Rcpp::wrap(results2);
 }

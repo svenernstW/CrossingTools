@@ -1,12 +1,8 @@
-// [[Rcpp::depends(RcppArmadillo)]]
-// [[Rcpp::plugins(openmp)]]
+// [[Rcpp::depends(RcppArmadillo, RcppParallel)]]
 #include <RcppArmadillo.h>
 #include <vector>
 #include <cmath>
-
-#ifdef _OPENMP
-#include <omp.h>
-#endif
+#include "parallel_backend.h"   // OpenMP when available, else RcppParallel
 
 using namespace Rcpp;
 using namespace arma;
@@ -30,9 +26,8 @@ SEXP cpp_calculate_covariance_osthushenrich(const NumericMatrix& Crosses,
                                             bool covariance = false,
                                             bool calcgains = false,
                                             int nThreads = 4) {
-#ifdef _OPENMP
-  omp_set_num_threads(nThreads);  // set OpenMP threads
-#endif
+  // portable thread setup
+  ct_set_threads(nThreads);
 
   const arma::uword numCrosses   = Crosses.nrow();
   const arma::uword numMarkers   = M.ncol();
@@ -85,26 +80,27 @@ SEXP cpp_calculate_covariance_osthushenrich(const NumericMatrix& Crosses,
 
   // Results
   arma::mat results1(numCrosses, numTraitComb, arma::fill::zeros);
-  arma::mat results2(numCrosses, numTrait*3+3, arma::fill::zeros);
+  arma::mat results2(numCrosses, numTrait * 3 + 3, arma::fill::zeros);
 
   // Helper to map (ti, tj) with 0 ≤ ti ≤ tj < numTrait to column index
   auto tri_u_idx_incl = [numTrait](arma::uword ti, arma::uword tj) -> arma::uword {
     return ti * numTrait - (ti * (ti - 1)) / 2 + (tj - ti);
   };
 
-#pragma omp parallel for schedule(dynamic)
-  for (R_xlen_t x = 0; x < (R_xlen_t)numCrosses; ++x) {
+  // Parallel over crosses
+  ct_parallel_for(0, static_cast<int>(numCrosses), [&](int xi) {
+    R_xlen_t x = static_cast<R_xlen_t>(xi);
     const int P1 = P1_idx[x];
     const int P2 = P2_idx[x];
-    if (P1 < 0 || P2 < 0 || P1 >= (int)nInd || P2 >= (int)nInd) continue;
+    if (P1 < 0 || P2 < 0 || P1 >= (int)nInd || P2 >= (int)nInd) return;
 
     // Markers that differ between the two parents (exact compare; use tolerance if needed)
     arma::uvec differing = find(abs(M_mat.row(P1) - M_mat.row(P2)) > 1e-12);
-    if (differing.n_elem == 0) continue;
+    if (differing.n_elem == 0) return;
 
     for (arma::uword ti = 0; ti < numTrait; ++ti) {
       for (arma::uword tj = ti; tj < numTrait; ++tj) {
-        if(!covariance && ti!= tj) continue;
+        if (!covariance && ti != tj) continue;
 
         double SigmaSqP1P2 = 0.0;  // reset per trait pair
 
@@ -146,13 +142,14 @@ SEXP cpp_calculate_covariance_osthushenrich(const NumericMatrix& Crosses,
         }
       }
     }
-  }
+  });
+
   // If requested, convert each row to an nTrait×nTrait symmetric matrix
   if (covariance) {
     std::vector<arma::mat> covs(numCrosses);
 
-#pragma omp parallel for schedule(dynamic)
-    for (arma::uword x = 0; x < numCrosses; ++x) {
+    ct_parallel_for(0, static_cast<int>(numCrosses), [&](int xi) {
+      arma::uword x = static_cast<arma::uword>(xi);
       arma::mat G(numTrait, numTrait, arma::fill::zeros);
       for (arma::uword ti = 0; ti < numTrait; ++ti) {
         for (arma::uword tj = ti; tj < numTrait; ++tj) {
@@ -173,26 +170,22 @@ SEXP cpp_calculate_covariance_osthushenrich(const NumericMatrix& Crosses,
           arma::eig_sym(eval, evec, V);                 // O(n^3) but n is tiny
           double tol = std::max(1e-12, 1e-8 * eval.max());
           for (auto& l : eval) if (l < tol) l = tol;    // clamp
-          V = evec * arma::diagmat(eval) * evec.t();    // PSD → SPD (since tol>0)
+          V = evec * arma::diagmat(eval) * evec.t();    // PSD → SPD
           arma::chol(L, V);                             // must succeed now
         }
-
 
         arma::vec w;
         arma::solve(w, V, gains_vec, arma::solve_opts::likely_sympd);
 
         double sigma_gains = arma::as_scalar(w.t() * V * w);
-
-        double index =
-          arma::as_scalar( results2.row(x).cols(0, numTrait - 1) * w );
-
-        double spvi = index + intensity * std::sqrt(sigma_gains);
+        double index = arma::as_scalar(results2.row(x).cols(0, numTrait - 1) * w);
+        double spvi  = index + intensity * std::sqrt(sigma_gains);
 
         results2(x, 3 * numTrait + 0) = index;
         results2(x, 3 * numTrait + 1) = sigma_gains;
         results2(x, 3 * numTrait + 2) = spvi;
       }
-    }
+    });
 
     // wrap covariances into an R list
     Rcpp::List out(numCrosses);
@@ -204,5 +197,5 @@ SEXP cpp_calculate_covariance_osthushenrich(const NumericMatrix& Crosses,
     );
   }
 
-  return Rcpp::wrap(results2);    // returns upper triangle of the covariance matrix in vectorized form
+  return Rcpp::wrap(results2);
 }
