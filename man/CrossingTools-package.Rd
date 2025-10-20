@@ -8,6 +8,14 @@
 \description{
 Internal package-level documentation stub.
 }
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://github.com/svenernstW/CrossingTools}
+  \item Report bugs at \url{https://github.com/svenernstW/CrossingTools/issues}
+}
+
+}
 \author{
 \strong{Maintainer}: Sven Weber \email{sven.e.weber@agrar.uni-giessen.de}
 

@@ -30,15 +30,21 @@ License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
-LinkingTo: 
-    Rcpp,
-    RcppArmadillo
+Depends:
+    R (>= 4.0.0)
 Imports: 
     Rcpp,
-    RcppArmadillo
+    RcppParallel
+LinkingTo: 
+    Rcpp, 
+    RcppArmadillo, 
+    RcppParallel
+SystemRequirements: C++17, GNU make, (optional) OpenMP
 Suggests:
     knitr,
     rmarkdown,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
 VignetteBuilder: knitr
+URL: https://github.com/svenernstW/CrossingTools
+BugReports: https://github.com/svenernstW/CrossingTools/issues
