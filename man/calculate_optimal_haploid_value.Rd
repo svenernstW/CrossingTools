@@ -9,7 +9,7 @@ calculate_optimal_haploid_value(
   haplotype.blocks = NULL,
   M,
   U,
-  nthreads = 4L
+  n.Threads = 4L
 )
 }
 \arguments{
@@ -24,10 +24,10 @@ each marker is used as a separate block.}
 
 \item{U}{Numeric vector of marker effects (length \code{ncol(M)}).}
 
-\item{nthreads}{Integer \(\ge 1\). OpenMP threads (if enabled at compile time).}
+\item{n.Threads}{Integer larger 1. OpenMP threads (if enabled at compile time).}
 }
 \value{
-A data.frame with column \code{OHV}.
+A data.frame with columns \code{OHV}.
 }
 \description{
 Computes the OHV for each cross using block-wise local GEBVs. If \code{haplotype.blocks}

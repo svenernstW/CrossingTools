@@ -12,7 +12,7 @@ calculate_desired_gains(
   use.V = TRUE,
   use.marginal.V = FALSE,
   use.V.approx = FALSE,
-  nThreads = 4L
+  n.Threads = 4L
 )
 }
 \arguments{
@@ -36,7 +36,7 @@ to compute a per-genotype index (i.e., \eqn{w_g = V_g^{-1} d}).}
 
 \item{use.V.approx}{Logical. If TRUE, uses \code{V.approx}.}
 
-\item{nThreads}{Number of OpenMP threads.}
+\item{n.Threads}{Number of OpenMP threads.}
 }
 \value{
 A one-column data.frame with the desired-gains index for each genotype.
@@ -44,29 +44,4 @@ A one-column data.frame with the desired-gains index for each genotype.
 \description{
 Calculates the desired gains index based on multi-trait BLUPs and a chosen
 (co)variance matrix option.
-}
-\examples{
-\dontrun{
-set.seed(1)
-nG <- 50; nT <- 3
-A <- matrix(rnorm(nG * nT), nG, nT)               # BLUPs
-V.approx <- cov(A)                                 # simple approximation
-V <- kronecker(diag(nG), V.approx)                 # block-diagonal (nG*nT x nG*nT)
-gains <- c(1, 0.5, 0.2)
-
-# Using the approximation:
-idx1 <- calculate_desired_gains(A, V, V.approx, gains,
-                                use.V = FALSE, use.marginal.V = FALSE,
-                                use.V.approx = TRUE)
-
-# Using the marginal V (averaged across genotype blocks):
-idx2 <- calculate_desired_gains(A, V, V.approx, gains,
-                                use.V = FALSE, use.marginal.V = TRUE,
-                                use.V.approx = FALSE)
-
-# Using per-genotype V blocks:
-idx3 <- calculate_desired_gains(A, V, V.approx, gains,
-                                use.V = TRUE, use.marginal.V = FALSE,
-                                use.V.approx = FALSE)
-}
 }

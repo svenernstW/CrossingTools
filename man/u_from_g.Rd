@@ -8,16 +8,16 @@ u_from_g(
   M,
   G,
   g,
-  scalingFactor,
+  scaling.factor,
   tol = 1e-10,
-  LDvar = FALSE,
-  Grouping = NULL,
-  calcPriorVcov = FALSE,
-  PriorVcov = NULL,
-  sigmasq = NULL,
-  calcPosteriorVcov = FALSE,
+  LD.var = FALSE,
+  grouping = NULL,
+  calc.prior.Vcov = FALSE,
+  prior.Vcov = NULL,
+  sigma.sq = NULL,
+  calc.posterior.Vcov = FALSE,
   PEV = NULL,
-  nThreads = 4L
+  n.Threads = 4L
 )
 }
 \arguments{
@@ -27,37 +27,37 @@ u_from_g(
 
 \item{g}{Numeric (n x k) or length-n vector: individual effects (one or more traits).}
 
-\item{scalingFactor}{Numeric scalar multiplier.}
+\item{scaling.factor}{Numeric scalar, that is used to scale the GRM.}
 
 \item{tol}{Numeric scalar tolerance for near-singularity checks in \code{G}.}
 
-\item{LDvar}{Logical; if \code{TRUE}, compute LD variance by groups.}
+\item{LD.var}{Logical; if \code{TRUE}, compute LD variance by groups.}
 
-\item{Grouping}{\code{NULL} or a data.frame with a column \code{chr} of length \code{ncol(M)}
-giving group membership (only used if \code{LDvar=TRUE}). If \code{NULL} with \code{LDvar=TRUE},
+\item{grouping}{\code{NULL} or a data.frame with a column \code{chr} of length \code{ncol(M)}
+giving group membership (only used if \code{LD.var=TRUE}). If \code{NULL} with \code{LD.var=TRUE},
 all markers are treated as one group. If supplied be aware that the order must match exaclty that of M}
 
-\item{calcPriorVcov}{Logical; if \code{TRUE}, compute prior Vcov over marker-by-trait effects.}
+\item{calc.prior.Vcov}{Logical; if \code{TRUE}, compute prior Vcov over marker-by-trait effects.}
 
-\item{PriorVcov}{\code{NULL}, \code{p x p} or \code{(p*k) x (p*k)} numeric matrix; see C++ docstring.}
+\item{prior.Vcov}{\code{NULL}, \code{p x p} or \code{(p*k) x (p*k)} numeric matrix.}
 
-\item{sigmasq}{\code{NULL}, scalar, length-k vector, or \code{k x k} matrix specifying trait co-variance(s);
-required if \code{calcPriorVcov=TRUE}.}
+\item{sigma.sq}{\code{NULL}, scalar, length-k vector, or \code{k x k} matrix specifying trait co-variance(s);
+required if \code{calc.prior.Vcov=TRUE}.}
 
-\item{calcPosteriorVcov}{Logical; if \code{TRUE}, compute posterior Vcov using \code{PEV}.}
+\item{calc.posterior.Vcov}{Logical; if \code{TRUE}, compute posterior Vcov using \code{PEV}.}
 
 \item{PEV}{\code{NULL} or numeric matrix of size \code{(n*k) x (n*k)} (prediction error variance).}
 
-\item{nThreads}{Integer \(\ge 1\); OpenMP threads (if enabled at compile time).}
+\item{n.Threads}{Integer larger 1; OpenMP threads (if enabled at compile time).}
 }
 \value{
 A list with elements matching the C++ return:
 \describe{
 \item{\code{mu_matrix}}{\code{p x k} matrix of marker effects.}
-\item{\code{variance_LD}}{LD variance by groups (matrix if \code{k=1}, else list), or \code{NULL} if \code{LDvar=FALSE}.}
+\item{\code{variance_LD}}{LD variance by groups (matrix if \code{k=1}, else list), or \code{NULL} if \code{LD.var=FALSE}.}
 \item{\code{prior_Vcov}}{Prior Vcov matrix if requested, else \code{NULL}.}
 \item{\code{posterior_Vcov}}{Posterior Vcov matrix if requested, else empty \code{0x0} matrix.}
-\item{\code{group_levels}}{Group labels used (only when \code{LDvar=TRUE}).}
+\item{\code{group_levels}}{Group labels used (only when \code{LD.var=TRUE}).}
 }
 }
 \description{
