@@ -15,7 +15,7 @@ calculate_variances_F1(
   covariance,
   calculate.gains = FALSE,
   gains = NULL,
-  n_threads = 4L
+  n.Threads = 4L
 )
 }
 \arguments{
@@ -52,7 +52,7 @@ based on segregation (co)variances. This only works if covariance is TRUE, else 
 
 \item{gains}{a vector of length equal to the number of traits with values representing the desired gains}
 
-\item{nThreads}{Integer (default 4). Number of OpenMP threads (if enabled at compile time).}
+\item{n.Threads}{Integer (default 4). Number of OpenMP threads (if enabled at compile time).}
 }
 \value{
 If \code{covariance = TRUE}, a list with element \code{cross_values}

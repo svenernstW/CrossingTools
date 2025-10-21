@@ -24,9 +24,10 @@
 #' @param calculate.gains Logical. If \code{TRUE}, calculate the desired gains index
 #'  based on segregation (co)variances. This only works if covariance is TRUE, else will be ignored.
 #' @param gains a vector of length equal to the number of traits with values representing the desired gains
-
+#'
 #' @param method Character. Which method to use; one of
 #'   \code{c("osthushenrich", "lehermeier")}.
+#' @param n.Threads Integer (default 4). Number of OpenMP threads (if enabled at compile time).
 #'
 #' @return If \code{covariance = TRUE}, a list with element \code{cross_values}
 #'   (a data.frame) whose columns are named \code{EGBV1, var1, SPV1, EGBV2, ...} and a list with element \code{covariances} with segregation covariance matrix for each cross.
@@ -34,7 +35,6 @@
 #'   (a data.frame) whose columns are named \code{EGBV1, var1, SPV1, EGBV2, ...}, element \code{gains} (a data.frame) with \code{EGBV_DG, varDG, SPVDG} for the desired gains index
 #'   and a list with element \code{covariances} with segregation covariance matrix for each cross.
 #'   If \code{covariance = FALSE}, a data.frame with the same columns \code{EGBV1, var1, SPV1, EGBV2, ...}.
-#'
 #'
 #' @examples
 #' \dontrun{
@@ -50,7 +50,9 @@
 #' )
 #' }
 #' @export
-calculate_variances_DH <- function(crosses, genetic.map, M, U, t, intensity, covariance=FALSE, calculate.gains=FALSE, gains=NULL, method = "osthushenrich", nThreads = 4L) {
+calculate_variances_DH <- function(crosses, genetic.map, M, U, t, intensity,
+                                   covariance = FALSE, calculate.gains = FALSE, gains = NULL,
+                                   method = "osthushenrich", n.Threads = 4L) {
   #  Input normalization
   if (!is.matrix(M)) M <- as.matrix(M)
   if (!is.matrix(U)) U <- as.matrix(U)
@@ -128,6 +130,12 @@ calculate_variances_DH <- function(crosses, genetic.map, M, U, t, intensity, cov
     covariance <- FALSE
   }
 
+  # ---- Threads (match parameter name n.Threads) ----
+  if (length(n.Threads) != 1L || !is.finite(n.Threads) || n.Threads < 1 || n.Threads != as.integer(n.Threads)) {
+    stop("`n.Threads` must be a positive integer.")
+  }
+  nThreads <- as.integer(n.Threads)
+
   if (method=="lehermeier") {
     temp <- cpp_calculate_covariance_lehermeier(
       Crosses   = crosses,
@@ -174,7 +182,6 @@ calculate_variances_DH <- function(crosses, genetic.map, M, U, t, intensity, cov
   } else {
     out <- as.data.frame(temp)
     names(out) <- name_vec
-
 
     return(out)
   }
