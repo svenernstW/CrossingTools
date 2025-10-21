@@ -28,7 +28,7 @@
 #'  based on segregation (co)variances. This only works if covariance is TRUE, else will be ignored.
 #' @param gains a vector of length equal to the number of traits with values representing the desired gains
 #'
-#' @param nThreads Integer (default 4). Number of OpenMP threads (if enabled at compile time).
+#' @param n.Threads Integer (default 4). Number of OpenMP threads (if enabled at compile time).
 #'
 #' @return If \code{covariance = TRUE}, a list with element \code{cross_values}
 #'   (a data.frame) whose columns are named \code{EGBV1, ETGV1, varA1, SPV1, varD, SPTV1,  EGBV2, ...} and a list with element \code{covariances} with segregation covariance matrix for each cross.
@@ -49,7 +49,8 @@
 #' out <- calculate_variances_F1(crosses, genetic.map, hap1, hap2, U, D, intensity = 1.0, covariance = FALSE)
 #' }
 #' @export
-calculate_variances_F1 <- function(crosses, genetic.map, hap1, hap2, U, D, intensity, covariance,calculate.gains=FALSE, gains=NULL, n_threads = 4L) {
+calculate_variances_F1 <- function(crosses, genetic.map, hap1, hap2, U, D, intensity, covariance,
+                                   calculate.gains = FALSE, gains = NULL, n.Threads = 4L) {
 
   hap1 <- as.matrix(hap1); hap2 <- as.matrix(hap2)
   U <- as.matrix(U); D <- as.matrix(D)
@@ -62,9 +63,11 @@ calculate_variances_F1 <- function(crosses, genetic.map, hap1, hap2, U, D, inten
   if (!is.numeric(intensity) || length(intensity) != 1L) {
     stop("`intensity` must be a single numeric (standardized selection differential).")
   }
-  if (!is.numeric(n_threads) || length(n_threads) != 1L || n_threads < 1) {
-    stop("`n_threads` must be a positive integer.")
+  # Threads (match parameter name n.Threads)
+  if (length(n.Threads) != 1L || !is.finite(n.Threads) || n.Threads < 1 || n.Threads != as.integer(n.Threads)) {
+    stop("`n.Threads` must be a positive integer.")
   }
+  nThreads <- as.integer(n.Threads)
 
   if (ncol(hap1) <= 0L) stop("hap1 must have markers in columns.")
   if (!identical(dim(hap1), dim(hap2))) stop("hap1 and hap2 must have identical dimensions.")
@@ -140,7 +143,7 @@ calculate_variances_F1 <- function(crosses, genetic.map, hap1, hap2, U, D, inten
     covariance = covariance,
     calcgains = calculate.gains,
     gains = gains,
-    nThreads  = as.integer(n_threads)
+    nThreads  = nThreads
   )
 
   #  Format outputs

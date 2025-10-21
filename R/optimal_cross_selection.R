@@ -1,41 +1,80 @@
-#' Optimal cross selection via a genetic algorithm (with fixed crosses)
+#' Optimal cross selection via a genetic algorithm (with optional fixed crosses)
 #'
-#' @param crosses        integer matrix (K x 2): candidate variable crosses (1-based indices)
-#' @param fixed.crosses  integer matrix (F x 2): crosses that must be in the solution (can be 0 rows)
-#' @param ncrosses       integer: total crosses in final plan (variable + fixed)
-#' @param target.angle   numeric (radians): target tradeoff angle
-#' @param u              numeric length K: utility for each row of `crosses`
-#' @param u.fixed        numeric length F: utility for each row of `fixed.crosses` (can be length 0)
-#' @param G              numeric square GRM (nInd x nInd)
-#' @param propability.mutate numeric in \[0-1]
-#' @param nmutate, nselect, npop, max.generation, max.iteration integers
-#' @param angle.penalty  numeric >= 0
-#' @param nthreads       integer >= 1
-#' @return list from cpp_optimal_cross_selection()
+#' Uses a simple genetic algorithm (GA) to choose \code{ncrosses} parent pairs
+#' that balance an average criterion (utility \code{u}) and genomic similarity
+#' according to a target trade-off angle. Fixed crosses (if any) are forced
+#' into the final solution, and the GA fills the remaining slots from
+#' \code{crosses}.
+#'
+#' @param crosses integer matrix (K x 2). Candidate \emph{variable} crosses (1-based indices
+#'   referring to rows/columns of \code{G}). Must have exactly two columns
+#'   (P1, P2); selfings are not allowed.
+#' @param fixed.crosses integer matrix (F x 2) or \code{NULL}. Crosses that must be
+#'   included in the final plan. Can have 0 rows. Must use the same indexing as
+#'   \code{crosses}. Selfings are not allowed.
+#' @param ncrosses integer. Total number of crosses in the final plan
+#'   (variable + fixed). Must be \eqn{\ge} number of rows in \code{fixed.crosses}.
+#' @param target.angle numeric (radians). Target trade-off angle between the
+#'   average criterion and the similarity objective. Smaller angles emphasize
+#'   utility \code{u}; larger angles emphasize similarity control.
+#' @param u numeric vector (length = nrow(crosses)). Utility (average criterion)
+#'   for each candidate cross in \code{crosses}.
+#' @param u.fixed numeric vector (length = nrow(fixed.crosses)) or \code{NULL}.
+#'   Utility for each fixed cross; if \code{fixed.crosses} has 0 rows, this can
+#'   be length-0.
+#' @param G numeric square matrix (nInd x nInd). Genomic relationship matrix
+#'   used to evaluate similarity/diversity among parents; indices in
+#'   \code{crosses}/\code{fixed.crosses} must lie in \code{1..nrow(G)}.
+#' @param propability.mutate numeric in \[0,1]. Probability that a candidate
+#'   solution mutates in the GA.
+#' @param n.mutate integer \eqn{\ge} 0. Number of point mutations to apply when a
+#'   mutation occurs.
+#' @param n.select integer \eqn{\ge} 2. Number of candidate solutions selected per
+#'   generation (selection pool size).
+#' @param n.pop integer \eqn{\ge} 2. Population size (number of candidate solutions) per generation.
+#' @param max.generation integer \eqn{\ge} 1. Maximum number of GA generations.
+#' @param max.iteration integer \eqn{\ge} 1. Maximum number of iterations without
+#'   improvement (early-stopping style).
+#' @param angle.penalty numeric \eqn{\ge} 0. Penalty applied to solutions that deviate
+#'   from \code{target.angle} (encourages the desired trade-off).
+#' @param n.Threads integer \eqn{\ge} 1. Number of OpenMP threads to use.
+#'
+#' @return A list with elements returned by \code{cpp_optimal_cross_selection()}:
+#' \describe{
+#'   \item{\code{crossPlan}}{Integer matrix (ncrosses x 2): the selected \emph{final} cross plan (includes fixed crosses).}
+#'   \item{\code{uMax}}{Numeric scalar: maximum attainable average criterion when optimizing only \code{u}.}
+#'   \item{\code{uMin}}{Numeric scalar: minimum attainable average criterion when optimizing only similarity.}
+#'   \item{\code{simMax}}{Numeric scalar: similarity corresponding to \code{uMax}.}
+#'   \item{\code{simMin}}{Numeric scalar: similarity corresponding to \code{uMin}.}
+#'   \item{\code{uBest}}{Numeric scalar: average criterion achieved by the \emph{optimized} cross plan.}
+#'   \item{\code{simBest}}{Numeric scalar: similarity of the optimized cross plan.}
+#'   \item{\code{angleBest}}{Numeric scalar (radians): angle of the optimized solution relative to the target trade-off.}
+#'   \item{\code{lenBest}}{Numeric scalar: length (magnitude) of the optimized solution vector in the objective space.}
+#' }
+#'
 #' @export
 optimal_cross_selection <- function(crosses,
-                                    fixed.crosses=NULL,
+                                    fixed.crosses = NULL,
                                     ncrosses,
                                     target.angle,
                                     u,
-                                    u.fixed=NULL,
+                                    u.fixed = NULL,
                                     G,
                                     propability.mutate = 0.01,
-                                    nmutate = 2,
-                                    nselect = 500,
-                                    npop = 10000,
+                                    n.mutate = 2,
+                                    n.select = 500,
+                                    n.pop = 10000,
                                     max.generation = 100,
                                     max.iteration = 100,
                                     angle.penalty = 0.5,
-                                    nthreads = 4L) {
+                                    n.Threads = 4L) {
 
   ##  Coerce types
   if (!is.matrix(G)) G <- as.matrix(G)
-  crosses       <- as.matrix(crosses)
+  crosses <- as.matrix(crosses)
   u       <- as.numeric(u)
 
   if (is.null(fixed.crosses) || nrow(fixed.crosses) == 0) {
-    # keep same column structure (2 cols) and class
     fixed.crosses <- crosses[0, , drop = FALSE]  # 0-row, 2-col
     u.fixed <- u[0]                              # numeric(0)
   }
@@ -55,7 +94,6 @@ optimal_cross_selection <- function(crosses,
   }
 
   ##  Index validity & structure
-  # Finite & in-range indices
   if (any(!is.finite(crosses))) stop("`crosses` contains non-finite entries.")
   if (nrow(fixed.crosses) && any(!is.finite(fixed.crosses))) {
     stop("`fixed.crosses` contains non-finite entries.")
@@ -73,9 +111,7 @@ optimal_cross_selection <- function(crosses,
     stop("`fixed.crosses` contains self-crosses.")
   }
 
-
-
-  # Overlap between fixed and variable candidates (warn or stop)
+  # Overlap warning
   if (nrow(fixed.crosses)) {
     ov <- paste0(fixed.crosses[,1], "_", fixed.crosses[,2]) %in%
       paste0(crosses[,1], "_", crosses[,2])
@@ -94,36 +130,36 @@ optimal_cross_selection <- function(crosses,
     stop("`u.fixed` length (", length(u.fixed), ") must equal nrow(fixed.crosses) (", nrow(fixed.crosses), ").")
   }
 
-  ##  Scalar checks
+  ##  Scalar checks (use n.Threads)
   req_scalar_num <- list(
     ncrosses = ncrosses,
     target.angle = target.angle,
     propability.mutate = propability.mutate,
-    nmutate = nmutate,
-    nselect = nselect,
-    npop = npop,
+    nmutate = n.mutate,
+    nselect = n.select,
+    npop = n.pop,
     max.generation = max.generation,
     max.iteration = max.iteration,
     angle.penalty = angle.penalty,
-    nthreads = nthreads
+    `n.Threads` = n.Threads
   )
   for (nm in names(req_scalar_num)) {
     val <- req_scalar_num[[nm]]
     if (length(val) != 1L || !is.finite(val)) stop("`", nm, "` must be a single finite value.")
   }
   # integer-ish
-  for (nm in c("ncrosses","nmutate","nselect","npop","max.generation","max.iteration","nthreads")) {
+  for (nm in c("ncrosses","nmutate","nselect","npop","max.generation","max.iteration","n.Threads")) {
     v <- req_scalar_num[[nm]]
     if (abs(v - round(v)) > .Machine$double.eps^0.5) stop("`", nm, "` must be an integer.")
   }
 
   ncrosses       <- as.integer(ncrosses)
-  nmutate        <- as.integer(nmutate)
-  nselect        <- as.integer(nselect)
-  npop           <- as.integer(npop)
+  nmutate        <- as.integer(n.mutate)
+  nselect        <- as.integer(n.select)
+  npop           <- as.integer(n.pop)
   max.generation <- as.integer(max.generation)
   max.iteration  <- as.integer(max.iteration)
-  nthreads       <- as.integer(nthreads)
+  nThreads       <- as.integer(n.Threads)
 
   if (ncrosses < 1L) stop("`ncrosses` must be >= 1.")
   if (nmutate < 0L) stop("`nmutate` must be >= 0.")
@@ -131,7 +167,7 @@ optimal_cross_selection <- function(crosses,
   if (npop < 2L) stop("`npop` must be >= 2.")
   if (max.generation < 1L) stop("`max.generation` must be >= 1.")
   if (max.iteration  < 1L) stop("`max.iteration` must be >= 1.")
-  if (nthreads < 1L) stop("`nthreads` must be >= 1.")
+  if (nThreads < 1L) stop("`n.Threads` must be >= 1.")
   if (!is.numeric(target.angle)) stop("`target.angle` must be numeric.")
   if (!is.numeric(propability.mutate) || propability.mutate < 0 || propability.mutate > 1)
     stop("`propability.mutate` must be in [0,1].")
@@ -165,7 +201,7 @@ optimal_cross_selection <- function(crosses,
     maxGen        = max.generation,
     maxRun        = max.iteration,
     anglePenalty  = as.numeric(angle.penalty),
-    nThreads      = nthreads
+    nThreads      = nThreads
   )
 
   res

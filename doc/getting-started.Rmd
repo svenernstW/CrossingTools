@@ -172,12 +172,12 @@ ocs <- optimal_cross_selection(
   G              = G,                 # relationship / kinship matrix
   u              = crit,              # cross-level criterion (length = nrow(crosses))
   target.angle   = 30 * pi / 180,     # 30 degrees (in radians) between max gain and min similarity
-  nselect        = 200,               # GA parent pool size
-  npop           = 1000,              # GA population size
+  n.select        = 200,               # GA parent pool size
+  n.pop           = 1000,              # GA population size
   max.generation = 200,               # GA iterations
   max.iteration  = 50,                # early-stopping tolerance
   angle.penalty  = 0.01,              # penalize deviation from target angle
-  nthreads       = 2L                 # use more threads in your environment if available
+  n.Threads       = 2L                 # use more threads in your environment if available
 )
 
 # The selected cross plan is returned as (ncrosses x 2)
@@ -207,11 +207,11 @@ u_fit <- u_from_g(
   M                 = M,           # markers (n_ind x n_mark)
   G                 = G,           # relationship matrix used in your model
   g                 = g_vals,      # individual genetic values (n_ind x n_trait)
-  scalingFactor     = 1 / n_mark,  # must match how you formed G
+  scaling.factor     = 1 / n_mark,  # must match how you formed G
   tol               = 1e-10,       # tolerance for inversions
-  LDvar             = TRUE,        # return LD-inclusive variance by groups (if grouping specified)
-  calcPriorVcov     = FALSE,       # don't compute prior Vcov among markers
-  calcPosteriorVcov = FALSE        # don't compute posterior Vcov from PEV
+  LD.var             = TRUE,        # return LD-inclusive variance by groups (if grouping specified)
+  calc.prior.Vcov     = FALSE,       # don't compute prior Vcov among markers
+  calc.posterior.Vcov = FALSE        # don't compute posterior Vcov from PEV
 )
 
 # u_fit$mu_matrix contains marker effects (n_mark x n_trait)

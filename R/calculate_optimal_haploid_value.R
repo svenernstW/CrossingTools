@@ -10,11 +10,11 @@
 #'   each marker is used as a separate block.
 #' @param M Numeric genotype/marker matrix (individuals x markers).
 #' @param U Numeric vector of marker effects (length \code{ncol(M)}).
-#' @param nthreads Integer \(\ge 1\). OpenMP threads (if enabled at compile time).
+#' @param n.Threads Integer larger 1. OpenMP threads (if enabled at compile time).
 #'
-#' @return A data.frame with column \code{OHV}.
+#' @return A data.frame with columns \code{OHV}.
 #' @export
-calculate_optimal_haploid_value <- function(crosses, haplotype.blocks=NULL, M, U, nthreads = 4L) {
+calculate_optimal_haploid_value <- function(crosses, haplotype.blocks = NULL, M, U, n.Threads = 4L) {
   # ---- Normalize inputs ----
   if (!is.matrix(M)) M <- as.matrix(M)
   if (!is.matrix(crosses)) crosses <- as.matrix(crosses)
@@ -60,17 +60,17 @@ calculate_optimal_haploid_value <- function(crosses, haplotype.blocks=NULL, M, U
     haplotype.blocks[[i]] <- as.integer(blk)
   }
 
-  # ---- nthreads ----
-  if (length(nthreads) != 1L || !is.finite(nthreads) ||
-      abs(nthreads - round(nthreads)) > .Machine$double.eps^0.5 || nthreads < 1) {
-    stop("`nthreads` must be a single integer >= 1.")
+  # ---- n.Threads ----
+  if (length(n.Threads) != 1L || !is.finite(n.Threads) ||
+      abs(n.Threads - round(n.Threads)) > .Machine$double.eps^0.5 || n.Threads < 1) {
+    stop("`n.threads` must be a single integer >= 1.")
   }
-  nthreads <- as.integer(nthreads)
+  n.Threads <- as.integer(n.Threads)
 
   # ---- Map to C++ parameter names (do NOT change C++) ----
   Crosses  <- crosses
   HBlocks  <- haplotype.blocks
-  nThreads <- nthreads
+  nThreads <- n.Threads
   temp <- list()
   # ---- Call C++ ----
   for(i in 1:ncol(U)){

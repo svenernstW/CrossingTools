@@ -29,7 +29,7 @@
 #'  based on segregation (co)variances. This only works if covariance is TRUE, else will be ignored.
 #' @param gains a vector of length equal to the number of traits with values representing the desired gains
 #'
-#' @param nThreads Integer (default 4). Number of OpenMP threads (if enabled at compile time).
+#' @param n.Threads Integer (default 4). Number of OpenMP threads (if enabled at compile time).
 #'
 #' @return If \code{covariance = TRUE}, a list with element \code{cross_values}
 #'   (a data.frame) whose columns are named \code{EGBV1, var1, SPV1, EGBV2, ...} and a list with element \code{covariances} with segregation covariance matrix for each cross.
@@ -51,7 +51,9 @@
 #' )
 #' }
 #' @export
-calculate_variances_4W_RIL <- function(crosses, genetic.map, M, U, t, intensity, covariance=FALSE, calculate.gains=FALSE, gains=NULL, nThreads = 4L) {
+calculate_variances_4W_RIL <- function(crosses, genetic.map, M, U, t, intensity,
+                                       covariance = FALSE, calculate.gains = FALSE, gains = NULL,
+                                       n.Threads = 4L) {
   # ---- Normalize ----
   if (!is.matrix(M)) M <- as.matrix(M)
   if (!is.matrix(U)) U <- as.matrix(U)
@@ -119,6 +121,12 @@ calculate_variances_4W_RIL <- function(crosses, genetic.map, M, U, t, intensity,
   # One-trait shortcut: covariance=TRUE doesn't add anything
   if (ncol(U) == 1L) covariance <- FALSE
 
+  # ---- Threads (match parameter name n.Threads) ----
+  if (length(n.Threads) != 1L || !is.finite(n.Threads) || n.Threads < 1 || n.Threads != as.integer(n.Threads)) {
+    stop("`n.Threads` must be a positive integer.")
+  }
+  nThreads <- as.integer(n.Threads)
+
   # ---- Call C++ (Allier) ----
   temp <- cpp_calculate_covariance_RIL_allier(
     Crosses   = crosses,
@@ -152,7 +160,6 @@ calculate_variances_4W_RIL <- function(crosses, genetic.map, M, U, t, intensity,
   } else {
     out <- as.data.frame(temp)
     names(out) <- name_vec
-
 
     return(out)
   }

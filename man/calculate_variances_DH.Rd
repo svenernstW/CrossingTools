@@ -15,7 +15,7 @@ calculate_variances_DH(
   calculate.gains = FALSE,
   gains = NULL,
   method = "osthushenrich",
-  nThreads = 4L
+  n.Threads = 4L
 )
 }
 \arguments{
@@ -50,6 +50,8 @@ based on segregation (co)variances. This only works if covariance is TRUE, else 
 
 \item{method}{Character. Which method to use; one of
 \code{c("osthushenrich", "lehermeier")}.}
+
+\item{n.Threads}{Integer (default 4). Number of OpenMP threads (if enabled at compile time).}
 }
 \value{
 If \code{covariance = TRUE}, a list with element \code{cross_values}
