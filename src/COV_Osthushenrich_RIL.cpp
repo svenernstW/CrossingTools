@@ -121,7 +121,7 @@ SEXP cpp_calculate_covariance_RIL_osthushenrich(const NumericMatrix& Crosses,
 
             for (arma::uword b = a; b < mlen; ++b) {
               const arma::uword mj = chrDiff[b];
-              const double dj = P_mu(P2, mj, tj) - P_mu(P1, mj, tj);
+              const double dj = P_mu(P1, mj, tj) - P_mu(P2, mj, tj);
               const double contrib = di * QJK(mi, mj) * dj;
               SigmaSqP1P2 += (a == b) ? contrib : 2.0 * contrib;
             }
