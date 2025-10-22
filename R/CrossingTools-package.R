@@ -1,8 +1,5 @@
-#' CrossingTools: Mate allocation and cross evaluation helpers
-#'
-#' Internal package-level documentation stub.
-#'
-#' @keywords internal
+## usethis namespace: start
+#' @importFrom Rcpp sourceCpp
 #' @useDynLib CrossingTools, .registration = TRUE
-#' @importFrom Rcpp evalCpp
-"_PACKAGE"
+## usethis namespace: end
+NULL
