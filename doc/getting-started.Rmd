@@ -31,8 +31,8 @@ U  <- matrix(rnorm(n_mark * n_trait), ncol = n_trait)
 map <- data.frame(
   site = 1:n_mark,
   chr  = rep(1:2, each = n_mark/2),
-  pos  = c(seq(0, 100, length.out = n_mark/2),
-           seq(0, 100, length.out = n_mark/2))
+  pos  = c(seq(0, 1.5, length.out = n_mark/2),
+           seq(0, 1.5, length.out = n_mark/2))
 )
 
 # Create pairwise crosses (scales as O(n^2))

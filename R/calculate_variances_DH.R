@@ -12,7 +12,7 @@
 #'   \itemize{
 #'     \item \code{site}: integer marker index (1..ncol(M))
 #'     \item \code{chr}: chromosome identifier (numeric)
-#'     \item \code{pos}: position on the chromosome in cM (numeric)
+#'     \item \code{pos}: position on the chromosome in morgan
 #'   }
 #'   All markers in \code{M} must appear in \code{genetic.map$site}.
 #' @param U Numeric matrix of marker effects (markers in rows, traits in columns).

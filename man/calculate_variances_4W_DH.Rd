@@ -28,7 +28,7 @@ passing haplotypes in \code{M}; then indices refer to haplotypes.}
 \itemize{
 \item \code{site}: integer marker index (1..ncol(M))
 \item \code{chr}: chromosome identifier
-\item \code{pos}: position on the chromosome in cM
+\item \code{pos}: position on the chromosome in morgan
 }
 All markers in \code{M} must appear in \code{genetic.map$site}.}
 

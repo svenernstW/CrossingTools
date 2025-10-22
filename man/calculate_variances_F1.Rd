@@ -26,7 +26,7 @@ calculate_variances_F1(
 \itemize{
 \item \code{site}: integer marker index (1..ncol(hap1))
 \item \code{chr}: chromosome identifier (numeric or factor)
-\item \code{pos}: position on the chromosome in cM (numeric)
+\item \code{pos}: position on the chromosome in morgan
 }
 All markers in \code{hap1}/\code{hap2} must appear in \code{genetic.map$site}.}
 

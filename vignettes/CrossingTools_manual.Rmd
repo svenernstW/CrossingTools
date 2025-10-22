@@ -1,0 +1,19 @@
+---
+title: "CrossingTools_manual"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{CrossingTools_manual}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(CrossingTools)
+```
