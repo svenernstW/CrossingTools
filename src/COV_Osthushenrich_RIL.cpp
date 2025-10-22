@@ -12,7 +12,7 @@ inline double qjk(double x, double y, double t) {
   double d = std::abs(x - y);
   double r = -0.5 * std::exp(-2.0 * d);
   double oneMinusR = 1.0 - r;
-  return 0.5 + 0.25 * std::pow(oneMinusR, t);
+  return 0.5 + 0.5 * std::pow(oneMinusR, t);
 }
 
 
