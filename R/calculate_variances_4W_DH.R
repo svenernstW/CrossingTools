@@ -146,9 +146,9 @@ calculate_variances_4W_DH <- function(crosses, genetic.map, M, U, t, intensity,
 
   if (covariance) {
     if(calculate.gains){
-      temp1 <- as.data.frame(temp$cross_values)[1:(3*ncol(U))]
+      temp1 <- as.data.frame(temp$cross_values)[,1:(3*ncol(U))]
       names(temp1) <- name_vec
-      temp2 <- as.data.frame(temp$cross_values)[((3*ncol(U))+1):ncol(as.data.frame(temp$cross_values))]
+      temp2 <- as.data.frame(temp$cross_values)[,((3*ncol(U))+1):ncol(as.data.frame(temp$cross_values))]
       names(temp2) <- c("IDG_A","VARIDG_A","SPVIDG_A")
       return(list(cross_values=temp1,gains=temp2,covariances=temp$covariances))
     }else{
