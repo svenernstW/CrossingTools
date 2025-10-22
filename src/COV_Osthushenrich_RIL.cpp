@@ -9,11 +9,13 @@ using namespace arma;
 
 // Inline function to calculate recombination fraction
 inline double qjk(double x, double y, double t) {
-  double diff = std::abs(x - y);
-  double rcf  = 0.5 * (1.0 - std::exp(-2.0 * diff));
-  double oneMinusRcf = 1.0 - rcf;
-  return 0.5 + ((1.0 - 2.0 * rcf) / (2.0 - 4 * rcf)) * std::pow(oneMinusRcf, t);
+  double d = std::abs(x - y);
+  double r = -0.5 * std::exp(-2.0 * d);
+  double oneMinusR = 1.0 - r;
+  return 0.5 + 0.5 * std::pow(oneMinusR, t);
 }
+
+
 
 // [[Rcpp::export]]
 SEXP cpp_calculate_covariance_RIL_osthushenrich(const NumericMatrix& Crosses,
