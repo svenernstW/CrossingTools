@@ -1,0 +1,192 @@
+Hmm ... looks like a package
+Converting Rd files to LaTeX .
+Creating pdf output from LaTeX ...
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (TeX Live 2025) (preloaded format=pdflatex)
+ restricted \write18 enabled.
+entering extended mode
+(./Rd2.tex
+LaTeX2e <2025-11-01>
+L3 programming layer <2025-10-24>
+
+(c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/base/book.cls
+Document Class: book 2025/01/22 v1.4n Standard LaTeX document class
+(c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/base/bk10.clo)) (c:/Users/Sven/AppData/Local/Programs/R/R-4.3.1/share/texmf/tex/latex/Rd.sty (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/base/ifthen.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/tools/longtable.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/tools/bm.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/base/alltt.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/tools/verbatim.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/url/url.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/base/textcomp.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/amsmath/amsmath.sty
+For additional information on amsmath, use the `?' option.
+(c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/amsmath/amstext.sty (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/amsmath/amsgen.sty)) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/amsmath/amsbsy.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/amsmath/amsopn.sty)) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/amsfonts/amsfonts.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/amsfonts/amssymb.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/amsfonts/eucal.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/generic/iftex/iftex.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/base/fontenc.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/psnfss/times.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/inconsolata/zi4.sty `inconsolata-zi4' v1.12, 2019/05/17 Text macros for Inconsolata (msharpe) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/xkeyval/xkeyval.sty (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/generic/xkeyval/xkeyval.tex (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/generic/xkeyval/xkvutils.tex (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/generic/xkeyval/keyval.tex))))) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/graphics/color.sty (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/graphics-cfg/color.cfg) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/graphics-def/pdftex.def) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/graphics/mathcolor.ltx)) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/hyperref/hyperref.sty (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/kvsetkeys/kvsetkeys.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/generic/kvdefinekeys/kvdefinekeys.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/generic/pdfescape/pdfescape.sty (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/generic/ltxcmds/ltxcmds.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/generic/pdftexcmds/pdftexcmds.sty (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/generic/infwarerr/infwarerr.sty))) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/hycolor/hycolor.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/hyperref/nameref.sty (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/refcount/refcount.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/generic/gettitlestring/gettitlestring.sty (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/kvoptions/kvoptions.sty))) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/etoolbox/etoolbox.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/generic/stringenc/stringenc.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/hyperref/pd1enc.def) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/generic/intcalc/intcalc.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/hyperref/puenc.def) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/generic/bitset/bitset.sty (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/generic/bigintcalc/bigintcalc.sty))) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/hyperref/hpdftex.def (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/rerunfilecheck/rerunfilecheck.sty (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/generic/uniquecounter/uniquecounter.sty)))) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/base/makeidx.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/base/inputenc.sty)
+Writing index file Rd2.idx
+(c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/psnfss/t1ptm.fd) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/l3backend/l3backend-pdftex.def)
+No file Rd2.aux.
+(c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/psnfss/ts1ptm.fd) [1{c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-var/fonts/map/pdftex/updmap/pdftex.map}{c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/fonts/enc/dvips/base/8r.enc}] (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/inconsolata/t1zi4.fd) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/amsfonts/umsa.fd) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/amsfonts/umsb.fd) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/psnfss/t1phv.fd)
+No file Rd2.toc.
+
+Overfull \hbox (4.20663pt too wide) in paragraph at lines 93--95
+[]\T1/ptm/m/n/10 Numeric ma-trix (n_trait x n_trait) giv-ing an ap-prox-i-ma-tion of var($[]$), e.g. []\T1/zi4/m/n/10 cov(A)[]\T1/ptm/m/n/10 .
+[2{c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/fonts/enc/dvips/inconsolata/i4-t1-0.enc}] [3]
+Overfull \hbox (20.55807pt too wide) in paragraph at lines 214--216
+[]\T1/ptm/m/n/10 Logical. If []\T1/zi4/m/n/10 TRUE[]\T1/ptm/m/n/10 , cal-cu-late the de-sired gains in-dex based on seg-re-ga-tion (co)variances.
+[4] [5]
+Overfull \hbox (20.55807pt too wide) in paragraph at lines 307--309
+[]\T1/ptm/m/n/10 Logical. If []\T1/zi4/m/n/10 TRUE[]\T1/ptm/m/n/10 , cal-cu-late the de-sired gains in-dex based on seg-re-ga-tion (co)variances.
+[6]
+Overfull \hbox (20.55807pt too wide) in paragraph at lines 397--399
+[]\T1/ptm/m/n/10 Logical. If []\T1/zi4/m/n/10 TRUE[]\T1/ptm/m/n/10 , cal-cu-late the de-sired gains in-dex based on seg-re-ga-tion (co)variances.
+
+Overfull \hbox (0.68959pt too wide) in paragraph at lines 402--404
+[]\T1/ptm/m/n/10 Character. Which method to use; one of []\T1/zi4/m/n/10 c("osthushenrich", "lehermeier")[]\T1/ptm/m/n/10 . 
+[7]
+Overfull \hbox (3.66707pt too wide) in paragraph at lines 439--442
+[]\T1/ptm/m/n/10 Calculate ex-pected ge-nomic es-ti-mated breed-ing value (EGBV), ex-pected to-tal ge-netic value (ETGV),
+[8]
+Overfull \hbox (3.40727pt too wide) in paragraph at lines 487--489
+[]\T1/ptm/m/n/10 Numeric ma-trix of dom-i-nance marker ef-fects (mark-ers in rows, traits in columns).
+
+Overfull \hbox (20.55807pt too wide) in paragraph at lines 495--497
+[]\T1/ptm/m/n/10 Logical. If []\T1/zi4/m/n/10 TRUE[]\T1/ptm/m/n/10 , cal-cu-late the de-sired gains in-dex based on seg-re-ga-tion (co)variances.
+
+Overfull \hbox (3.90952pt too wide) in paragraph at lines 505--511
+[]\T1/zi4/m/n/10 EGBV1, ETGV1, varA1, SPV1, varD, SPTV1, EGBV2, ... []\T1/ptm/m/n/10 and a list with el-e-ment []\T1/zi4/m/n/10 covariances []\T1/ptm/m/n/10 with
+
+Overfull \hbox (11.64818pt too wide) in paragraph at lines 505--511
+\T1/ptm/m/n/10 seg-re-ga-tion co-vari-ance ma-trix for each cross. If []\T1/zi4/m/n/10 covariance = TRUE[]\T1/ptm/m/n/10 , a list with el-e-ment []\T1/zi4/m/n/10 cross_values
+
+Overfull \hbox (3.06938pt too wide) in paragraph at lines 505--511
+[]\T1/ptm/m/n/10 (a data.frame) whose columns are named []\T1/zi4/m/n/10 EGBV1, ETGV1, varA1, SPV1, varD, SPTV1, EGBV2, ...[]\T1/ptm/m/n/10 ,
+
+Overfull \hbox (62.24101pt too wide) in paragraph at lines 523--523
+ []\T1/zi4/m/n/9 out <- calculate_variances_F1(crosses, genetic.map, hap1, hap2, U, D, intensity = 1.0, covariance = FALSE)[] 
+[9]
+Overfull \hbox (20.55807pt too wide) in paragraph at lines 584--586
+[]\T1/ptm/m/n/10 Logical. If []\T1/zi4/m/n/10 TRUE[]\T1/ptm/m/n/10 , cal-cu-late the de-sired gains in-dex based on seg-re-ga-tion (co)variances.
+
+Overfull \hbox (0.68959pt too wide) in paragraph at lines 589--591
+[]\T1/ptm/m/n/10 Character. Which method to use; one of []\T1/zi4/m/n/10 c("osthushenrich", "lehermeier")[]\T1/ptm/m/n/10 . 
+[10] [11]
+Overfull \hbox (22.33754pt too wide) in paragraph at lines 673--675
+[]\T1/ptm/m/n/10 Either a data.frame (when co-vari-ance = FALSE) or a list with el-e-ment \T1/zi4/m/n/10 $cross_values
+
+Overfull \hbox (13.05913pt too wide) in paragraph at lines 679--682
+\T1/ptm/m/n/10 trait (among EGBV, ETGV, SPV, SPTV, TSPV), with columns named \T1/zi4/m/n/10 mean_<METRIC><trait_index>\T1/ptm/m/n/10 ,
+[12]
+Overfull \hbox (5.5057pt too wide) in paragraph at lines 757--759
+[]\T1/ptm/m/n/10 integer $\OMS/cmsy/m/n/10 ^^U$ \T1/ptm/m/n/10 1. Max-i-mum num-ber of it-er-a-tions with-out im-prove-ment (early-stopping
+[13]
+
+! LaTeX Error: Unicode character ≤ (U+2264)
+               not set up for use with LaTeX.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.791 average EGBV. One panel per trait (≤
+                                             3 columns), each with its own x...
+[14]
+No file Rd2.ind.
+[15] (./Rd2.aux)
+
+Package rerunfilecheck Warning: File `Rd2.out' has changed.
+(rerunfilecheck)                Rerun to get outlines right
+(rerunfilecheck)                or use package `bookmark'.
+
+ )
+(see the transcript file for additional information) <c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-var/fonts/pk/ljfour/jknappen/ec/tcrm1000.600pk><c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/fonts/type1/public/inconsolata/Inconsolata-zi4r.pfb><c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb><c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi7.pfb><c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb><c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmr7.pfb><c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb><c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy7.pfb><c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/fonts/type1/urw/helvetic/uhvr8a.pfb><c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/fonts/type1/urw/times/utmb8a.pfb><c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/fonts/type1/urw/times/utmr8a.pfb><c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/fonts/type1/urw/times/utmr8a.pfb><c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/fonts/type1/urw/times/utmri8a.pfb>
+Output written on Rd2.pdf (15 pages, 167029 bytes).
+Transcript written on Rd2.log.
+Error in texi2dvi(file = file, pdf = TRUE, clean = clean, quiet = quiet,  : 
+  unable to run pdflatex on 'Rd2.tex'
+LaTeX errors:
+! LaTeX Error: Unicode character ≤ (U+2264)
+               not set up for use with LaTeX.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (TeX Live 2025) (preloaded format=pdflatex)
+ restricted \write18 enabled.
+entering extended mode
+(./Rd2.tex
+LaTeX2e <2025-11-01>
+L3 programming layer <2025-10-24>
+
+(c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/base/book.cls
+Document Class: book 2025/01/22 v1.4n Standard LaTeX document class
+(c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/base/bk10.clo)) (c:/Users/Sven/AppData/Local/Programs/R/R-4.3.1/share/texmf/tex/latex/Rd.sty (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/base/ifthen.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/tools/longtable.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/tools/bm.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/base/alltt.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/tools/verbatim.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/url/url.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/base/textcomp.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/amsmath/amsmath.sty
+For additional information on amsmath, use the `?' option.
+(c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/amsmath/amstext.sty (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/amsmath/amsgen.sty)) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/amsmath/amsbsy.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/amsmath/amsopn.sty)) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/amsfonts/amsfonts.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/amsfonts/amssymb.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/amsfonts/eucal.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/generic/iftex/iftex.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/base/fontenc.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/psnfss/times.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/inconsolata/zi4.sty `inconsolata-zi4' v1.12, 2019/05/17 Text macros for Inconsolata (msharpe) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/xkeyval/xkeyval.sty (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/generic/xkeyval/xkeyval.tex (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/generic/xkeyval/xkvutils.tex (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/generic/xkeyval/keyval.tex))))) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/graphics/color.sty (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/graphics-cfg/color.cfg) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/graphics-def/pdftex.def) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/graphics/mathcolor.ltx)) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/hyperref/hyperref.sty (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/kvsetkeys/kvsetkeys.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/generic/kvdefinekeys/kvdefinekeys.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/generic/pdfescape/pdfescape.sty (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/generic/ltxcmds/ltxcmds.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/generic/pdftexcmds/pdftexcmds.sty (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/generic/infwarerr/infwarerr.sty))) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/hycolor/hycolor.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/hyperref/nameref.sty (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/refcount/refcount.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/generic/gettitlestring/gettitlestring.sty (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/kvoptions/kvoptions.sty))) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/etoolbox/etoolbox.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/generic/stringenc/stringenc.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/hyperref/pd1enc.def) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/generic/intcalc/intcalc.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/hyperref/puenc.def) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/generic/bitset/bitset.sty (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/generic/bigintcalc/bigintcalc.sty))) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/hyperref/hpdftex.def (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/rerunfilecheck/rerunfilecheck.sty (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/generic/uniquecounter/uniquecounter.sty)))) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/base/makeidx.sty) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/base/inputenc.sty)
+Writing index file Rd2.idx
+(c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/psnfss/t1ptm.fd) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/l3backend/l3backend-pdftex.def) (./Rd2.aux) (./Rd2.out) (./Rd2.out) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/psnfss/ts1ptm.fd) [1{c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-var/fonts/map/pdftex/updmap/pdftex.map}{c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/fonts/enc/dvips/base/8r.enc}] (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/inconsolata/t1zi4.fd) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/amsfonts/umsa.fd) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/amsfonts/umsb.fd) (c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/tex/latex/psnfss/t1phv.fd) (./Rd2.toc)
+Overfull \hbox (4.20663pt too wide) in paragraph at lines 93--95
+[]\T1/ptm/m/n/10 Numeric ma-trix (n_trait x n_trait) giv-ing an ap-prox-i-ma-tion of var($[]$), e.g. []\T1/zi4/m/n/10 cov(A)[]\T1/ptm/m/n/10 .
+[2{c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/fonts/enc/dvips/inconsolata/i4-t1-0.enc}] [3]
+Overfull \hbox (20.55807pt too wide) in paragraph at lines 214--216
+[]\T1/ptm/m/n/10 Logical. If []\T1/zi4/m/n/10 TRUE[]\T1/ptm/m/n/10 , cal-cu-late the de-sired gains in-dex based on seg-re-ga-tion (co)variances.
+[4] [5]
+Overfull \hbox (20.55807pt too wide) in paragraph at lines 307--309
+[]\T1/ptm/m/n/10 Logical. If []\T1/zi4/m/n/10 TRUE[]\T1/ptm/m/n/10 , cal-cu-late the de-sired gains in-dex based on seg-re-ga-tion (co)variances.
+[6]
+Overfull \hbox (20.55807pt too wide) in paragraph at lines 397--399
+[]\T1/ptm/m/n/10 Logical. If []\T1/zi4/m/n/10 TRUE[]\T1/ptm/m/n/10 , cal-cu-late the de-sired gains in-dex based on seg-re-ga-tion (co)variances.
+
+Overfull \hbox (0.68959pt too wide) in paragraph at lines 402--404
+[]\T1/ptm/m/n/10 Character. Which method to use; one of []\T1/zi4/m/n/10 c("osthushenrich", "lehermeier")[]\T1/ptm/m/n/10 . 
+[7]
+Overfull \hbox (3.66707pt too wide) in paragraph at lines 439--442
+[]\T1/ptm/m/n/10 Calculate ex-pected ge-nomic es-ti-mated breed-ing value (EGBV), ex-pected to-tal ge-netic value (ETGV),
+[8]
+Overfull \hbox (3.40727pt too wide) in paragraph at lines 487--489
+[]\T1/ptm/m/n/10 Numeric ma-trix of dom-i-nance marker ef-fects (mark-ers in rows, traits in columns).
+
+Overfull \hbox (20.55807pt too wide) in paragraph at lines 495--497
+[]\T1/ptm/m/n/10 Logical. If []\T1/zi4/m/n/10 TRUE[]\T1/ptm/m/n/10 , cal-cu-late the de-sired gains in-dex based on seg-re-ga-tion (co)variances.
+
+Overfull \hbox (3.90952pt too wide) in paragraph at lines 505--511
+[]\T1/zi4/m/n/10 EGBV1, ETGV1, varA1, SPV1, varD, SPTV1, EGBV2, ... []\T1/ptm/m/n/10 and a list with el-e-ment []\T1/zi4/m/n/10 covariances []\T1/ptm/m/n/10 with
+
+Overfull \hbox (11.64818pt too wide) in paragraph at lines 505--511
+\T1/ptm/m/n/10 seg-re-ga-tion co-vari-ance ma-trix for each cross. If []\T1/zi4/m/n/10 covariance = TRUE[]\T1/ptm/m/n/10 , a list with el-e-ment []\T1/zi4/m/n/10 cross_values
+
+Overfull \hbox (3.06938pt too wide) in paragraph at lines 505--511
+[]\T1/ptm/m/n/10 (a data.frame) whose columns are named []\T1/zi4/m/n/10 EGBV1, ETGV1, varA1, SPV1, varD, SPTV1, EGBV2, ...[]\T1/ptm/m/n/10 ,
+
+Overfull \hbox (62.24101pt too wide) in paragraph at lines 523--523
+ []\T1/zi4/m/n/9 out <- calculate_variances_F1(crosses, genetic.map, hap1, hap2, U, D, intensity = 1.0, covariance = FALSE)[] 
+[9]
+Overfull \hbox (20.55807pt too wide) in paragraph at lines 584--586
+[]\T1/ptm/m/n/10 Logical. If []\T1/zi4/m/n/10 TRUE[]\T1/ptm/m/n/10 , cal-cu-late the de-sired gains in-dex based on seg-re-ga-tion (co)variances.
+
+Overfull \hbox (0.68959pt too wide) in paragraph at lines 589--591
+[]\T1/ptm/m/n/10 Character. Which method to use; one of []\T1/zi4/m/n/10 c("osthushenrich", "lehermeier")[]\T1/ptm/m/n/10 . 
+[10] [11]
+Overfull \hbox (22.33754pt too wide) in paragraph at lines 673--675
+[]\T1/ptm/m/n/10 Either a data.frame (when co-vari-ance = FALSE) or a list with el-e-ment \T1/zi4/m/n/10 $cross_values
+
+Overfull \hbox (13.05913pt too wide) in paragraph at lines 679--682
+\T1/ptm/m/n/10 trait (among EGBV, ETGV, SPV, SPTV, TSPV), with columns named \T1/zi4/m/n/10 mean_<METRIC><trait_index>\T1/ptm/m/n/10 ,
+[12]
+Overfull \hbox (5.5057pt too wide) in paragraph at lines 757--759
+[]\T1/ptm/m/n/10 integer $\OMS/cmsy/m/n/10 ^^U$ \T1/ptm/m/n/10 1. Max-i-mum num-ber of it-er-a-tions with-out im-prove-ment (early-stopping
+[13]
+
+! LaTeX Error: Unicode character ≤ (U+2264)
+               not set up for use with LaTeX.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.791 average EGBV. One panel per trait (≤
+                                             3 columns), each with its own x...
+[14]
+No file Rd2.ind.
+[15] (./Rd2.aux) )
+(see the transcript file for additional information) <c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-var/fonts/pk/ljfour/jknappen/ec/tcrm1000.600pk><c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/fonts/type1/public/inconsolata/Inconsolata-zi4r.pfb><c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb><c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi7.pfb><c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb><c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmr7.pfb><c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb><c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy7.pfb><c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/fonts/type1/urw/helvetic/uhvr8a.pfb><c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/fonts/type1/urw/times/utmb8a.pfb><c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/fonts/type1/urw/times/utmr8a.pfb><c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/fonts/type1/urw/times/utmr8a.pfb><c:/Users/Sven/AppData/Roaming/TinyTeX/texmf-dist/fonts/type1/urw/times/utmri8a.pfb>
+Output written on Rd2.pdf (15 pages, 168734 bytes).
+Transcript written on Rd2.log.
+Error in texi2dvi(file = file, pdf = TRUE, clean = clean, quiet = quiet,  : 
+  unable to run pdflatex on 'Rd2.tex'
+LaTeX errors:
+! LaTeX Error: Unicode character ≤ (U+2264)
+               not set up for use with LaTeX.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+Error in running tools::texi2pdf()
