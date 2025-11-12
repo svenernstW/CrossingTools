@@ -17,8 +17,9 @@ plot_cross_plan(cross_plan, cross_param, traits = NULL)
 ggplot object
 }
 \description{
-Simulates per-cross distributions using EGBV as mean and varA as variance
-(ignoring dominance variance), draws ridgeline densities, overlays EGBV (blue circles)
-and SPV (red diamonds, if present), and adds a dotted vertical line at the per-trait
-average EGBV. One panel per trait (3 columns), each with its own x-axis scale.
+Simulates per-cross distributions using EGBV as mean and the sum of all non-dominance
+variance columns (i.e., all var* except varD) as the variance. Draws ridgeline
+densities, overlays EGBV (blue circles) and SPV (red diamonds, if present),
+and adds a dotted vertical line at the per-trait average EGBV.
+One panel per trait (3 columns), each with its own x-axis scale.
 }

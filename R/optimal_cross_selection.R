@@ -39,9 +39,9 @@
 #'   from \code{target.angle} (encourages the desired trade-off).
 #' @param n.Threads integer \eqn{\ge} 1. Number of OpenMP threads to use.
 #'
-#' @return A list with elements returned by \code{cpp_optimal_cross_selection()}:
+#' @return A list with elements :
 #' \describe{
-#'   \item{\code{crossPlan}}{Integer matrix (ncrosses x 2): the selected \emph{final} cross plan (includes fixed crosses).}
+#'   \item{\code{crossPlan}}{Integer matrix (ncrosses x 3): the selected \emph{final} cross plan (includes fixed crosses) and an additional column i with the indeces in the original crosses data.frame.}
 #'   \item{\code{uMax}}{Numeric scalar: maximum attainable average criterion when optimizing only \code{u}.}
 #'   \item{\code{uMin}}{Numeric scalar: minimum attainable average criterion when optimizing only similarity.}
 #'   \item{\code{simMax}}{Numeric scalar: similarity corresponding to \code{uMax}.}
@@ -203,6 +203,11 @@ optimal_cross_selection <- function(crosses,
     anglePenalty  = as.numeric(angle.penalty),
     nThreads      = nThreads
   )
+
+  res$crossPlan <- as.data.frame(res$crossPlan)
+  names(res$crossPlan) <-c("parent1","parent2")
+  res$crossPlan$i <- which(interaction(crosses[,1], crosses[,2]) %in%
+                            interaction(res$crossPlan[,1], res$crossPlan[,2]))
 
   res
 }

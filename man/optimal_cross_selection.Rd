@@ -71,9 +71,9 @@ from \code{target.angle} (encourages the desired trade-off).}
 \item{n.Threads}{integer \eqn{\ge} 1. Number of OpenMP threads to use.}
 }
 \value{
-A list with elements returned by \code{cpp_optimal_cross_selection()}:
+A list with elements :
 \describe{
-\item{\code{crossPlan}}{Integer matrix (ncrosses x 2): the selected \emph{final} cross plan (includes fixed crosses).}
+\item{\code{crossPlan}}{Integer matrix (ncrosses x 3): the selected \emph{final} cross plan (includes fixed crosses) and an additional column i with the indeces in the original crosses data.frame.}
 \item{\code{uMax}}{Numeric scalar: maximum attainable average criterion when optimizing only \code{u}.}
 \item{\code{uMin}}{Numeric scalar: minimum attainable average criterion when optimizing only similarity.}
 \item{\code{simMax}}{Numeric scalar: similarity corresponding to \code{uMax}.}

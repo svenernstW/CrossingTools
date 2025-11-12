@@ -88,7 +88,7 @@ calculate_optimal_haploid_value <- function(crosses, haplotype.blocks = NULL, M,
   out <- as.data.frame(do.call(cbind,temp))
 
   names(out) <- paste0("OHV_", 1:ncol(U))
-
+  out <- cbind(crosses,out)
 
   return(out)
 }

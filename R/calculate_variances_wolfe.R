@@ -148,22 +148,28 @@ calculate_variances_F1 <- function(crosses, genetic.map, hap1, hap2, U, D, inten
 
   #  Format outputs
   name_vec <- paste0(rep(c("EGBV","ETGV","var_a","SPV","var_d","TSPV"), each = ncol(U)), seq_len(ncol(U)))
+  names(crosses) <- c("parent1",
+                      "parent2")
 
   if (covariance) {
     if (calculate.gains) {
       temp1 <- as.data.frame(temp$cross_values)[ , 1:(6*ncol(U)), drop = FALSE]
       names(temp1) <- name_vec
+      temp1 <- cbind(crosses,temp1)
       temp2 <- as.data.frame(temp$cross_values)[ , (6*ncol(U) + 1):(6*ncol(U) + 6), drop = FALSE]
       names(temp2) <- c("IDG_A","VARIDG_A","SPVIDG_A","IDG_AD","VARIDG_AD","SPVIDG_AD")
+      temp2 <- cbind(crosses,temp2)
       return(list(cross_values = temp1, gains = temp2, additive_covariances = temp$covA, dominance_covariances = temp$covD))
     } else {
       temp1 <- as.data.frame(temp$cross_values)[ , 1:(6*ncol(U)), drop = FALSE]
       names(temp1) <- name_vec
+      temp1 <- cbind(crosses,temp1)
       return(list(cross_values = temp1, additive_covariances = temp$covA, dominance_covariances = temp$covD))
     }
   } else {
     out <- as.data.frame(temp)
     names(out) <- name_vec
+   out <- cbind(crosses,out)
     return(out)
   }
 

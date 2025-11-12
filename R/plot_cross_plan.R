@@ -1,9 +1,10 @@
 #' Plot cross plan ridge distributions per trait
 #'
-#' Simulates per-cross distributions using EGBV as mean and varA as variance
-#' (ignoring dominance variance), draws ridgeline densities, overlays EGBV (blue circles)
-#' and SPV (red diamonds, if present), and adds a dotted vertical line at the per-trait
-#' average EGBV. One panel per trait (3 columns), each with its own x-axis scale.
+#' Simulates per-cross distributions using EGBV as mean and the sum of all non-dominance
+#' variance columns (i.e., all var* except varD) as the variance. Draws ridgeline
+#' densities, overlays EGBV (blue circles) and SPV (red diamonds, if present),
+#' and adds a dotted vertical line at the per-trait average EGBV.
+#' One panel per trait (3 columns), each with its own x-axis scale.
 #'
 #' @param cross_plan data.frame: two columns from create_cross_plan()
 #' @param cross_param data.frame or list with $cross_values from calculate_variances*()
@@ -34,21 +35,23 @@ plot_cross_plan <- function(cross_plan, cross_param, traits = NULL) {
     .stopf("`cross_param` must be a data.frame or a list with `$cross_values`.")
   }
 
-  # Map columns per trait for EGBV / varA / SPV
+  # Map columns per trait for EGBV / SPV / VAR* (collect all var*, later drop varD)
   .colmap_by_trait <- function(cn) {
-    pat <- "^(EGBV|var[_]?a|SPV)(\\d+)$"
+    # capture EGBV#, SPV#, and any var*# (letters/underscores allowed), followed by trait index
+    pat <- "^(EGBV|SPV|VAR[_]?[A-Z_]*)(\\d+)$"
     keep <- cn[grepl(pat, cn, ignore.case = TRUE)]
-    if (!length(keep)) .stopf("Missing columns like EGBV#, varA#, SPV#.")
+    if (!length(keep)) .stopf("Missing columns like EGBV#, var*#, SPV#.")
     m <- regexec(pat, keep, ignore.case = TRUE)
     parts <- regmatches(keep, m)
     df <- data.frame(
       full = keep,
-      kind = toupper(vapply(parts, function(x) x[[2]], character(1))),
-      idx  = vapply(parts, function(x) x[[3]], character(1)),
+      kind_raw = vapply(parts, function(x) x[[2]], character(1)),
+      idx      = vapply(parts, function(x) x[[3]], character(1)),
       stringsAsFactors = FALSE
     )
-    df$kind[df$kind %in% c("VARA","VAR_A")] <- "VARA"
-    split(df, df$idx)
+    # Standardize kinds: uppercase and remove underscores (e.g., VAR_AE -> VARAE)
+    df$kind <- gsub("_", "", toupper(df$kind_raw))
+    split(df[c("full","kind","idx")], df$idx)
   }
 
   .make_cross_labels <- function(cp) {
@@ -99,16 +102,40 @@ plot_cross_plan <- function(cross_plan, cross_param, traits = NULL) {
 
   for (ti in trait_ids) {
     meta <- colmap[[ti]]
+
+    # columns
     col_E <- meta$full[meta$kind == "EGBV"]
-    col_V <- meta$full[meta$kind == "VARA"]
     col_S <- meta$full[meta$kind == "SPV"]
 
-    if (length(col_E) != 1L || length(col_V) != 1L) {
-      .stopf("Trait %s needs exactly one EGBV%s and one varA%s column.", ti, ti, ti)
+    # collect all VAR* kinds, excluding exactly VARD (dominance variance)
+    is_var <- startsWith(meta$kind, "VAR")
+    var_kinds <- meta$kind[is_var]
+    var_cols  <- meta$full[is_var]
+
+    # Identify and drop dominance variance (VARD) only
+    drop_idx <- which(var_kinds == "VARD")
+    if (length(drop_idx)) {
+      var_kinds <- var_kinds[-drop_idx]
+      var_cols  <- var_cols[-drop_idx]
     }
 
-    mu  <- cv_num[[col_E]]
-    va  <- cv_num[[col_V]]; va[!is.finite(va) | va < 0] <- 0
+    if (length(col_E) != 1L) {
+      .stopf("Trait %s needs exactly one EGBV%s column.", ti, ti)
+    }
+    if (!length(var_cols)) {
+      .stopf("Trait %s has no variance columns other than varD to use.", ti)
+    }
+
+    mu <- cv_num[[col_E]]
+
+    # sum all allowed variance components; sanitize negatives/NA to 0 before summing
+    vc_mat <- as.data.frame(cv_num[var_cols], stringsAsFactors = FALSE)
+    for (j in seq_along(vc_mat)) {
+      v <- vc_mat[[j]]
+      v[!is.finite(v) | v < 0] <- 0
+      vc_mat[[j]] <- v
+    }
+    va <- rowSums(vc_mat, na.rm = TRUE)
     sdv <- sqrt(va)
 
     # simulate per cross (for ridges)
@@ -156,23 +183,19 @@ plot_cross_plan <- function(cross_plan, cross_param, traits = NULL) {
 
   # build plot
   p <- ggplot2::ggplot(sim_df, ggplot2::aes(x = value, y = cross)) +
-    # per-trait average EGBV line (dotted; its own legend entry)
     ggplot2::geom_vline(
       data = avg_egbv,
       ggplot2::aes(xintercept = xint, linetype = llabel),
       colour = "grey40", linewidth = 0.8
     ) +
-    # ridgelines (no legend)
     ggridges::geom_density_ridges(
       alpha = 0, scale = 0.8, rel_min_height = 1e-7, linewidth = 1.2, show.legend = FALSE
     ) +
-    # EGBV points
     ggplot2::geom_point(
       data = means_df,
       ggplot2::aes(x = value, y = cross, shape = legend, colour = legend, fill = legend),
       size = 2.5, alpha = 0.9
     ) +
-    # SPV points (if present)
     { if (!is.null(spv_df))
       ggplot2::geom_point(
         data = spv_df,
@@ -185,7 +208,6 @@ plot_cross_plan <- function(cross_plan, cross_param, traits = NULL) {
     ggplot2::xlab("Cross value") +
     ggplot2::ylab("Cross combination") +
     ggplot2::theme_grey(base_size = 10) +
-    # unified legend via shape; hide separate colour/fill guides but keep aesthetics for draw
     ggplot2::scale_shape_manual(
       name = NULL, values = c("EGBV" = 21, "SPV" = 23), drop = TRUE
     ) +
@@ -199,7 +221,6 @@ plot_cross_plan <- function(cross_plan, cross_param, traits = NULL) {
       name = NULL, values = c("Average EGBV" = "dotted")
     ) +
     ggplot2::guides(
-      # single legend for points (shape) with correct fill/colour in keys
       shape   = ggplot2::guide_legend(order = 1, override.aes = list(
         size = 3, alpha = 1,
         fill   = c("blue", "red"),
