@@ -22,9 +22,9 @@ SEXP cpp_calculate_covariance_osthushenrich(const NumericMatrix& Crosses,
                                             const NumericMatrix& U,
                                             double t,
                                             double intensity,
-                                            const NumericVector& gains,
+                                            const NumericVector& weights,
                                             bool covariance = false,
-                                            bool calcgains = false,
+                                            bool calcindex = false,
                                             int nThreads = 4) {
   // portable thread setup
   ct_set_threads(nThreads);
@@ -41,7 +41,7 @@ SEXP cpp_calculate_covariance_osthushenrich(const NumericMatrix& Crosses,
   const arma::uword OFF_EG  = 0;
   const arma::uword OFF_VAR = numTrait;
   const arma::uword OFF_SPV = 2 * numTrait;
-  arma::vec gains_vec = as<arma::vec>(gains);  // length == numTrait
+  arma::vec weights_vec = as<arma::vec>(weights);  // length == numTrait
 
   // Precompute recombination fractions for each chromosome
   arma::mat QJK(numMarkers, numMarkers, fill::zeros);
@@ -161,24 +161,11 @@ SEXP cpp_calculate_covariance_osthushenrich(const NumericMatrix& Crosses,
       }
       covs[x] = std::move(G);
 
-      if (calcgains) {
+      if (calcindex) {
         arma::mat V = covs[x];
-        arma::mat L;
-        bool spd = arma::chol(L, V);
-        if (!spd) {
-          arma::vec eval; arma::mat evec;
-          arma::eig_sym(eval, evec, V);                 // O(n^3) but n is tiny
-          double tol = std::max(1e-12, 1e-8 * eval.max());
-          for (auto& l : eval) if (l < tol) l = tol;    // clamp
-          V = evec * arma::diagmat(eval) * evec.t();    // PSD → SPD
-          arma::chol(L, V);                             // must succeed now
-        }
 
-        arma::vec w;
-        arma::solve(w, V, gains_vec, arma::solve_opts::likely_sympd);
-
-        double sigma_gains = arma::as_scalar(w.t() * V * w);
-        double index = arma::as_scalar(results2.row(x).cols(0, numTrait - 1) * w);
+        double sigma_gains = arma::as_scalar(weights_vec.t() * V * weights_vec);
+        double index = arma::as_scalar(results2.row(x).cols(0, numTrait - 1) * weights_vec);
         double spvi  = index + intensity * std::sqrt(sigma_gains);
 
         results2(x, 3 * numTrait + 0) = index;

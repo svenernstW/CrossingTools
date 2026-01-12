@@ -22,9 +22,9 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
                                     const NumericMatrix& U,
                                     const NumericMatrix& D,
                                     double intensity,
-                                    const NumericVector& gains,
+                                    const NumericVector& weights,
                                     bool covariance = false,
-                                    bool calcgains = false,
+                                    bool calcindex = false,
                                     int nThreads = 4) {
   // portable thread setup
   ct_set_threads(nThreads);
@@ -40,7 +40,7 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
   arma::mat M_mat    = Hap1_mat + Hap2_mat;   // dosage 0..2
   arma::mat U_mat    = as<arma::mat>(U);      // (numMarkers × numTrait)
   arma::mat D_mat    = as<arma::mat>(D);      // (numMarkers × numTrait)
-  arma::vec gains_vec = as<arma::vec>(gains); // length == numTrait
+  arma::vec weights_vec = as<arma::vec>(weights); // length == numTrait
 
   const arma::uword OFF_EG    = 0;
   const arma::uword OFF_ETG   = numTrait;
@@ -224,23 +224,12 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
       covsA[x] = GA;
       covsD[x] = GD;
 
-      if (calcgains) {
+      if (calcindex) {
         arma::mat VA = GA;
-        arma::mat L;
-        if (!arma::chol(L, VA)) {
-          arma::vec eval; arma::mat evec;
-          arma::eig_sym(eval, evec, VA);
-          double tol = std::max(1e-12, 1e-8 * eval.max());
-          for (double &lam : eval) if (lam < tol) lam = tol;
-          VA = evec * arma::diagmat(eval) * evec.t();
-          arma::chol(L, VA);
-        }
-        arma::vec wA = arma::solve(arma::trimatu(L.t()),
-                                   arma::solve(arma::trimatl(L), gains_vec));
 
-        double var_index_A = arma::as_scalar(wA.t() * GA * wA);
+        double var_index_A = arma::as_scalar(weights_vec.t() * GA * weights_vec);
         var_index_A = std::max(0.0, var_index_A); // numeric safety
-        double index_A = arma::as_scalar(results2.row(x).cols(0, numTrait - 1) * wA);
+        double index_A = arma::as_scalar(results2.row(x).cols(0, numTrait - 1) * weights_vec);
         double spvi_A  = index_A + intensity * std::sqrt(var_index_A);
 
         results2(x, OFF_IDX_A)    = index_A;
@@ -248,20 +237,10 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
         results2(x, OFF_SPVI_A)   = spvi_A;
 
         arma::mat VAD = GA + GD;
-        if (!arma::chol(L, VAD)) {
-          arma::vec eval; arma::mat evec;
-          arma::eig_sym(eval, evec, VAD);
-          double tol = std::max(1e-12, 1e-8 * eval.max());
-          for (double &lam : eval) if (lam < tol) lam = tol;
-          VAD = evec * arma::diagmat(eval) * evec.t();
-          arma::chol(L, VAD);
-        }
-        arma::vec wAD = arma::solve(arma::trimatu(L.t()),
-                                    arma::solve(arma::trimatl(L), gains_vec));
 
-        double var_index_AD = arma::as_scalar(wAD.t() * VAD * wAD);
+        double var_index_AD = arma::as_scalar(weights_vec.t() * VAD * weights_vec);
         var_index_AD = std::max(0.0, var_index_AD);
-        double index_AD = arma::as_scalar(results2.row(x).cols(numTrait, 2 * numTrait - 1) * wAD);
+        double index_AD = arma::as_scalar(results2.row(x).cols(numTrait, 2 * numTrait - 1) * weights_vec);
         double spvi_AD  = index_AD + intensity * std::sqrt(var_index_AD);
 
         results2(x, OFF_IDX_AD)    = index_AD;

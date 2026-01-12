@@ -16,26 +16,24 @@ SEXP cpp_calculate_desired_gains(const NumericMatrix& A,
                                  bool useV = false,
                                  bool useapproxV = false,
                                  int nThreads = 4) {
-  // portable thread setup
   ct_set_threads(nThreads);
 
   const arma::uword numGeno  = A.nrow();
   const arma::uword numTrait = A.ncol();
 
-  arma::mat A_mat       = as<arma::mat>(A);        // (numGeno × numTrait)
-  arma::mat V_mat       = as<arma::mat>(V);        // (numGeno*numTrait × numGeno*numTrait) block-diag by geno
-  arma::mat Vapprox_mat = as<arma::mat>(approxV);  // (numTrait × numTrait)
-  arma::vec gains_vec   = as<arma::vec>(gains);    // length == numTrait
+  arma::mat A_mat       = as<arma::mat>(A);
+  arma::mat V_mat       = as<arma::mat>(V);
+  arma::mat Vapprox_mat = as<arma::mat>(approxV);
+  arma::vec gains_vec   = as<arma::vec>(gains);
 
   arma::vec results1(numGeno, arma::fill::zeros);
+  arma::vec w_out;          // only valid for useMargV/useapproxV
+  bool have_w = false;
 
-  // 1) Use average marginal V over genotypes
   if (useMargV) {
     arma::mat Vmarg(numTrait, numTrait, arma::fill::zeros);
-
-    // Sum blocks serially (safe & numTrait is small; parallel reduction would add complexity)
     for (arma::uword gi = 0; gi < numGeno; ++gi) {
-      arma::span idx = arma::span(gi * numTrait, gi * numTrait + numTrait - 1);
+      arma::span idx(gi * numTrait, gi * numTrait + numTrait - 1);
       Vmarg += V_mat(idx, idx);
     }
     Vmarg /= static_cast<double>(numGeno);
@@ -50,17 +48,15 @@ SEXP cpp_calculate_desired_gains(const NumericMatrix& A,
       arma::chol(L, Vmarg);
     }
 
-    arma::vec w;
-    arma::solve(w, Vmarg, gains_vec, arma::solve_opts::likely_sympd);
-    results1 = A_mat * w;  // per-genotype index
+    arma::solve(w_out, Vmarg, gains_vec, arma::solve_opts::likely_sympd);
+    results1 = A_mat * w_out;
+    have_w = true;
   }
 
-  // 2) Use each genotype's own V block
   if (useV) {
-    // Each gi independent → parallelize safely
     ct_parallel_for(0, static_cast<int>(numGeno), [&](int gi_i) {
       arma::uword gi = static_cast<arma::uword>(gi_i);
-      arma::span idx = arma::span(gi * numTrait, gi * numTrait + numTrait - 1);
+      arma::span idx(gi * numTrait, gi * numTrait + numTrait - 1);
       arma::mat Vtemp = V_mat(idx, idx);
 
       arma::mat L;
@@ -73,13 +69,13 @@ SEXP cpp_calculate_desired_gains(const NumericMatrix& A,
         arma::chol(L, Vtemp);
       }
 
-      arma::vec w;
+      arma::vec w;  // thread-local (no race)
       arma::solve(w, Vtemp, gains_vec, arma::solve_opts::likely_sympd);
       results1(gi) = arma::dot(A_mat.row(gi), w);
     });
+    // have_w stays false: no single global weight
   }
 
-  // 3) Use a precomputed approximate V (same for all genotypes)
   if (useapproxV) {
     arma::mat L;
     if (!arma::chol(L, Vapprox_mat)) {
@@ -91,10 +87,13 @@ SEXP cpp_calculate_desired_gains(const NumericMatrix& A,
       arma::chol(L, Vapprox_mat);
     }
 
-    arma::vec w;
-    arma::solve(w, Vapprox_mat, gains_vec, arma::solve_opts::likely_sympd);
-    results1 = A_mat * w;
+    arma::solve(w_out, Vapprox_mat, gains_vec, arma::solve_opts::likely_sympd);
+    results1 = A_mat * w_out;
+    have_w = true;
   }
 
-  return Rcpp::wrap(results1);
+  return Rcpp::List::create(
+    Named("index")  = results1,
+    Named("weight") = have_w ? Rcpp::wrap(w_out) : R_NilValue
+  );
 }

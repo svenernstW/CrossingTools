@@ -7,9 +7,7 @@
 calculate_desired_gains(
   A,
   V,
-  V.approx,
   gains = NULL,
-  use.V = TRUE,
   use.marginal.V = FALSE,
   use.V.approx = FALSE,
   n.Threads = 4L
@@ -20,26 +18,19 @@ calculate_desired_gains(
 
 \item{V}{Numeric matrix ((n_genotype\emph{n_trait) x (n_genotype}n_trait)) with the
 posterior variance var(\eqn{\tilde{g}}).
-Required if \code{use.V} or \code{use.marginal.V} is TRUE.}
+Required if \code{use.marginal.V} is TRUE.}
 
-\item{V.approx}{Numeric matrix (n_trait x n_trait) giving an approximation of
-var(\eqn{\tilde{g}}), e.g. \code{cov(A)}. Required if \code{use.V.approx} is TRUE.}
-
-\item{gains}{Numeric vector (length = n_trait) of desired gains. If NULL, uses
-equal weights (\code{rep(1, n_trait)}).}
-
-\item{use.V}{Logical. If TRUE, uses each genotype's own trait-block \code{V_g}
-to compute a per-genotype index (i.e., \eqn{w_g = V_g^{-1} d}).}
+\item{gains}{Numeric vector (length = n_trait) of desired gains.}
 
 \item{use.marginal.V}{Logical. If TRUE, uses the \emph{marginal} posterior variance
 (mean of per-genotype trait-blocks from \code{V}).}
 
-\item{use.V.approx}{Logical. If TRUE, uses \code{V.approx}.}
+\item{use.V.approx}{Logical. If TRUE, uses an empirical estimate of V as cov(A).}
 
 \item{n.Threads}{Number of OpenMP threads.}
 }
 \value{
-A one-column data.frame with the desired-gains index for each genotype.
+A list with index values and trait weights.
 }
 \description{
 Calculates the desired gains index based on multi-trait BLUPs and a chosen

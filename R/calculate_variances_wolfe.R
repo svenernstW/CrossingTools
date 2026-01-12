@@ -24,46 +24,39 @@
 #' @param intensity Double. Standardized selection differential (used for SPV).
 #' @param covariance Logical. If \code{TRUE}, also compute the segregation
 #'   covariance matrix between all supplied traits.
-#' @param calculate.gains Logical. If \code{TRUE}, calculate the desired gains index
-#'  based on segregation (co)variances. This only works if covariance is TRUE, else will be ignored.
-#' @param gains a vector of length equal to the number of traits with values representing the desired gains
+#' @param calculate.index Logical. If \code{TRUE}, calculate the index from fixed
+#'   trait \code{weights}. Only works if \code{covariance = TRUE}; otherwise ignored.
+#' @param weights Numeric vector of length \code{ncol(U)} with fixed trait weights.
 #'
 #' @param n.Threads Integer (default 4). Number of OpenMP threads (if enabled at compile time).
 #'
 #' @return If \code{covariance = TRUE}, a list with element \code{cross_values}
-#'   (a data.frame) whose columns are named \code{EGBV1, ETGV1, varA1, SPV1, varD, SPTV1,  EGBV2, ...} and a list with element \code{covariances} with segregation covariance matrix for each cross.
-#'   If \code{covariance = TRUE}, a list with element \code{cross_values}
-#'   (a data.frame) whose columns are named \code{EGBV1, ETGV1, varA1, SPV1, varD, SPTV1,  EGBV2, ...}, element \code{gains} (a data.frame) with \code{EGBVDG, ETGVDG, varADG, SPVDG, varDDG, SPTVDG} for the desired gains index
-#'   and a list with element \code{covariances} with segregation covariance matrix for each cross.
-#'   If \code{covariance = FALSE}, a data.frame with the same columns \code{EGBV1, ETGV1, varA1, SPV1, varD, SPTV1,  EGBV2, ....}.
+#'   (a data.frame) whose columns are named
+#'   \code{EGBV1, ETGV1, varA1, SPV1, varD1, TSPV1, EGBV2, ...}
+#'   and covariance matrices per cross.
+#'   If \code{covariance = TRUE} and \code{calculate.index = TRUE}, additionally an element \code{index}
+#'   (a data.frame) with \code{IDG_A, VARIDG_A, SPVIDG_A, IDG_AD, VARIDG_AD, SPVIDG_AD}.
+#'   If \code{covariance = FALSE}, a data.frame with the same columns.
 #'
-#' @examples
-#' \dontrun{
-#' # toy shapes only
-#' crosses <- matrix(c(1,2, 3,4), ncol = 2, byrow = TRUE)
-#' hap1 <- matrix(sample(0:1, 20, TRUE), nrow = 5)  # 5 inds x 4 markers
-#' hap2 <- matrix(sample(0:1, 20, TRUE), nrow = 5)
-#' genetic.map <- data.frame(site = 1:ncol(hap1), chr = c(1,1,2,2), pos = c(0,10,0,10))
-#' U <- matrix(rnorm(ncol(hap1)), ncol = 1)
-#' D <- matrix(rnorm(ncol(hap1)), ncol = 1)
-#' out <- calculate_variances_F1(crosses, genetic.map, hap1, hap2, U, D, intensity = 1.0, covariance = FALSE)
-#' }
 #' @export
-calculate_variances_F1 <- function(crosses, genetic.map, hap1, hap2, U, D, intensity, covariance,
-                                   calculate.gains = FALSE, gains = NULL, n.Threads = 4L) {
+calculate_variances_F1 <- function(crosses, genetic.map, hap1, hap2, U, D,
+                                   intensity, covariance,
+                                   calculate.index = FALSE, weights = NULL,
+                                   n.Threads = 4L) {
 
   hap1 <- as.matrix(hap1); hap2 <- as.matrix(hap2)
   U <- as.matrix(U); D <- as.matrix(D)
   crosses <- as.matrix(crosses)
 
-  #  Basic shape checks
+  # ---- Basic checks ----
   if (!is.logical(covariance) || length(covariance) != 1L) {
     stop("`covariance` must be a single logical (TRUE/FALSE).")
   }
   if (!is.numeric(intensity) || length(intensity) != 1L) {
     stop("`intensity` must be a single numeric (standardized selection differential).")
   }
-  # Threads (match parameter name n.Threads)
+
+  # Threads
   if (length(n.Threads) != 1L || !is.finite(n.Threads) || n.Threads < 1 || n.Threads != as.integer(n.Threads)) {
     stop("`n.Threads` must be a positive integer.")
   }
@@ -78,35 +71,35 @@ calculate_variances_F1 <- function(crosses, genetic.map, hap1, hap2, U, D, inten
     stop("D must have nrow(D) == ncol(hap1). Found: nrow(D) = ", nrow(D), ", ncol(hap1) = ", ncol(hap1), ".")
   }
   if (ncol(D) != ncol(U)) stop("U and D must have the same number of trait columns.")
-
   if (ncol(crosses) != 2L) stop("`crosses` must have exactly 2 columns (P1, P2).")
 
-  if(!covariance & calculate.gains){
-    print("covariance == FALSE, ignoring desired gains related arguments")
-    calculate.gains <- FALSE
-    gains <- rep(0,ncol(U))
+  # ---- Weights checks (strict, like your 4-way wrapper) ----
+  if (calculate.index && is.null(weights)) {
+    stop("`weights` is required when calculate.index = TRUE.")
+  }
+  if (calculate.index && length(weights) != ncol(U)) {
+    stop("`weights` must have length equal to ncol(U) when calculate.index = TRUE.")
+  }
+  if (calculate.index) {
+    weights <- as.numeric(weights)
+    if (any(!is.finite(weights))) stop("`weights` must contain only finite values.")
   }
 
-  if(calculate.gains & is.null((gains))){
-    print("gains == NULL, ignoring desired gains related arguments")
-    calculate.gains <- FALSE
-    gains <- rep(0,ncol(U))
+  # If covariance is FALSE, index is not available
+  if (!covariance && calculate.index) {
+    message("covariance == FALSE: ignoring index related arguments")
+    calculate.index <- FALSE
+    weights <- rep(0, ncol(U))
   }
 
-  if(length(gains)!= ncol(U)){
-    print("length(gains)!= ncol(U), ignoring desired gains related arguments")
-    calculate.gains <- FALSE
-    gains <- rep(0,ncol(U))
-  }
-
-  #  Validate crosses against haplotypes
+  # ---- Validate crosses against haplotypes ----
   genos <- unique(as.vector(crosses))
   if (any(!is.finite(genos))) stop("`crosses` contains non-finite entries.")
   if (any(genos < 1 | genos > nrow(hap1))) {
     stop("Some genotype indices in `crosses` are outside 1..nrow(hap1).")
   }
 
-  #  Validate and align genetic.map with markers
+  # ---- Validate and align genetic.map with markers ----
   req_cols <- c("site", "chr", "pos")
   if (!all(req_cols %in% names(genetic.map))) {
     stop("`genetic.map` must contain columns: ", paste(req_cols, collapse = ", "), ".")
@@ -118,59 +111,72 @@ calculate_variances_F1 <- function(crosses, genetic.map, hap1, hap2, U, D, inten
     stop("Some markers in hap1/hap2 are missing from `genetic.map$site`.")
   }
 
-  # Reorder marker columns of haplotypes and effects to match the map order
-  ord <- as.integer(genetic.map$site)
+  # ---- Crucial: reorder to (chr, pos), and rebuild genmap consistently ----
+  map2 <- genetic.map[order(genetic.map$chr, genetic.map$pos), , drop = FALSE]
+  ord  <- as.integer(map2$site)
+
   hap1 <- hap1[, ord, drop = FALSE]
   hap2 <- hap2[, ord, drop = FALSE]
   U    <- U[ord, , drop = FALSE]
   D    <- D[ord, , drop = FALSE]
 
-  #  Build per-chromosome position matrices for C++
-  chrs <- unique(genetic.map$chr)
-  genmap_list <- lapply(chrs, function(x) {
-    as.matrix(genetic.map[genetic.map$chr == x, "pos", drop = TRUE])
+  chr_levels <- unique(map2$chr)
+  genmap_list <- lapply(chr_levels, function(cc) {
+    as.matrix(map2$pos[map2$chr == cc])
   })
 
-  #  Call C++
+  # ---- Call C++ (must match your updated signature) ----
   temp <- cpp_calculate_covariance_wolfe(
-    Crosses   = crosses,
-    genMap    = genmap_list,
-    Hap1      = hap1,
-    Hap2      = hap2,
-    U         = U,
-    D         = D,
-    intensity = intensity,
+    Crosses    = crosses,
+    genMap     = genmap_list,
+    Hap1       = hap1,
+    Hap2       = hap2,
+    U          = U,
+    D          = D,
+    intensity  = intensity,
+    weights    = weights,
     covariance = covariance,
-    calcgains = calculate.gains,
-    gains = gains,
-    nThreads  = nThreads
+    calcindex  = calculate.index,
+    nThreads   = nThreads
   )
 
-  #  Format outputs
+  # ---- Format outputs ----
   name_vec <- paste0(rep(c("EGBV","ETGV","var_a","SPV","var_d","TSPV"), each = ncol(U)), seq_len(ncol(U)))
-  names(crosses) <- c("parent1",
-                      "parent2")
+
+  crosses_df <- as.data.frame(crosses)
+  names(crosses_df) <- c("parent1", "parent2")
 
   if (covariance) {
-    if (calculate.gains) {
-      temp1 <- as.data.frame(temp$cross_values)[ , 1:(6*ncol(U)), drop = FALSE]
+    if (calculate.index) {
+      temp1 <- as.data.frame(temp$cross_values)[, 1:(6 * ncol(U)), drop = FALSE]
       names(temp1) <- name_vec
-      temp1 <- cbind(crosses,temp1)
-      temp2 <- as.data.frame(temp$cross_values)[ , (6*ncol(U) + 1):(6*ncol(U) + 6), drop = FALSE]
+      temp1 <- cbind(crosses_df, temp1)
+
+      temp2 <- as.data.frame(temp$cross_values)[, (6 * ncol(U) + 1):(6 * ncol(U) + 6), drop = FALSE]
       names(temp2) <- c("IDG_A","VARIDG_A","SPVIDG_A","IDG_AD","VARIDG_AD","SPVIDG_AD")
-      temp2 <- cbind(crosses,temp2)
-      return(list(cross_values = temp1, gains = temp2, additive_covariances = temp$covA, dominance_covariances = temp$covD))
+      temp2 <- cbind(crosses_df, temp2)
+
+      return(list(
+        cross_values = temp1,
+        index = temp2,
+        additive_covariances = temp$covA,
+        dominance_covariances = temp$covD
+      ))
     } else {
-      temp1 <- as.data.frame(temp$cross_values)[ , 1:(6*ncol(U)), drop = FALSE]
+      temp1 <- as.data.frame(temp$cross_values)[, 1:(6 * ncol(U)), drop = FALSE]
       names(temp1) <- name_vec
-      temp1 <- cbind(crosses,temp1)
-      return(list(cross_values = temp1, additive_covariances = temp$covA, dominance_covariances = temp$covD))
+      temp1 <- cbind(crosses_df, temp1)
+
+      return(list(
+        cross_values = temp1,
+        additive_covariances = temp$covA,
+        dominance_covariances = temp$covD
+      ))
     }
   } else {
     out <- as.data.frame(temp)
     names(out) <- name_vec
-   out <- cbind(crosses,out)
+    out <- cbind(crosses_df, out)
     return(out)
   }
-
 }

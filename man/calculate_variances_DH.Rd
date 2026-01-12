@@ -12,8 +12,8 @@ calculate_variances_DH(
   t,
   intensity,
   covariance = FALSE,
-  calculate.gains = FALSE,
-  gains = NULL,
+  calculate.index = FALSE,
+  weights = NULL,
   method = "osthushenrich",
   n.Threads = 4L
 )
@@ -43,10 +43,10 @@ Must have \code{nrow(U) == ncol(M)}.}
 \item{covariance}{Logical. If \code{TRUE}, also compute the segregation
 covariance matrix between all supplied traits.}
 
-\item{calculate.gains}{Logical. If \code{TRUE}, calculate the desired gains index
-based on segregation (co)variances. This only works if covariance is TRUE, else will be ignored.}
+\item{calculate.index}{Logical. If \code{TRUE}, calculate the index from fixed
+trait \code{weights}. Only works if \code{covariance = TRUE}; otherwise ignored.}
 
-\item{gains}{a vector of length equal to the number of traits with values representing the desired gains}
+\item{weights}{Numeric vector of length \code{ncol(U)} with fixed trait weights.}
 
 \item{method}{Character. Which method to use; one of
 \code{c("osthushenrich", "lehermeier")}.}
@@ -55,28 +55,13 @@ based on segregation (co)variances. This only works if covariance is TRUE, else 
 }
 \value{
 If \code{covariance = TRUE}, a list with element \code{cross_values}
-(a data.frame) whose columns are named \code{EGBV1, var1, SPV1, EGBV2, ...} and a list with element \code{covariances} with segregation covariance matrix for each cross.
-If \code{covariance = TRUE}, a list with element \code{cross_values}
-(a data.frame) whose columns are named \code{EGBV1, var1, SPV1, EGBV2, ...}, element \code{gains} (a data.frame) with \code{EGBV_DG, varDG, SPVDG} for the desired gains index
-and a list with element \code{covariances} with segregation covariance matrix for each cross.
+(a data.frame) whose columns are named \code{EGBV1, var1, SPV1, EGBV2, ...} and a list with element \code{covariances}.
+If \code{covariance = TRUE} and \code{calculate.index = TRUE}, additionally an element \code{index}
+(a data.frame) with \code{IDG_A, VARIDG_A, SPVIDG_A}.
 If \code{covariance = FALSE}, a data.frame with the same columns \code{EGBV1, var1, SPV1, EGBV2, ...}.
 }
 \description{
 Calculate expected genomic estimated breeding values (EGBV), segregation
 variance, and superior progeny value (SPV) for doubled haploid (DH) lines
 derived after \code{t} rounds of random mating.
-}
-\examples{
-\dontrun{
-out <- calculate_variances_DH(
-  crosses = matrix(c(1,2, 3,4), ncol = 2, byrow = TRUE),
-  genetic.map = data.frame(site = 1:ncol(M), chr = 1, pos = seq_len(ncol(M))),
-  M = M,
-  U = matrix(rnorm(ncol(M)), ncol = 1),
-  t = 0,
-  intensity = 1.0,
-  covariance = FALSE,
-  method = "lehermeier"
-)
-}
 }

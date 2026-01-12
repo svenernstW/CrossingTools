@@ -12,8 +12,8 @@ calculate_variances_4W_DH(
   t,
   intensity,
   covariance = FALSE,
-  calculate.gains = FALSE,
-  gains = NULL,
+  calculate.index = FALSE,
+  weights = NULL,
   n.Threads = 4L
 )
 }
@@ -46,10 +46,10 @@ Must have \code{nrow(U) == ncol(M)}.}
 \item{covariance}{Logical. If \code{TRUE}, also compute the segregation
 covariance matrix between all supplied traits.}
 
-\item{calculate.gains}{Logical. If \code{TRUE}, calculate the desired gains index
+\item{calculate.index}{Logical. If \code{TRUE}, calculate the index based on weights
 based on segregation (co)variances. This only works if covariance is TRUE, else will be ignored.}
 
-\item{gains}{a vector of length equal to the number of traits with values representing the desired gains}
+\item{weights}{a vector of length equal to the number of traits with values representing the weight}
 
 \item{n.Threads}{Integer (default 4). Number of OpenMP threads (if enabled at compile time).}
 }
@@ -57,7 +57,7 @@ based on segregation (co)variances. This only works if covariance is TRUE, else 
 If \code{covariance = TRUE}, a list with element \code{cross_values}
 (a data.frame) whose columns are named \code{EGBV1, var1, SPV1, EGBV2, ...} and a list with element \code{covariances} with segregation covariance matrix for each cross.
 If \code{covariance = TRUE}, a list with element \code{cross_values}
-(a data.frame) whose columns are named \code{EGBV1, var1, SPV1, EGBV2, ...}, element \code{gains} (a data.frame) with \code{EGBV_DG, varDG, SPVDG} for the desired gains index
+(a data.frame) whose columns are named \code{EGBV1, var1, SPV1, EGBV2, ...}, element \code{index} (a data.frame) with \code{EGBV_DG, varDG, SPVDG} for the  index
 and a list with element \code{covariances} with segregation covariance matrix for each cross.
 If \code{covariance = FALSE}, a data.frame with the same columns \code{EGBV1, var1, SPV1, EGBV2, ...}.
 }

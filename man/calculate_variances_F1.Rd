@@ -13,8 +13,8 @@ calculate_variances_F1(
   D,
   intensity,
   covariance,
-  calculate.gains = FALSE,
-  gains = NULL,
+  calculate.index = FALSE,
+  weights = NULL,
   n.Threads = 4L
 )
 }
@@ -47,35 +47,24 @@ Must have \code{nrow(D) == ncol(hap1)} and \code{ncol(D) == ncol(U)}.}
 \item{covariance}{Logical. If \code{TRUE}, also compute the segregation
 covariance matrix between all supplied traits.}
 
-\item{calculate.gains}{Logical. If \code{TRUE}, calculate the desired gains index
-based on segregation (co)variances. This only works if covariance is TRUE, else will be ignored.}
+\item{calculate.index}{Logical. If \code{TRUE}, calculate the index from fixed
+trait \code{weights}. Only works if \code{covariance = TRUE}; otherwise ignored.}
 
-\item{gains}{a vector of length equal to the number of traits with values representing the desired gains}
+\item{weights}{Numeric vector of length \code{ncol(U)} with fixed trait weights.}
 
 \item{n.Threads}{Integer (default 4). Number of OpenMP threads (if enabled at compile time).}
 }
 \value{
 If \code{covariance = TRUE}, a list with element \code{cross_values}
-(a data.frame) whose columns are named \code{EGBV1, ETGV1, varA1, SPV1, varD, SPTV1,  EGBV2, ...} and a list with element \code{covariances} with segregation covariance matrix for each cross.
-If \code{covariance = TRUE}, a list with element \code{cross_values}
-(a data.frame) whose columns are named \code{EGBV1, ETGV1, varA1, SPV1, varD, SPTV1,  EGBV2, ...}, element \code{gains} (a data.frame) with \code{EGBVDG, ETGVDG, varADG, SPVDG, varDDG, SPTVDG} for the desired gains index
-and a list with element \code{covariances} with segregation covariance matrix for each cross.
-If \code{covariance = FALSE}, a data.frame with the same columns \code{EGBV1, ETGV1, varA1, SPV1, varD, SPTV1,  EGBV2, ....}.
+(a data.frame) whose columns are named
+\code{EGBV1, ETGV1, varA1, SPV1, varD1, TSPV1, EGBV2, ...}
+and covariance matrices per cross.
+If \code{covariance = TRUE} and \code{calculate.index = TRUE}, additionally an element \code{index}
+(a data.frame) with \code{IDG_A, VARIDG_A, SPVIDG_A, IDG_AD, VARIDG_AD, SPVIDG_AD}.
+If \code{covariance = FALSE}, a data.frame with the same columns.
 }
 \description{
 Calculate expected genomic estimated breeding value (EGBV), expected total genetic value (ETGV),
 additive and dominance segregation variance, superior progeny value with additive variance (SPV),
 and superior progeny value including dominance variance (TSPV) for F1 families.
-}
-\examples{
-\dontrun{
-# toy shapes only
-crosses <- matrix(c(1,2, 3,4), ncol = 2, byrow = TRUE)
-hap1 <- matrix(sample(0:1, 20, TRUE), nrow = 5)  # 5 inds x 4 markers
-hap2 <- matrix(sample(0:1, 20, TRUE), nrow = 5)
-genetic.map <- data.frame(site = 1:ncol(hap1), chr = c(1,1,2,2), pos = c(0,10,0,10))
-U <- matrix(rnorm(ncol(hap1)), ncol = 1)
-D <- matrix(rnorm(ncol(hap1)), ncol = 1)
-out <- calculate_variances_F1(crosses, genetic.map, hap1, hap2, U, D, intensity = 1.0, covariance = FALSE)
-}
 }

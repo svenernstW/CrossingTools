@@ -2,21 +2,19 @@
 #include <RcppArmadillo.h>
 #include <vector>
 #include <cmath>
-#include "parallel_backend.h"   // new: backend switch (OpenMP or RcppParallel)
+#include "parallel_backend.h"
 
 using namespace Rcpp;
 using namespace arma;
 
 inline double cjl(double x, double y, int t) {
   double diff = std::abs(x - y);
-  double rcf  = 0.5 * (1 - std::exp(-2 * diff));
-  return ((2 * rcf) / (1 + 2 * rcf)) *
-    (1 - std::pow(0.5, t) * std::pow(1 - 2 * rcf, t));
+  double rcf  = 0.5 * (1.0 - std::exp(-2.0 * diff));
+  return ((2.0 * rcf) / (1.0 + 2.0 * rcf)) *
+    (1.0 - std::pow(0.5, t) * std::pow(1.0 - 2.0 * rcf, t));
 }
 
-// ---------------------------------------------
-// Packed upper-triangle indexing for size n
-// ---------------------------------------------
+// packed upper-triangle indexing
 inline size_t tri_index(size_t i, size_t j, size_t n) {
   if (i > j) std::swap(i, j);
   return i * n - (i * (i - 1)) / 2 + (j - i);
@@ -29,123 +27,154 @@ inline void tri_set(std::vector<double>& tri, size_t i, size_t j, size_t n, doub
 }
 
 // [[Rcpp::export]]
-SEXP cpp_calculate_covariance_RIL_allier(const NumericMatrix& Crosses,
-                                         const List& genMap,
-                                         const NumericMatrix& M,
-                                         const NumericMatrix& U,
-                                         double t,
-                                         double intensity,
-                                         const NumericVector& gains,
-                                         bool covariance = false,
-                                         bool calcgains = false,
-                                         int nThreads = 4) {
+SEXP cpp_calculate_covariance_RIL_allier(
+    const NumericMatrix& Crosses,
+    const List& genMap,
+    const NumericMatrix& M,
+    const NumericMatrix& U,
+    double t,
+    double intensity,
+    const NumericVector& weights,
+    bool covariance = false,
+    bool calcindex = false,
+    int nThreads = 4) {
+
   ct_set_threads(nThreads);
 
   const arma::uword numCrosses   = Crosses.nrow();
+  const arma::uword numMarkers   = M.ncol();
   const arma::uword numTrait     = U.ncol();
   const arma::uword numTraitComb = numTrait * (numTrait + 1) / 2;
 
   arma::mat M_mat = as<arma::mat>(M);   // (n_individuals × numMarkers)
   arma::mat U_mat = as<arma::mat>(U);   // (numMarkers × numTrait)
-  arma::vec gains_vec = as<arma::vec>(gains);  // length == numTrait
+  const arma::uword nInd = M_mat.n_rows;
+  arma::vec weights_vec = as<arma::vec>(weights);
 
   const arma::uword OFF_EG  = 0;
   const arma::uword OFF_VAR = numTrait;
   const arma::uword OFF_SPV = 2 * numTrait;
 
-  // --- Precompute chromosome ranges + positions ---
-  std::vector<std::pair<int,int>> chrRanges;
-  std::vector<std::vector<double>> chrPos;
+  // --- Precompute chromosome ranges + per-chromosome packed CK caches (global, reused by all crosses) ---
+  struct ChrCache {
+    arma::uword startC;
+    arma::uword endC;
+    arma::uword nc;
+    std::vector<double> CK1;
+    std::vector<double> CK2;
+  };
+
+  std::vector<ChrCache> chr;
+  chr.reserve(genMap.size());
+
   {
-    int startIdx = 0;
-    chrRanges.reserve(genMap.size());
-    chrPos.reserve(genMap.size());
-    for (int i = 0; i < genMap.size(); ++i) {
-      NumericMatrix gm = as<NumericMatrix>(genMap[i]);
-      int n = gm.nrow();
-      chrRanges.emplace_back(startIdx, startIdx + n - 1);
-      std::vector<double> pos(n);
-      for (int j = 0; j < n; ++j) pos[j] = gm(j, 0);
-      chrPos.emplace_back(std::move(pos));
-      startIdx += n;
+    arma::uword startIdx = 0;
+    const int t_int = static_cast<int>(t);
+
+    for (R_xlen_t ci = 0; ci < genMap.size(); ++ci) {
+      NumericMatrix gm = as<NumericMatrix>(genMap[ci]);  // col0 = position
+      const arma::uword nc = gm.nrow();
+
+      ChrCache cc;
+      cc.startC = startIdx;
+      cc.endC   = startIdx + nc - 1;
+      cc.nc     = nc;
+
+      std::vector<double> pos(nc);
+      for (arma::uword j = 0; j < nc; ++j) pos[j] = gm(j, 0);
+
+      const std::size_t L = static_cast<std::size_t>(nc) * (static_cast<std::size_t>(nc) + 1) / 2;
+      cc.CK1.assign(L, 0.0);
+      cc.CK2.assign(L, 0.0);
+
+      for (arma::uword i = 0; i < nc; ++i) {
+        for (arma::uword j = i; j < nc; ++j) {
+          double cj_t = cjl(pos[i], pos[j], t_int);
+          double cj_1 = cjl(pos[i], pos[j], 1);
+
+          double ck1 = 1.0 - 2.0 * cj_t - std::pow(0.5 * (1.0 - 2.0 * cj_1), t);
+          double ck2 = (1.0 - cj_t) * (1.0 - 2.0 * cj_1);
+
+          tri_set(cc.CK1, i, j, static_cast<std::size_t>(nc), ck1);
+          tri_set(cc.CK2, i, j, static_cast<std::size_t>(nc), ck2);
+        }
+      }
+
+      chr.emplace_back(std::move(cc));
+      startIdx += nc;
     }
+
+    if (startIdx != numMarkers) {
+      stop("Sum of genMap marker counts (%d) != ncol(M) (%d). Check ordering/alignment.",
+           (int)startIdx, (int)numMarkers);
+    }
+  }
+
+  // Copy parent indices out of Crosses (1-based in R → 0-based here)
+  arma::Mat<int> P(numCrosses, 4);
+  for (arma::uword x = 0; x < numCrosses; ++x) {
+    P(x,0) = static_cast<int>(Crosses(x,0)) - 1;
+    P(x,1) = static_cast<int>(Crosses(x,1)) - 1;
+    P(x,2) = static_cast<int>(Crosses(x,2)) - 1;
+    P(x,3) = static_cast<int>(Crosses(x,3)) - 1;
   }
 
   // Results
   arma::mat results1(numCrosses, numTraitComb, arma::fill::zeros);
-  arma::mat results2(numCrosses, numTrait*3+3, arma::fill::zeros);
+  arma::mat results2(numCrosses, numTrait * 3 + 3, arma::fill::zeros);
 
-  // Helper to map (ti, tj) with 0 ≤ ti ≤ tj < numTrait to column index
   auto tri_u_idx_incl = [numTrait](arma::uword ti, arma::uword tj) -> arma::uword {
     return ti * numTrait - (ti * (ti - 1)) / 2 + (tj - ti);
   };
 
-  // --- Stream over chromosomes ---
-  for (std::size_t chrIdx = 0; chrIdx < chrRanges.size(); ++chrIdx) {
-    const int startC = chrRanges[chrIdx].first;
-    const int endC   = chrRanges[chrIdx].second;
-    const int nc     = endC - startC + 1;
+  // --- Lehermeier style: parallel over crosses; inside, loop chromosomes and accumulate ---
+  ct_parallel_for(0, static_cast<int>(numCrosses), [&](int xi) {
+    arma::uword x = static_cast<arma::uword>(xi);
 
-    // Packed arrays length = nc*(nc+1)/2
-    const std::size_t L = static_cast<std::size_t>(nc) * (static_cast<std::size_t>(nc) + 1) / 2;
-    std::vector<double> CK1_pack(L), CK2_pack(L);
-
-    for (int i = 0; i < nc; ++i) {
-      for (int j = i; j < nc; ++j) {
-        double pi = chrPos[chrIdx][i];
-        double pj = chrPos[chrIdx][j];
-
-        double cj_t = cjl(pi, pj, static_cast<int>(t));
-        double cj_1 = cjl(pi, pj, 1);
-
-        double ck1 = 1 - 2 * cj_t - std::pow(0.5 * (1 - 2 * cj_1), t);
-        double ck2 = (1 - cj_t) * (1 - 2 * cj_1);
-
-        tri_set(CK1_pack, i, j, nc, ck1);
-        tri_set(CK2_pack, i, j, nc, ck2);
-      }
+    const int P1 = P(x,0), P2 = P(x,1), P3 = P(x,2), P4 = P(x,3);
+    if (P1 < 0 || P2 < 0 || P3 < 0 || P4 < 0 ||
+        P1 >= (int)nInd || P2 >= (int)nInd || P3 >= (int)nInd || P4 >= (int)nInd) {
+      return;
     }
 
-    ct_parallel_for(0, static_cast<int>(numCrosses), [&](int xi) {
-      arma::sword x = static_cast<arma::sword>(xi);
+    // EGBVs once per trait (genome-wide)
+    for (arma::uword ti = 0; ti < numTrait; ++ti) {
+      double G1 = arma::dot(M_mat.row(P1), U_mat.col(ti));
+      double G2 = arma::dot(M_mat.row(P2), U_mat.col(ti));
+      double G3 = arma::dot(M_mat.row(P3), U_mat.col(ti));
+      double G4 = arma::dot(M_mat.row(P4), U_mat.col(ti));
+      results2(x, OFF_EG + ti) = 0.25 * (G1 + G2 + G3 + G4);
+    }
 
-      int P1 = Crosses(x,0)-1, P2 = Crosses(x,1)-1, P3 = Crosses(x,2)-1, P4 = Crosses(x,3)-1;
+    for (arma::uword ti = 0; ti < numTrait; ++ti) {
+      for (arma::uword tj = ti; tj < numTrait; ++tj) {
+        if (!covariance && ti != tj) continue;
 
-      // bounds check against M_mat.n_rows (arma::uword)
-      arma::uword nrows = M_mat.n_rows;
-      if (P1 < 0 || P2 < 0 || P3 < 0 || P4 < 0 ||
-          static_cast<arma::uword>(P1) >= nrows ||
-          static_cast<arma::uword>(P2) >= nrows ||
-          static_cast<arma::uword>(P3) >= nrows ||
-          static_cast<arma::uword>(P4) >= nrows) {
-        return;
-      }
+        double Sigma = 0.0; // accumulate across chromosomes
 
-      const rowvec m1 = M_mat.row(P1);
-      const rowvec m2 = M_mat.row(P2);
-      const rowvec m3 = M_mat.row(P3);
-      const rowvec m4 = M_mat.row(P4);
+        for (const auto& cc : chr) {
+          const arma::uword startC = cc.startC;
+          const arma::uword endC   = cc.endC;
+          const arma::uword nc     = cc.nc;
 
-      std::vector<int> chrDiff;
-      chrDiff.reserve(256);
-      for (int g = startC; g <= endC; ++g) {
-        double a = m1[g], b = m2[g], c = m3[g], d = m4[g];
-        if ((a!=b) || (a!=c) || (a!=d) || (b!=c) || (b!=d) || (c!=d)) chrDiff.push_back(g);
-      }
-      if (chrDiff.empty()) return;
+          // differing markers in this chromosome
+          std::vector<arma::uword> diff;
+          diff.reserve(256);
+          for (arma::uword g = startC; g <= endC; ++g) {
+            double a = M_mat(P1, g), b = M_mat(P2, g), c = M_mat(P3, g), d = M_mat(P4, g);
+            if ((a!=b) || (a!=c) || (a!=d) || (b!=c) || (b!=d) || (c!=d)) diff.push_back(g);
+          }
+          if (diff.empty()) continue;
 
-      for (arma::uword ti = 0; ti < numTrait; ++ti) {
-        for (arma::uword tj = ti; tj < numTrait; ++tj) {
-          if (!covariance && ti != tj) continue;
+          double add_chr = 0.0;
 
-          double add = 0;
-          for (std::size_t ii = 0; ii < chrDiff.size(); ++ii) {
-            const int gi = chrDiff[ii];
-            const int li = gi - startC; // local 0..nc-1
+          for (std::size_t ii = 0; ii < diff.size(); ++ii) {
+            arma::uword gi = diff[ii];
+            arma::uword li = gi - startC;
 
-            for (std::size_t jj = ii; jj < chrDiff.size(); ++jj) {
-              const int gj = chrDiff[jj];
-              const int lj = gj - startC;
+            for (std::size_t jj = ii; jj < diff.size(); ++jj) {
+              arma::uword gj = diff[jj];
+              arma::uword lj = gj - startC;
 
               double D12 = 0.0625 * ((M_mat(P1,gi)-M_mat(P2,gi))*(M_mat(P1,gj)-M_mat(P2,gj)));
               double D34 = 0.0625 * ((M_mat(P3,gi)-M_mat(P4,gi))*(M_mat(P3,gj)-M_mat(P4,gj)));
@@ -157,73 +186,53 @@ SEXP cpp_calculate_covariance_RIL_allier(const NumericMatrix& Crosses,
               double D23 = 0.0625 * ((M_mat(P2,gi)-M_mat(P3,gi))*(M_mat(P2,gj)-M_mat(P3,gj)));
               double phi2 = D14 + D13 + D24 + D23;
 
-              double ck1 = tri_get(CK1_pack, static_cast<std::size_t>(li), static_cast<std::size_t>(lj), static_cast<std::size_t>(nc));
-              double ck2 = tri_get(CK2_pack, static_cast<std::size_t>(li), static_cast<std::size_t>(lj), static_cast<std::size_t>(nc));
+              double ck1 = tri_get(cc.CK1, (std::size_t)li, (std::size_t)lj, (std::size_t)nc);
+              double ck2 = tri_get(cc.CK2, (std::size_t)li, (std::size_t)lj, (std::size_t)nc);
 
               double Dcomb = (ck1 * phi2) + (ck2 * phi1);
 
-              // Use marker indices gi/gj for U
               double contrib = U_mat(gi, ti) * Dcomb * U_mat(gj, tj);
-              add += (ii == jj) ? contrib : 2 * contrib;
+              add_chr += (ii == jj) ? contrib : 2.0 * contrib;
             }
           }
 
-          const arma::uword k = tri_u_idx_incl(ti, tj);
-          results1(x, k) = add;
+          Sigma += add_chr;
+        }
 
-          if (ti == tj) {
-            double G1 = arma::dot(M_mat.row(P1), U_mat.col(ti));
-            double G2 = arma::dot(M_mat.row(P2), U_mat.col(ti));
-            double G3 = arma::dot(M_mat.row(P3), U_mat.col(ti));
-            double G4 = arma::dot(M_mat.row(P4), U_mat.col(ti));
+        const arma::uword k = tri_u_idx_incl(ti, tj);
+        results1(x, k) = Sigma;
 
-            double eG = 0.25 * (G1 + G2 + G3 + G4);
-
-            results2(x, OFF_EG  + ti) = eG;
-            results2(x, OFF_VAR + ti) = add;
-            results2(x, OFF_SPV + ti) = eG + intensity * std::sqrt(add);
-          }
+        if (ti == tj) {
+          double eG = results2(x, OFF_EG + ti);
+          results2(x, OFF_VAR + ti) = Sigma;
+          results2(x, OFF_SPV + ti) = eG + intensity * std::sqrt(Sigma);
         }
       }
-    });
+    }
+  });
 
-  } // end chromosome loop
-
-  // If requested, convert each row to an nTrait×nTrait symmetric matrix
+  // If requested, convert each row to an nTrait×nTrait symmetric matrix + desired gains index
   if (covariance) {
     std::vector<arma::mat> covs(numCrosses);
 
     ct_parallel_for(0, static_cast<int>(numCrosses), [&](int xi) {
       arma::uword x = static_cast<arma::uword>(xi);
-      arma::mat G(numTrait, numTrait, arma::fill::zeros);
+
+      arma::mat V(numTrait, numTrait, arma::fill::zeros);
       for (arma::uword ti = 0; ti < numTrait; ++ti) {
         for (arma::uword tj = ti; tj < numTrait; ++tj) {
-          const arma::uword k = tri_u_idx_incl(ti, tj); // 0..Ktri-1
+          const arma::uword k = tri_u_idx_incl(ti, tj);
           const double v = results1(x, k);
-          G(ti, tj) = v;
-          G(tj, ti) = v;
+          V(ti, tj) = v;
+          V(tj, ti) = v;
         }
       }
-      covs[x] = std::move(G);
+      covs[x] = V;
 
-      if (calcgains) {
-        arma::mat V = covs[x];
-        arma::mat L;
-        bool spd = arma::chol(L, V);
-        if (!spd) {
-          arma::vec eval; arma::mat evec;
-          arma::eig_sym(eval, evec, V);                 // O(n^3) but n is tiny
-          double tol = std::max(1e-12, 1e-8 * eval.max());
-          for (auto& l : eval) if (l < tol) l = tol;    // clamp
-          V = evec * arma::diagmat(eval) * evec.t();    // PSD → SPD
-          arma::chol(L, V);
-        }
+      if (calcindex) {
 
-        arma::vec w;
-        arma::solve(w, V, gains_vec, arma::solve_opts::likely_sympd);
-
-        double sigma_gains = arma::as_scalar(w.t() * V * w);
-        double index = arma::as_scalar(results2.row(x).cols(0, numTrait - 1) * w);
+        double sigma_gains = arma::as_scalar(weights_vec.t() * V * weights_vec);
+        double index = arma::as_scalar(results2.row(x).cols(0, numTrait - 1) * weights_vec);
         double spvi  = index + intensity * std::sqrt(sigma_gains);
 
         results2(x, 3 * numTrait + 0) = index;
@@ -232,7 +241,6 @@ SEXP cpp_calculate_covariance_RIL_allier(const NumericMatrix& Crosses,
       }
     });
 
-    // wrap covariances into an R list
     Rcpp::List out(numCrosses);
     for (arma::uword x = 0; x < numCrosses; ++x) out[x] = Rcpp::wrap(covs[x]);
 
