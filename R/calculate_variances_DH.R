@@ -42,7 +42,7 @@ calculate_variances_DH <- function(crosses, genetic.map, M, U, t, intensity,
   if (!is.matrix(M)) M <- as.matrix(M)
   if (!is.matrix(U)) U <- as.matrix(U)
   crosses <- as.matrix(crosses)
-
+  if(ncol(U)==1 & is.null(weights)){weights <- c(1)}
   # Validate method early
   method <- match.arg(method, c("osthushenrich", "lehermeier"))
 

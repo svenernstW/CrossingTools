@@ -58,7 +58,7 @@ calculate_variances_4W_RIL <- function(crosses, genetic.map, M, U, t, intensity,
   if (!is.matrix(M)) M <- as.matrix(M)
   if (!is.matrix(U)) U <- as.matrix(U)
   crosses <- as.matrix(crosses)
-
+  if(ncol(U)==1 & is.null(weights)){weights <- c(1)}
   # ---- Checks ----
   if (ncol(M) <= 0L) stop("M must have markers in columns.")
   if (nrow(U) != ncol(M)) stop("U must have nrow(U) == ncol(M).")

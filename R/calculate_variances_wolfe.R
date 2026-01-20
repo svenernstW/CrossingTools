@@ -47,7 +47,7 @@ calculate_variances_F1 <- function(crosses, genetic.map, hap1, hap2, U, D,
   hap1 <- as.matrix(hap1); hap2 <- as.matrix(hap2)
   U <- as.matrix(U); D <- as.matrix(D)
   crosses <- as.matrix(crosses)
-
+  if(ncol(U)==1 & is.null(weights)){weights <- c(1)}
   # ---- Basic checks ----
   if (!is.logical(covariance) || length(covariance) != 1L) {
     stop("`covariance` must be a single logical (TRUE/FALSE).")
