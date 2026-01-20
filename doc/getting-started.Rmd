@@ -33,7 +33,38 @@ M <- matrix(sample(c(0, 2), n_ind * n_mark, replace = TRUE), nrow = n_ind)
 # Simulate additive marker effects for all traits (markers x traits)
 U <- matrix(rnorm(n_mark * n_trait), ncol = n_trait)
 
-# Define a simple two-chromosome map with evenly spaced markersin Morgan
+# Calculate individual breeding values (genetic values)
+A <- M %*% U
+```
+
+## Desired Gains Index (DGI)
+
+CrossingTools supports multi-trait optimization via a Desired Gains Index (DGI).
+The DGI translates *target improvements* (desired gains) into *trait weights*,
+which can then be used to compute an index for individuals or crosses.
+
+In this example we aim to improve all traits equally.
+
+```{r desired-gains}
+# Desired gains: improve all traits by the same amount
+gains <- rep(10, n_trait)
+
+# Calculate desired gains index for individuals and the resulting trait weights
+DG <- calculate_desired_gains(
+  A            = A,           # breeding values per individual x trait
+  use.V.approx = TRUE,        # uses cov(A) as an empirical approximation
+  gains        = gains
+)
+
+# Index score per individual
+head(DG$index)
+
+# Trait weights implied by desired gains
+DG$weight
+```
+
+```{r genetic map and crosses}
+# Define a simple two-chromosome map with evenly spaced markers in Morgan
 map <- data.frame(
   site = 1:n_mark,
   chr  = rep(1:2, each = n_mark / 2),
@@ -47,52 +78,51 @@ crosses <- t(combn(n_ind, 2))
 ```
 
 ### Doubled Haploids (DH)
+
+The Doubled Haploid (DH) population type assumes complete homozygosity.
+The function `calculate_variances_DH()` estimates expected genetic variance,
+superior progeny value (SPV), and (optionally) trait covariances for all possible crosses.
+
+With the updated API, you can additionally request an **index** at the cross level
+by setting `calculate.index = TRUE` and providing `weights` (e.g., from the DGI).
+
 ```{r dh}
-# ------------------------------------------------------------
-# Doubled Haploid (DH) Families
-# ------------------------------------------------------------
-# The DH population type assumes complete homozygosity.
-# The CrossingTools function `calculate_variances_DH` 
-# estimates the expected genetic variance, superior progeny value,
-# and optionally covariance among traits
-# for all possible crosses.
-
-# The method argument supports both "osthushenrich" and "lehermeier" for the 
-# respective methods to calculate segregation variance.When multiple traits are
-# included and covariance = TRUE, trait covariances are also computed.
-
-
 out_dh <- calculate_variances_DH(
   crosses         = crosses,
-  genetic.map     = map,       # must contain site, chr, and pos covering all M columns
-  M               = M,         # genotype matrix (0/2 coding)
-  U               = U,         # additive marker effects (markers x traits)
-  t               = 2,         # random-mating generations before DH creation
-  intensity       = 1,         # selection differential for SPV
-  covariance      = TRUE,      # include segregation covariance matrices
+  genetic.map     = map,        # must contain site, chr, pos covering all M columns
+  M               = M,          # genotype matrix (0/2 coding)
+  U               = U,          # additive marker effects (markers x traits)
+  t               = 2,          # random-mating generations before DH creation
+  intensity       = 1,          # selection differential for SPV
+  covariance      = TRUE,       # include segregation covariance matrices
+  calculate.index = TRUE,       # compute index statistics per cross
+  weights         = DG$weight,  # trait weights for index
   method          = "osthushenrich"
 )
 
-# The cross_values component is a data.frame summarizing per-cross statistics:
+# The cross_values component summarizes per-cross statistics per trait:
 #  * EGBV: Expected Genetic Breeding Value per trait
-#  * var: Genetic variance of segregating progeny per trait
-#  * SPV: Superior Progeny Value (expected selection gain per cross)
+#  * var:  Genetic variance of segregating progeny per trait
+#  * SPV:  Superior Progeny Value per trait
 head(out_dh$cross_values)
 
 # If covariance = TRUE, each cross includes a trait covariance matrix.
 # The following example shows the first cross (trait x trait covariance):
 out_dh$covariances[[1]]
 
+# The index component summarizes the same quantities for the multi-trait index:
+#  * EGBV: expected index mean
+#  * var:  index variance
+#  * SPV:  index-based superior progeny value
+head(out_dh$index)
 ```
 
 ### Recombinant Inbred Lines (RIL)
-```{r ril}
-# ------------------------------------------------------------
-# Recombinant Inbred Line (RIL) Families
-# ------------------------------------------------------------
-# The function `calculate_variances_RIL` works analogously to the DH version,
-# but models the genetic variance expected after RIL generation instead of DH.
 
+The function `calculate_variances_RIL()` works analogously to the DH version,
+but models the genetic variance expected after RIL generation instead of DH.
+
+```{r ril}
 out_ril <- calculate_variances_RIL(
   crosses         = crosses,
   genetic.map     = map,
@@ -101,6 +131,8 @@ out_ril <- calculate_variances_RIL(
   t               = 2,
   intensity       = 1,
   covariance      = TRUE,
+  calculate.index = TRUE,
+  weights         = DG$weight,
   method          = "osthushenrich"
 )
 
@@ -110,43 +142,44 @@ head(out_ril$cross_values)
 # Inspect the first covariance matrix (trait x trait)
 out_ril$covariances[[1]]
 
+# Summarize the index
+head(out_ril$index)
 ```
 
 ### Four-Way Crosses (DH & RIL)
+
+Four-way (and three-way) crosses are constructed by combining multiple biparental crosses.
+Columns 1:2 correspond to the first pair, and columns 3:4 to the second pair.
+For a 3-way cross, the first pair can be duplicated in columns 1:2, with new parents
+in columns 3 and/or 4.
+
+The four-way variants work similarly and can also compute an index.
+
 ```{r four-way}
-# ------------------------------------------------------------
-# Four-Way Crosses (4W)
-# ------------------------------------------------------------
-# Four-way (and three-way) crosses are constructed by combining
-# multiple biparental crosses. Columns 1:2 correspond to the first
-# pair, and columns 3:4 to the second pair. For a 3-way cross,
-# the first pair can be duplicated as columns 1:2, with new
-# parents in columns 3 and/or 4.
-
-# The four-way variants of the variance functions work similarly
-# to DH and RIL versions and can incorporate multiple traits,
-# covariance matrices, and selection intensity.
-
-crosses4 <- t(combn(n_ind,4))
+crosses4 <- t(combn(n_ind, 4))
 
 out_4w_DH <- calculate_variances_4W_DH(
-  crosses     = crosses4,
-  genetic.map = map,
-  M           = M,
-  U           = U,
-  t           = 1,
-  intensity   = 1,
-  covariance  = TRUE
+  crosses         = crosses4,
+  genetic.map     = map,
+  M               = M,
+  U               = U,
+  t               = 1,
+  intensity       = 1,
+  covariance      = TRUE,
+  calculate.index = TRUE,
+  weights         = DG$weight
 )
 
 out_4w_RIL <- calculate_variances_4W_RIL(
-  crosses     = crosses4,
-  genetic.map = map,
-  M           = M,
-  U           = U,
-  t           = 1,
-  intensity   = 1,
-  covariance  = TRUE
+  crosses         = crosses4,
+  genetic.map     = map,
+  M               = M,
+  U               = U,
+  t               = 1,
+  intensity       = 1,
+  covariance      = TRUE,
+  calculate.index = TRUE,
+  weights         = DG$weight
 )
 
 head(out_4w_DH$cross_values)
@@ -154,14 +187,13 @@ head(out_4w_RIL$cross_values)
 ```
 
 ### Clonal Breeding with Heterozygous Parents and F1s (Additive + Dominance)
-```{r f1}
-# ------------------------------------------------------------
-# Clonal breeding: Heterozygous Parents (Additive + Dominance Effects)
-# ------------------------------------------------------------
-# For clonal breeding When parents are heterozygous, both additive and dominance effects
-# contribute to offspring performance. To model this, we provide haplotype
-# matrices for each parent: hap1 and hap2 (0/1 coding).
 
+For clonal breeding with heterozygous parents, both additive and dominance effects
+contribute to offspring performance. To model this, provide haplotype matrices for
+each parent: `hap1` and `hap2` (0/1 coding), as well as additive (`U`) and dominance (`D`)
+marker effects.
+
+```{r f1}
 hap1 <- matrix(sample(0:1, n_ind * n_mark, replace = TRUE), nrow = n_ind, ncol = n_mark)
 hap2 <- matrix(sample(0:1, n_ind * n_mark, replace = TRUE), nrow = n_ind, ncol = n_mark)
 
@@ -176,40 +208,36 @@ out_f1 <- calculate_variances_F1(
   U               = U,
   D               = D,
   intensity       = 1,
-  calculate.gains = TRUE,
-  gains           = c(1, 1, 1),
-  covariance      = TRUE
+  covariance      = TRUE,
+  calculate.index = TRUE,
+  weights         = DG$weight
 )
 
-# The results include additive and dominance contributions to genetic variance:
-#  * EGBV: Expected Genetic Breeding Value (additive)
-#  * ETGV: Expected Total Genetic Value (additive + dominance)
-#  * var_a, var_d: Additive and dominance variance components
-#  * SPV, TSPV: Superior Progeny Value Values with and without dominance
+# The results include additive and dominance contributions to genetic variance
+# and (if covariance = TRUE) additive/dominance covariance matrices per cross.
 head(out_f1$cross_values)
-head(out_f1$gains)
 
-# Additive covariance matrices per cross are available under:
-#out_f1$additive_covariances
-#out_f1$dominance_covariances
+# Example: first cross additive and dominance covariance matrices (trait x trait)
+out_f1$additive_covariances[[1]]
+out_f1$dominance_covariances[[1]]
+
+# Index summary per cross
+head(out_f1$index)
 ```
 
 ### Optimal Cross Selection (OCS)
-```{r ocs}
-# ------------------------------------------------------------
-# Optimal Cross Selection (OCS)
-# ------------------------------------------------------------
-# OCS identifies an optimal subset of crosses balancing expected genetic gain
-# and diversity using a genetic algorithm (GA). It can use all values calculated above
-# such as EGBV or SPV
 
+OCS identifies an optimal subset of crosses balancing expected genetic gain and diversity
+using a genetic algorithm (GA). It can use any cross-level criterion computed above
+(e.g., EGBV, SPV, or the index SPV).
+
+```{r ocs}
 # Compute a genomic relationship matrix (G) as a measure of relatedness.
 G <- tcrossprod(scale(M, center = TRUE, scale = FALSE)) / n_mark
 
-# Select a cross-level criterion, here SPV for the first trait.
+# Select a cross-level criterion (example: SPV for trait 1).
 crit <- out_dh$cross_values$SPV1
 
-# Execute OCS optimization.
 ocs <- optimal_cross_selection(
   crosses        = crosses,
   ncrosses       = 20,
@@ -224,79 +252,18 @@ ocs <- optimal_cross_selection(
   n.Threads      = 2L
 )
 
-# The selected optimal cross plan (ncrosses x 2) is returned as:
+# The selected optimal cross plan (ncrosses x 3: parent 1; parent 2; the row in crosses which it refers to) is returned as:
 head(ocs$crossPlan)
 ```
 
-### Multi-Trait Optimization with CrossingTools
-```{r desired gains}
-# ------------------------------------------------------------
-# Multi-Trait Optimization and Desired Gains Index (DGI)
-# ------------------------------------------------------------
-# Multi-trait optimization in CrossingTools is based on the Desired Gains Index (DGI).
-# The DGI provides a unified framework to achieve user-specified improvement goals across
-# multiple traits, by combining expected means and covariances into a single index.
-
-# Example scenario:
-# We aim to increase the first two traits equally while keeping the third constant.
-gains <- c(1, 1, 0)
-
-# ------------------------------------------------------------
-# Approach 1: DGI based on Genomic BLUPs (A) and posterior variance (V)
-# ------------------------------------------------------------
-# Following Werner et al. (2024), this method uses genomic BLUPs (A) as predicted
-# genetic values per individual and their associated (co)variance structure (V).
-# When posterior variances are unavailable, the covariance matrix of A can be used
-# as an approximation (V.approx). This assumes balanced data.
-
-A <- M %*% U         # predicted genetic values per trait
-V.approx <- cov(A)   # approximate posterior covariance of BLUPs
-
-IDG <- calculate_desired_gains(
-  A             = A,
-  V.approx      = V.approx,
-  gains         = gains,
-  use.V.approx  = TRUE,
-  use.V = FALSE,
-  use.marginal.V = F
-)
-
-# Returns a single-column data.frame containing DGI scores per individual.
-head(IDG)
-
-# ------------------------------------------------------------
-# Approach 2: DGI based on Segregation (Co)variances from Crosses
-# ------------------------------------------------------------
-# This approach estimates the DGI at the cross level by leveraging segregation
-# variances. This can be interpreted as a posterior segregation variance based
-# on marker BLUPs.
-out_dh <- calculate_variances_DH(
-  crosses         = crosses,
-  genetic.map     = map,
-  M               = M,
-  U               = U,
-  t               = 2,
-  intensity       = 1,
-  covariance      = TRUE,
-  gains           = gains,
-  calculate.gains = TRUE,
-  method          = "osthushenrich"
-)
-
-# The resulting $gains component summarizes expected multi-trait progress
-# under the specified desired gains vector.
-head(out_dh$gains)
-```
-
 ### Other Utilities
-```{r ohv}
-# ------------------------------------------------------------
-# Optimal Haploid Value (OHV)
-# ------------------------------------------------------------
-# The OHV function identifies optimal haploid gamete combinations given
-# additive marker effects. It can operate using defined marker blocks or
-# treat each marker independently if none are provided.
 
+#### Optimal Haploid Value (OHV)
+
+The OHV function identifies optimal haploid gamete combinations given additive marker effects.
+It can operate using defined marker blocks or treat each marker independently if none are provided.
+
+```{r ohv}
 ohv <- calculate_optimal_haploid_value(
   crosses = crosses,
   M       = M,
@@ -306,31 +273,20 @@ ohv <- calculate_optimal_haploid_value(
 head(ohv)
 ```
 
+#### Backsolving Marker Effects
+
+If you have individual-level genetic values (e.g., BLUPs or GEBVs),
+`u_from_g()` can estimate underlying marker effects `U`. This is useful
+for reconstructing marker effects consistent with a known relationship matrix.
+
 ```{r backsolve}
-# ------------------------------------------------------------
-# Backsolving Marker Effects
-# ------------------------------------------------------------
-# If you have individual-level genetic values (e.g., BLUPs or GEBVs),
-# `u_from_g` can estimate the underlying marker effects U. This is useful
-# for reconstructing marker effects consistent with a known relationship matrix.
-
-
-
 u_fit <- u_from_g(
-  M                   = M,
-  G                   = G,
-  g                   = A,
-  scaling.factor      = 1 / n_mark, # scaling factor applied to the GRM
-  tol                 = 1e-10,
-  LD.var              = FALSE, 
-  calc.prior.Vcov     = FALSE,
-  calc.posterior.Vcov = FALSE
+  M              = M,
+  G              = G,
+  g              = A,
+  scaling.factor = 1 / n_mark # scaling factor applied to the GRM
 )
 
-# The output contains:
-#  * mu_matrix: Estimated marker effects (n_mark x n_trait)
-#  * variance_LD: LD-adjusted variance components (per trait or group)
-
-head(u_fit$mu_matrix)
-#u_fit$variance_LD 
+# `u_fit` contains estimated marker effects and (depending on settings) variance components.
+head(u_fit)
 ```

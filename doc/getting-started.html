@@ -358,453 +358,420 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 <span id="cb1-16"><a href="#cb1-16" tabindex="-1"></a><span class="co"># Simulate additive marker effects for all traits (markers x traits)</span></span>
 <span id="cb1-17"><a href="#cb1-17" tabindex="-1"></a>U <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">rnorm</span>(n_mark <span class="sc">*</span> n_trait), <span class="at">ncol =</span> n_trait)</span>
 <span id="cb1-18"><a href="#cb1-18" tabindex="-1"></a></span>
-<span id="cb1-19"><a href="#cb1-19" tabindex="-1"></a><span class="co"># Define a simple two-chromosome map with evenly spaced markersin Morgan</span></span>
-<span id="cb1-20"><a href="#cb1-20" tabindex="-1"></a>map <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb1-21"><a href="#cb1-21" tabindex="-1"></a>  <span class="at">site =</span> <span class="dv">1</span><span class="sc">:</span>n_mark,</span>
-<span id="cb1-22"><a href="#cb1-22" tabindex="-1"></a>  <span class="at">chr  =</span> <span class="fu">rep</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>, <span class="at">each =</span> n_mark <span class="sc">/</span> <span class="dv">2</span>),</span>
-<span id="cb1-23"><a href="#cb1-23" tabindex="-1"></a>  <span class="at">pos  =</span> <span class="fu">c</span>(<span class="fu">seq</span>(<span class="dv">0</span>, <span class="fl">1.5</span>, <span class="at">length.out =</span> n_mark <span class="sc">/</span> <span class="dv">2</span>),</span>
-<span id="cb1-24"><a href="#cb1-24" tabindex="-1"></a>           <span class="fu">seq</span>(<span class="dv">0</span>, <span class="fl">1.5</span>, <span class="at">length.out =</span> n_mark <span class="sc">/</span> <span class="dv">2</span>))</span>
-<span id="cb1-25"><a href="#cb1-25" tabindex="-1"></a>)</span>
-<span id="cb1-26"><a href="#cb1-26" tabindex="-1"></a></span>
-<span id="cb1-27"><a href="#cb1-27" tabindex="-1"></a><span class="co"># Generate all possible pairwise crosses among the individuals.</span></span>
-<span id="cb1-28"><a href="#cb1-28" tabindex="-1"></a><span class="co"># This scales as O(n^2) and can become large in realistic populations.</span></span>
-<span id="cb1-29"><a href="#cb1-29" tabindex="-1"></a>crosses <span class="ot">&lt;-</span> <span class="fu">t</span>(<span class="fu">combn</span>(n_ind, <span class="dv">2</span>))</span></code></pre></div>
+<span id="cb1-19"><a href="#cb1-19" tabindex="-1"></a><span class="co"># Calculate individual breeding values (genetic values)</span></span>
+<span id="cb1-20"><a href="#cb1-20" tabindex="-1"></a>A <span class="ot">&lt;-</span> M <span class="sc">%*%</span> U</span></code></pre></div>
+<div id="desired-gains-index-dgi" class="section level2">
+<h2>Desired Gains Index (DGI)</h2>
+<p>CrossingTools supports multi-trait optimization via a Desired Gains
+Index (DGI). The DGI translates <em>target improvements</em> (desired
+gains) into <em>trait weights</em>, which can then be used to compute an
+index for individuals or crosses.</p>
+<p>In this example we aim to improve all traits equally.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="co"># Desired gains: improve all traits by the same amount</span></span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>gains <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="dv">10</span>, n_trait)</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a><span class="co"># Calculate desired gains index for individuals and the resulting trait weights</span></span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>DG <span class="ot">&lt;-</span> <span class="fu">calculate_desired_gains</span>(</span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>  <span class="at">A            =</span> A,           <span class="co"># breeding values per individual x trait</span></span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a>  <span class="at">use.V.approx =</span> <span class="cn">TRUE</span>,        <span class="co"># uses cov(A) as an empirical approximation</span></span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a>  <span class="at">gains        =</span> gains</span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a>)</span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a><span class="co"># Index score per individual</span></span>
+<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a><span class="fu">head</span>(DG<span class="sc">$</span>index)</span>
+<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a><span class="co">#&gt;     DG_index</span></span>
+<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a><span class="co">#&gt; 1 -0.5507776</span></span>
+<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a><span class="co">#&gt; 2 -1.9343438</span></span>
+<span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a><span class="co">#&gt; 3 -1.4079370</span></span>
+<span id="cb2-17"><a href="#cb2-17" tabindex="-1"></a><span class="co">#&gt; 4 -0.5280406</span></span>
+<span id="cb2-18"><a href="#cb2-18" tabindex="-1"></a><span class="co">#&gt; 5 -2.4087399</span></span>
+<span id="cb2-19"><a href="#cb2-19" tabindex="-1"></a><span class="co">#&gt; 6  0.4069202</span></span>
+<span id="cb2-20"><a href="#cb2-20" tabindex="-1"></a></span>
+<span id="cb2-21"><a href="#cb2-21" tabindex="-1"></a><span class="co"># Trait weights implied by desired gains</span></span>
+<span id="cb2-22"><a href="#cb2-22" tabindex="-1"></a>DG<span class="sc">$</span>weight</span>
+<span id="cb2-23"><a href="#cb2-23" tabindex="-1"></a><span class="co">#&gt; [1] 0.02482374 0.04200556 0.08168854</span></span></code></pre></div>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="co"># Define a simple two-chromosome map with evenly spaced markers in Morgan</span></span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>map <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>  <span class="at">site =</span> <span class="dv">1</span><span class="sc">:</span>n_mark,</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>  <span class="at">chr  =</span> <span class="fu">rep</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>, <span class="at">each =</span> n_mark <span class="sc">/</span> <span class="dv">2</span>),</span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>  <span class="at">pos  =</span> <span class="fu">c</span>(<span class="fu">seq</span>(<span class="dv">0</span>, <span class="fl">1.5</span>, <span class="at">length.out =</span> n_mark <span class="sc">/</span> <span class="dv">2</span>),</span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a>           <span class="fu">seq</span>(<span class="dv">0</span>, <span class="fl">1.5</span>, <span class="at">length.out =</span> n_mark <span class="sc">/</span> <span class="dv">2</span>))</span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a>)</span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a><span class="co"># Generate all possible pairwise crosses among the individuals.</span></span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a><span class="co"># This scales as O(n^2) and can become large in realistic populations.</span></span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a>crosses <span class="ot">&lt;-</span> <span class="fu">t</span>(<span class="fu">combn</span>(n_ind, <span class="dv">2</span>))</span></code></pre></div>
 <div id="doubled-haploids-dh" class="section level3">
 <h3>Doubled Haploids (DH)</h3>
-<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="co"># ------------------------------------------------------------</span></span>
-<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a><span class="co"># Doubled Haploid (DH) Families</span></span>
-<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a><span class="co"># ------------------------------------------------------------</span></span>
-<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a><span class="co"># The DH population type assumes complete homozygosity.</span></span>
-<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a><span class="co"># The CrossingTools function `calculate_variances_DH` </span></span>
-<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a><span class="co"># estimates the expected genetic variance, superior progeny value,</span></span>
-<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a><span class="co"># and optionally covariance among traits</span></span>
-<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a><span class="co"># for all possible crosses.</span></span>
-<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a></span>
-<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a><span class="co"># The method argument supports both &quot;osthushenrich&quot; and &quot;lehermeier&quot; for the </span></span>
-<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a><span class="co"># respective methods to calculate segregation variance.When multiple traits are</span></span>
-<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a><span class="co"># included and covariance = TRUE, trait covariances are also computed.</span></span>
-<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a></span>
-<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a></span>
-<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a>out_dh <span class="ot">&lt;-</span> <span class="fu">calculate_variances_DH</span>(</span>
-<span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a>  <span class="at">crosses         =</span> crosses,</span>
-<span id="cb2-17"><a href="#cb2-17" tabindex="-1"></a>  <span class="at">genetic.map     =</span> map,       <span class="co"># must contain site, chr, and pos covering all M columns</span></span>
-<span id="cb2-18"><a href="#cb2-18" tabindex="-1"></a>  <span class="at">M               =</span> M,         <span class="co"># genotype matrix (0/2 coding)</span></span>
-<span id="cb2-19"><a href="#cb2-19" tabindex="-1"></a>  <span class="at">U               =</span> U,         <span class="co"># additive marker effects (markers x traits)</span></span>
-<span id="cb2-20"><a href="#cb2-20" tabindex="-1"></a>  <span class="at">t               =</span> <span class="dv">2</span>,         <span class="co"># random-mating generations before DH creation</span></span>
-<span id="cb2-21"><a href="#cb2-21" tabindex="-1"></a>  <span class="at">intensity       =</span> <span class="dv">1</span>,         <span class="co"># selection differential for SPV</span></span>
-<span id="cb2-22"><a href="#cb2-22" tabindex="-1"></a>  <span class="at">covariance      =</span> <span class="cn">TRUE</span>,      <span class="co"># include segregation covariance matrices</span></span>
-<span id="cb2-23"><a href="#cb2-23" tabindex="-1"></a>  <span class="at">method          =</span> <span class="st">&quot;osthushenrich&quot;</span></span>
-<span id="cb2-24"><a href="#cb2-24" tabindex="-1"></a>)</span>
-<span id="cb2-25"><a href="#cb2-25" tabindex="-1"></a><span class="co">#&gt; [1] &quot;length(gains)!= ncol(U), ignoring desired gains related arguments&quot;</span></span>
-<span id="cb2-26"><a href="#cb2-26" tabindex="-1"></a></span>
-<span id="cb2-27"><a href="#cb2-27" tabindex="-1"></a><span class="co"># The cross_values component is a data.frame summarizing per-cross statistics:</span></span>
-<span id="cb2-28"><a href="#cb2-28" tabindex="-1"></a><span class="co">#  * EGBV: Expected Genetic Breeding Value per trait</span></span>
-<span id="cb2-29"><a href="#cb2-29" tabindex="-1"></a><span class="co">#  * var: Genetic variance of segregating progeny per trait</span></span>
-<span id="cb2-30"><a href="#cb2-30" tabindex="-1"></a><span class="co">#  * SPV: Superior Progeny Value (expected selection gain per cross)</span></span>
-<span id="cb2-31"><a href="#cb2-31" tabindex="-1"></a><span class="fu">head</span>(out_dh<span class="sc">$</span>cross_values)</span>
-<span id="cb2-32"><a href="#cb2-32" tabindex="-1"></a><span class="co">#&gt;        EGBV1       EGBV2     EGBV3      var1      var2      var3      SPV1</span></span>
-<span id="cb2-33"><a href="#cb2-33" tabindex="-1"></a><span class="co">#&gt; 1 -0.3777408  -5.2961924 -7.359672  86.57992  62.38558  54.85670  8.927092</span></span>
-<span id="cb2-34"><a href="#cb2-34" tabindex="-1"></a><span class="co">#&gt; 2 -6.5450754   0.7217319  1.275262  84.21509  89.46141  75.59600  2.631803</span></span>
-<span id="cb2-35"><a href="#cb2-35" tabindex="-1"></a><span class="co">#&gt; 3 -3.9390972  -5.6958650  2.041703  50.78502 129.21954  86.19511  3.187264</span></span>
-<span id="cb2-36"><a href="#cb2-36" tabindex="-1"></a><span class="co">#&gt; 4 -0.4046598 -18.4748960  6.850580  76.49514  88.09149 125.12744  8.341490</span></span>
-<span id="cb2-37"><a href="#cb2-37" tabindex="-1"></a><span class="co">#&gt; 5 -8.1673833  -2.0853227  8.700356 115.62253 108.05991  77.35884  2.585409</span></span>
-<span id="cb2-38"><a href="#cb2-38" tabindex="-1"></a><span class="co">#&gt; 6  4.9338046  -5.5850152  2.369081  91.03132 117.94125  68.31314 14.474838</span></span>
-<span id="cb2-39"><a href="#cb2-39" tabindex="-1"></a><span class="co">#&gt;        SPV2        SPV3</span></span>
-<span id="cb2-40"><a href="#cb2-40" tabindex="-1"></a><span class="co">#&gt; 1  2.602262  0.04685874</span></span>
-<span id="cb2-41"><a href="#cb2-41" tabindex="-1"></a><span class="co">#&gt; 2 10.180136  9.96985735</span></span>
-<span id="cb2-42"><a href="#cb2-42" tabindex="-1"></a><span class="co">#&gt; 3  5.671612 11.32583555</span></span>
-<span id="cb2-43"><a href="#cb2-43" tabindex="-1"></a><span class="co">#&gt; 4 -9.089189 18.03661748</span></span>
-<span id="cb2-44"><a href="#cb2-44" tabindex="-1"></a><span class="co">#&gt; 5  8.309864 17.49574329</span></span>
-<span id="cb2-45"><a href="#cb2-45" tabindex="-1"></a><span class="co">#&gt; 6  5.275061 10.63425745</span></span>
-<span id="cb2-46"><a href="#cb2-46" tabindex="-1"></a></span>
-<span id="cb2-47"><a href="#cb2-47" tabindex="-1"></a><span class="co"># If covariance = TRUE, each cross includes a trait covariance matrix.</span></span>
-<span id="cb2-48"><a href="#cb2-48" tabindex="-1"></a><span class="co"># The following example shows the first cross (trait x trait covariance):</span></span>
-<span id="cb2-49"><a href="#cb2-49" tabindex="-1"></a>out_dh<span class="sc">$</span>covariances[[<span class="dv">1</span>]]</span>
-<span id="cb2-50"><a href="#cb2-50" tabindex="-1"></a><span class="co">#&gt;           [,1]      [,2]      [,3]</span></span>
-<span id="cb2-51"><a href="#cb2-51" tabindex="-1"></a><span class="co">#&gt; [1,] 86.579920  9.736431 15.314741</span></span>
-<span id="cb2-52"><a href="#cb2-52" tabindex="-1"></a><span class="co">#&gt; [2,]  9.736431 62.385578  9.756801</span></span>
-<span id="cb2-53"><a href="#cb2-53" tabindex="-1"></a><span class="co">#&gt; [3,] 15.314741  9.756801 54.856701</span></span></code></pre></div>
+<p>The Doubled Haploid (DH) population type assumes complete
+homozygosity. The function <code>calculate_variances_DH()</code>
+estimates expected genetic variance, superior progeny value (SPV), and
+(optionally) trait covariances for all possible crosses.</p>
+<p>With the updated API, you can additionally request an
+<strong>index</strong> at the cross level by setting
+<code>calculate.index = TRUE</code> and providing <code>weights</code>
+(e.g., from the DGI).</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>out_dh <span class="ot">&lt;-</span> <span class="fu">calculate_variances_DH</span>(</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>  <span class="at">crosses         =</span> crosses,</span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>  <span class="at">genetic.map     =</span> map,        <span class="co"># must contain site, chr, pos covering all M columns</span></span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>  <span class="at">M               =</span> M,          <span class="co"># genotype matrix (0/2 coding)</span></span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>  <span class="at">U               =</span> U,          <span class="co"># additive marker effects (markers x traits)</span></span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a>  <span class="at">t               =</span> <span class="dv">2</span>,          <span class="co"># random-mating generations before DH creation</span></span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a>  <span class="at">intensity       =</span> <span class="dv">1</span>,          <span class="co"># selection differential for SPV</span></span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a>  <span class="at">covariance      =</span> <span class="cn">TRUE</span>,       <span class="co"># include segregation covariance matrices</span></span>
+<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a>  <span class="at">calculate.index =</span> <span class="cn">TRUE</span>,       <span class="co"># compute index statistics per cross</span></span>
+<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a>  <span class="at">weights         =</span> DG<span class="sc">$</span>weight,  <span class="co"># trait weights for index</span></span>
+<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a>  <span class="at">method          =</span> <span class="st">&quot;osthushenrich&quot;</span></span>
+<span id="cb4-12"><a href="#cb4-12" tabindex="-1"></a>)</span>
+<span id="cb4-13"><a href="#cb4-13" tabindex="-1"></a></span>
+<span id="cb4-14"><a href="#cb4-14" tabindex="-1"></a><span class="co"># The cross_values component summarizes per-cross statistics per trait:</span></span>
+<span id="cb4-15"><a href="#cb4-15" tabindex="-1"></a><span class="co">#  * EGBV: Expected Genetic Breeding Value per trait</span></span>
+<span id="cb4-16"><a href="#cb4-16" tabindex="-1"></a><span class="co">#  * var:  Genetic variance of segregating progeny per trait</span></span>
+<span id="cb4-17"><a href="#cb4-17" tabindex="-1"></a><span class="co">#  * SPV:  Superior Progeny Value per trait</span></span>
+<span id="cb4-18"><a href="#cb4-18" tabindex="-1"></a><span class="fu">head</span>(out_dh<span class="sc">$</span>cross_values)</span>
+<span id="cb4-19"><a href="#cb4-19" tabindex="-1"></a><span class="co">#&gt;   parent1 parent2     EGBV1     EGBV2      EGBV3      var1      var2      var3</span></span>
+<span id="cb4-20"><a href="#cb4-20" tabindex="-1"></a><span class="co">#&gt; 1       1       2  5.658129 -1.817331 -15.995862 131.99617 107.18853  55.34376</span></span>
+<span id="cb4-21"><a href="#cb4-21" tabindex="-1"></a><span class="co">#&gt; 2       1       3 -6.688164  1.926835 -10.947311  88.70636 107.29017  50.73513</span></span>
+<span id="cb4-22"><a href="#cb4-22" tabindex="-1"></a><span class="co">#&gt; 3       1       4  3.202213  2.633572  -8.930563  70.29698  47.84598  65.06935</span></span>
+<span id="cb4-23"><a href="#cb4-23" tabindex="-1"></a><span class="co">#&gt; 4       1       5  3.238419 -1.679677 -18.235026  92.29765 116.19778  60.12349</span></span>
+<span id="cb4-24"><a href="#cb4-24" tabindex="-1"></a><span class="co">#&gt; 5       1       6 13.536525 13.784432 -12.082216 119.69045 179.80045 101.46903</span></span>
+<span id="cb4-25"><a href="#cb4-25" tabindex="-1"></a><span class="co">#&gt; 6       1       7  7.455980 13.353281  -7.630800  99.87967  59.00040  90.82471</span></span>
+<span id="cb4-26"><a href="#cb4-26" tabindex="-1"></a><span class="co">#&gt;        SPV1      SPV2       SPV3</span></span>
+<span id="cb4-27"><a href="#cb4-27" tabindex="-1"></a><span class="co">#&gt; 1 17.147087  8.535858  -8.556524</span></span>
+<span id="cb4-28"><a href="#cb4-28" tabindex="-1"></a><span class="co">#&gt; 2  2.730241 12.284932  -3.824451</span></span>
+<span id="cb4-29"><a href="#cb4-29" tabindex="-1"></a><span class="co">#&gt; 3 11.586542  9.550652  -0.864006</span></span>
+<span id="cb4-30"><a href="#cb4-30" tabindex="-1"></a><span class="co">#&gt; 4 12.845586  9.099830 -10.481092</span></span>
+<span id="cb4-31"><a href="#cb4-31" tabindex="-1"></a><span class="co">#&gt; 5 24.476838 27.193401  -2.009032</span></span>
+<span id="cb4-32"><a href="#cb4-32" tabindex="-1"></a><span class="co">#&gt; 6 17.449962 21.034452   1.899400</span></span>
+<span id="cb4-33"><a href="#cb4-33" tabindex="-1"></a></span>
+<span id="cb4-34"><a href="#cb4-34" tabindex="-1"></a><span class="co"># If covariance = TRUE, each cross includes a trait covariance matrix.</span></span>
+<span id="cb4-35"><a href="#cb4-35" tabindex="-1"></a><span class="co"># The following example shows the first cross (trait x trait covariance):</span></span>
+<span id="cb4-36"><a href="#cb4-36" tabindex="-1"></a>out_dh<span class="sc">$</span>covariances[[<span class="dv">1</span>]]</span>
+<span id="cb4-37"><a href="#cb4-37" tabindex="-1"></a><span class="co">#&gt;           [,1]      [,2]     [,3]</span></span>
+<span id="cb4-38"><a href="#cb4-38" tabindex="-1"></a><span class="co">#&gt; [1,] 131.99617  67.26102 66.47944</span></span>
+<span id="cb4-39"><a href="#cb4-39" tabindex="-1"></a><span class="co">#&gt; [2,]  67.26102 107.18853 65.24917</span></span>
+<span id="cb4-40"><a href="#cb4-40" tabindex="-1"></a><span class="co">#&gt; [3,]  66.47944  65.24917 55.34376</span></span>
+<span id="cb4-41"><a href="#cb4-41" tabindex="-1"></a></span>
+<span id="cb4-42"><a href="#cb4-42" tabindex="-1"></a><span class="co"># The index component summarizes the same quantities for the multi-trait index:</span></span>
+<span id="cb4-43"><a href="#cb4-43" tabindex="-1"></a><span class="co">#  * EGBV: expected index mean</span></span>
+<span id="cb4-44"><a href="#cb4-44" tabindex="-1"></a><span class="co">#  * var:  index variance</span></span>
+<span id="cb4-45"><a href="#cb4-45" tabindex="-1"></a><span class="co">#  * SPV:  index-based superior progeny value</span></span>
+<span id="cb4-46"><a href="#cb4-46" tabindex="-1"></a><span class="fu">head</span>(out_dh<span class="sc">$</span>index)</span>
+<span id="cb4-47"><a href="#cb4-47" tabindex="-1"></a><span class="co">#&gt;   parent1 parent2       IDG_A  VARIDG_A    SPVIDG_A</span></span>
+<span id="cb4-48"><a href="#cb4-48" tabindex="-1"></a><span class="co">#&gt; 1       1       2 -1.24256068 1.4974541 -0.01885563</span></span>
+<span id="cb4-49"><a href="#cb4-49" tabindex="-1"></a><span class="co">#&gt; 2       1       3 -0.97935729 0.6494619 -0.17346533</span></span>
+<span id="cb4-50"><a href="#cb4-50" tabindex="-1"></a><span class="co">#&gt; 3       1       4 -0.53940908 0.6025095  0.23680576</span></span>
+<span id="cb4-51"><a href="#cb4-51" tabindex="-1"></a><span class="co">#&gt; 4       1       5 -1.47975871 0.8199239 -0.57426220</span></span>
+<span id="cb4-52"><a href="#cb4-52" tabindex="-1"></a><span class="co">#&gt; 5       1       6 -0.07192866 1.8760525  1.29776200</span></span>
+<span id="cb4-53"><a href="#cb4-53" tabindex="-1"></a><span class="co">#&gt; 6       1       7  0.12264837 1.2547437  1.24280180</span></span></code></pre></div>
 </div>
 <div id="recombinant-inbred-lines-ril" class="section level3">
 <h3>Recombinant Inbred Lines (RIL)</h3>
-<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="co"># ------------------------------------------------------------</span></span>
-<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="co"># Recombinant Inbred Line (RIL) Families</span></span>
-<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a><span class="co"># ------------------------------------------------------------</span></span>
-<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a><span class="co"># The function `calculate_variances_RIL` works analogously to the DH version,</span></span>
-<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a><span class="co"># but models the genetic variance expected after RIL generation instead of DH.</span></span>
-<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a></span>
-<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a>out_ril <span class="ot">&lt;-</span> <span class="fu">calculate_variances_RIL</span>(</span>
-<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a>  <span class="at">crosses         =</span> crosses,</span>
-<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a>  <span class="at">genetic.map     =</span> map,</span>
-<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a>  <span class="at">M               =</span> M,</span>
-<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a>  <span class="at">U               =</span> U,</span>
-<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a>  <span class="at">t               =</span> <span class="dv">2</span>,</span>
-<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a>  <span class="at">intensity       =</span> <span class="dv">1</span>,</span>
-<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a>  <span class="at">covariance      =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a>  <span class="at">method          =</span> <span class="st">&quot;osthushenrich&quot;</span></span>
-<span id="cb3-16"><a href="#cb3-16" tabindex="-1"></a>)</span>
-<span id="cb3-17"><a href="#cb3-17" tabindex="-1"></a><span class="co">#&gt; [1] &quot;length(gains)!= ncol(U), ignoring desired gains related arguments&quot;</span></span>
-<span id="cb3-18"><a href="#cb3-18" tabindex="-1"></a></span>
-<span id="cb3-19"><a href="#cb3-19" tabindex="-1"></a><span class="co"># Summarize the results</span></span>
-<span id="cb3-20"><a href="#cb3-20" tabindex="-1"></a><span class="fu">head</span>(out_ril<span class="sc">$</span>cross_values)</span>
-<span id="cb3-21"><a href="#cb3-21" tabindex="-1"></a><span class="co">#&gt;        EGBV1       EGBV2     EGBV3     var1      var2      var3      SPV1</span></span>
-<span id="cb3-22"><a href="#cb3-22" tabindex="-1"></a><span class="co">#&gt; 1 -0.3777408  -5.2961924 -7.359672 160.2640  97.54043  64.11213 12.281801</span></span>
-<span id="cb3-23"><a href="#cb3-23" tabindex="-1"></a><span class="co">#&gt; 2 -6.5450754   0.7217319  1.275262 192.6579 279.29787  81.52039  7.335049</span></span>
-<span id="cb3-24"><a href="#cb3-24" tabindex="-1"></a><span class="co">#&gt; 3 -3.9390972  -5.6958650  2.041703 118.7616 254.34324 118.73851  6.958681</span></span>
-<span id="cb3-25"><a href="#cb3-25" tabindex="-1"></a><span class="co">#&gt; 4 -0.4046598 -18.4748960  6.850580 108.2972 145.81285 220.79245 10.001934</span></span>
-<span id="cb3-26"><a href="#cb3-26" tabindex="-1"></a><span class="co">#&gt; 5 -8.1673833  -2.0853227  8.700356 259.2471 178.14243 169.04122  7.933769</span></span>
-<span id="cb3-27"><a href="#cb3-27" tabindex="-1"></a><span class="co">#&gt; 6  4.9338046  -5.5850152  2.369081 109.4208 258.14805  90.01333 15.394242</span></span>
-<span id="cb3-28"><a href="#cb3-28" tabindex="-1"></a><span class="co">#&gt;        SPV2       SPV3</span></span>
-<span id="cb3-29"><a href="#cb3-29" tabindex="-1"></a><span class="co">#&gt; 1  4.580064  0.6473329</span></span>
-<span id="cb3-30"><a href="#cb3-30" tabindex="-1"></a><span class="co">#&gt; 2 17.433939 10.3041261</span></span>
-<span id="cb3-31"><a href="#cb3-31" tabindex="-1"></a><span class="co">#&gt; 3 10.252277 12.9384234</span></span>
-<span id="cb3-32"><a href="#cb3-32" tabindex="-1"></a><span class="co">#&gt; 4 -6.399597 21.7096661</span></span>
-<span id="cb3-33"><a href="#cb3-33" tabindex="-1"></a><span class="co">#&gt; 5 11.261678 21.7019411</span></span>
-<span id="cb3-34"><a href="#cb3-34" tabindex="-1"></a><span class="co">#&gt; 6 10.481971 11.8566167</span></span>
-<span id="cb3-35"><a href="#cb3-35" tabindex="-1"></a></span>
-<span id="cb3-36"><a href="#cb3-36" tabindex="-1"></a><span class="co"># Inspect the first covariance matrix (trait x trait)</span></span>
-<span id="cb3-37"><a href="#cb3-37" tabindex="-1"></a>out_ril<span class="sc">$</span>covariances[[<span class="dv">1</span>]]</span>
-<span id="cb3-38"><a href="#cb3-38" tabindex="-1"></a><span class="co">#&gt;            [,1]      [,2]      [,3]</span></span>
-<span id="cb3-39"><a href="#cb3-39" tabindex="-1"></a><span class="co">#&gt; [1,] 160.264009 -2.557754 100.64812</span></span>
-<span id="cb3-40"><a href="#cb3-40" tabindex="-1"></a><span class="co">#&gt; [2,]  -2.557754 97.540434  13.15762</span></span>
-<span id="cb3-41"><a href="#cb3-41" tabindex="-1"></a><span class="co">#&gt; [3,] 100.648120 13.157622  64.11213</span></span></code></pre></div>
+<p>The function <code>calculate_variances_RIL()</code> works analogously
+to the DH version, but models the genetic variance expected after RIL
+generation instead of DH.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>out_ril <span class="ot">&lt;-</span> <span class="fu">calculate_variances_RIL</span>(</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>  <span class="at">crosses         =</span> crosses,</span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>  <span class="at">genetic.map     =</span> map,</span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a>  <span class="at">M               =</span> M,</span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a>  <span class="at">U               =</span> U,</span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a>  <span class="at">t               =</span> <span class="dv">2</span>,</span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a>  <span class="at">intensity       =</span> <span class="dv">1</span>,</span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a>  <span class="at">covariance      =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a>  <span class="at">calculate.index =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a>  <span class="at">weights         =</span> DG<span class="sc">$</span>weight,</span>
+<span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a>  <span class="at">method          =</span> <span class="st">&quot;osthushenrich&quot;</span></span>
+<span id="cb5-12"><a href="#cb5-12" tabindex="-1"></a>)</span>
+<span id="cb5-13"><a href="#cb5-13" tabindex="-1"></a></span>
+<span id="cb5-14"><a href="#cb5-14" tabindex="-1"></a><span class="co"># Summarize the results</span></span>
+<span id="cb5-15"><a href="#cb5-15" tabindex="-1"></a><span class="fu">head</span>(out_ril<span class="sc">$</span>cross_values)</span>
+<span id="cb5-16"><a href="#cb5-16" tabindex="-1"></a><span class="co">#&gt;   parent1 parent2     EGBV1     EGBV2      EGBV3      var1      var2      var3</span></span>
+<span id="cb5-17"><a href="#cb5-17" tabindex="-1"></a><span class="co">#&gt; 1       1       2  5.658129 -1.817331 -15.995862 215.53662 202.14534  69.36583</span></span>
+<span id="cb5-18"><a href="#cb5-18" tabindex="-1"></a><span class="co">#&gt; 2       1       3 -6.688164  1.926835 -10.947311 149.09540 155.73732 101.59578</span></span>
+<span id="cb5-19"><a href="#cb5-19" tabindex="-1"></a><span class="co">#&gt; 3       1       4  3.202213  2.633572  -8.930563  85.45244  75.03690  92.86677</span></span>
+<span id="cb5-20"><a href="#cb5-20" tabindex="-1"></a><span class="co">#&gt; 4       1       5  3.238419 -1.679677 -18.235026 105.09751 204.85045 160.68930</span></span>
+<span id="cb5-21"><a href="#cb5-21" tabindex="-1"></a><span class="co">#&gt; 5       1       6 13.536525 13.784432 -12.082216 232.34531 555.18817 219.17625</span></span>
+<span id="cb5-22"><a href="#cb5-22" tabindex="-1"></a><span class="co">#&gt; 6       1       7  7.455980 13.353281  -7.630800 144.27029  94.14119 115.00402</span></span>
+<span id="cb5-23"><a href="#cb5-23" tabindex="-1"></a><span class="co">#&gt;        SPV1     SPV2       SPV3</span></span>
+<span id="cb5-24"><a href="#cb5-24" tabindex="-1"></a><span class="co">#&gt; 1 20.339295 12.40045 -7.6672472</span></span>
+<span id="cb5-25"><a href="#cb5-25" tabindex="-1"></a><span class="co">#&gt; 2  5.522298 14.40631 -0.8678381</span></span>
+<span id="cb5-26"><a href="#cb5-26" tabindex="-1"></a><span class="co">#&gt; 3 12.446261 11.29596  0.7061774</span></span>
+<span id="cb5-27"><a href="#cb5-27" tabindex="-1"></a><span class="co">#&gt; 4 13.490127 12.63292 -5.5586980</span></span>
+<span id="cb5-28"><a href="#cb5-28" tabindex="-1"></a><span class="co">#&gt; 5 28.779402 37.34686  2.7223863</span></span>
+<span id="cb5-29"><a href="#cb5-29" tabindex="-1"></a><span class="co">#&gt; 6 19.467237 23.05592  3.0931924</span></span>
+<span id="cb5-30"><a href="#cb5-30" tabindex="-1"></a></span>
+<span id="cb5-31"><a href="#cb5-31" tabindex="-1"></a><span class="co"># Inspect the first covariance matrix (trait x trait)</span></span>
+<span id="cb5-32"><a href="#cb5-32" tabindex="-1"></a>out_ril<span class="sc">$</span>covariances[[<span class="dv">1</span>]]</span>
+<span id="cb5-33"><a href="#cb5-33" tabindex="-1"></a><span class="co">#&gt;          [,1]     [,2]      [,3]</span></span>
+<span id="cb5-34"><a href="#cb5-34" tabindex="-1"></a><span class="co">#&gt; [1,] 215.5366 172.3847 141.45991</span></span>
+<span id="cb5-35"><a href="#cb5-35" tabindex="-1"></a><span class="co">#&gt; [2,] 172.3847 202.1453 168.28676</span></span>
+<span id="cb5-36"><a href="#cb5-36" tabindex="-1"></a><span class="co">#&gt; [3,] 141.4599 168.2868  69.36583</span></span>
+<span id="cb5-37"><a href="#cb5-37" tabindex="-1"></a></span>
+<span id="cb5-38"><a href="#cb5-38" tabindex="-1"></a><span class="co"># Summarize the index</span></span>
+<span id="cb5-39"><a href="#cb5-39" tabindex="-1"></a><span class="fu">head</span>(out_ril<span class="sc">$</span>index)</span>
+<span id="cb5-40"><a href="#cb5-40" tabindex="-1"></a><span class="co">#&gt;   parent1 parent2       IDG_A VARIDG_A    SPVIDG_A</span></span>
+<span id="cb5-41"><a href="#cb5-41" tabindex="-1"></a><span class="co">#&gt; 1       1       2 -1.24256068 3.040497  0.50114136</span></span>
+<span id="cb5-42"><a href="#cb5-42" tabindex="-1"></a><span class="co">#&gt; 2       1       3 -0.97935729 1.076643  0.05825664</span></span>
+<span id="cb5-43"><a href="#cb5-43" tabindex="-1"></a><span class="co">#&gt; 3       1       4 -0.53940908 1.110707  0.51449159</span></span>
+<span id="cb5-44"><a href="#cb5-44" tabindex="-1"></a><span class="co">#&gt; 4       1       5 -1.47975871 1.698088 -0.17665161</span></span>
+<span id="cb5-45"><a href="#cb5-45" tabindex="-1"></a><span class="co">#&gt; 5       1       6 -0.07192866 4.064738  1.94419092</span></span>
+<span id="cb5-46"><a href="#cb5-46" tabindex="-1"></a><span class="co">#&gt; 6       1       7  0.12264837 2.425257  1.67997217</span></span></code></pre></div>
 </div>
 <div id="four-way-crosses-dh-ril" class="section level3">
 <h3>Four-Way Crosses (DH &amp; RIL)</h3>
-<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="co"># ------------------------------------------------------------</span></span>
-<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="co"># Four-Way Crosses (4W)</span></span>
-<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a><span class="co"># ------------------------------------------------------------</span></span>
-<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a><span class="co"># Four-way (and three-way) crosses are constructed by combining</span></span>
-<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a><span class="co"># multiple biparental crosses. Columns 1:2 correspond to the first</span></span>
-<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a><span class="co"># pair, and columns 3:4 to the second pair. For a 3-way cross,</span></span>
-<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a><span class="co"># the first pair can be duplicated as columns 1:2, with new</span></span>
-<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a><span class="co"># parents in columns 3 and/or 4.</span></span>
-<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a></span>
-<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a><span class="co"># The four-way variants of the variance functions work similarly</span></span>
-<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a><span class="co"># to DH and RIL versions and can incorporate multiple traits,</span></span>
-<span id="cb4-12"><a href="#cb4-12" tabindex="-1"></a><span class="co"># covariance matrices, and selection intensity.</span></span>
-<span id="cb4-13"><a href="#cb4-13" tabindex="-1"></a></span>
-<span id="cb4-14"><a href="#cb4-14" tabindex="-1"></a>crosses4 <span class="ot">&lt;-</span> <span class="fu">t</span>(<span class="fu">combn</span>(n_ind,<span class="dv">4</span>))</span>
-<span id="cb4-15"><a href="#cb4-15" tabindex="-1"></a></span>
-<span id="cb4-16"><a href="#cb4-16" tabindex="-1"></a>out_4w_DH <span class="ot">&lt;-</span> <span class="fu">calculate_variances_4W_DH</span>(</span>
-<span id="cb4-17"><a href="#cb4-17" tabindex="-1"></a>  <span class="at">crosses     =</span> crosses4,</span>
-<span id="cb4-18"><a href="#cb4-18" tabindex="-1"></a>  <span class="at">genetic.map =</span> map,</span>
-<span id="cb4-19"><a href="#cb4-19" tabindex="-1"></a>  <span class="at">M           =</span> M,</span>
-<span id="cb4-20"><a href="#cb4-20" tabindex="-1"></a>  <span class="at">U           =</span> U,</span>
-<span id="cb4-21"><a href="#cb4-21" tabindex="-1"></a>  <span class="at">t           =</span> <span class="dv">1</span>,</span>
-<span id="cb4-22"><a href="#cb4-22" tabindex="-1"></a>  <span class="at">intensity   =</span> <span class="dv">1</span>,</span>
-<span id="cb4-23"><a href="#cb4-23" tabindex="-1"></a>  <span class="at">covariance  =</span> <span class="cn">TRUE</span></span>
-<span id="cb4-24"><a href="#cb4-24" tabindex="-1"></a>)</span>
-<span id="cb4-25"><a href="#cb4-25" tabindex="-1"></a><span class="co">#&gt; [1] &quot;length(gains)!= ncol(U), ignoring desired gains related arguments&quot;</span></span>
-<span id="cb4-26"><a href="#cb4-26" tabindex="-1"></a></span>
-<span id="cb4-27"><a href="#cb4-27" tabindex="-1"></a>out_4w_RIL <span class="ot">&lt;-</span> <span class="fu">calculate_variances_4W_RIL</span>(</span>
-<span id="cb4-28"><a href="#cb4-28" tabindex="-1"></a>  <span class="at">crosses     =</span> crosses4,</span>
-<span id="cb4-29"><a href="#cb4-29" tabindex="-1"></a>  <span class="at">genetic.map =</span> map,</span>
-<span id="cb4-30"><a href="#cb4-30" tabindex="-1"></a>  <span class="at">M           =</span> M,</span>
-<span id="cb4-31"><a href="#cb4-31" tabindex="-1"></a>  <span class="at">U           =</span> U,</span>
-<span id="cb4-32"><a href="#cb4-32" tabindex="-1"></a>  <span class="at">t           =</span> <span class="dv">1</span>,</span>
-<span id="cb4-33"><a href="#cb4-33" tabindex="-1"></a>  <span class="at">intensity   =</span> <span class="dv">1</span>,</span>
-<span id="cb4-34"><a href="#cb4-34" tabindex="-1"></a>  <span class="at">covariance  =</span> <span class="cn">TRUE</span></span>
-<span id="cb4-35"><a href="#cb4-35" tabindex="-1"></a>)</span>
-<span id="cb4-36"><a href="#cb4-36" tabindex="-1"></a><span class="co">#&gt; [1] &quot;length(gains)!= ncol(U), ignoring desired gains related arguments&quot;</span></span>
-<span id="cb4-37"><a href="#cb4-37" tabindex="-1"></a></span>
-<span id="cb4-38"><a href="#cb4-38" tabindex="-1"></a><span class="fu">head</span>(out_4w_DH<span class="sc">$</span>cross_values)</span>
-<span id="cb4-39"><a href="#cb4-39" tabindex="-1"></a><span class="co">#&gt;        EGBV1     EGBV2      EGBV3     var1     var2     var3        SPV1</span></span>
-<span id="cb4-40"><a href="#cb4-40" tabindex="-1"></a><span class="co">#&gt; 1  -8.679178  1.571351 -0.5561845 49.45747 62.55292 31.53661 -1.64657736</span></span>
-<span id="cb4-41"><a href="#cb4-41" tabindex="-1"></a><span class="co">#&gt; 2  -6.911959 -4.818164  1.8482537 49.07038 57.27319 65.78392  0.09306613</span></span>
-<span id="cb4-42"><a href="#cb4-42" tabindex="-1"></a><span class="co">#&gt; 3 -10.793321  3.376622  2.7731417 65.91227 52.58399 56.05414 -2.67468416</span></span>
-<span id="cb4-43"><a href="#cb4-43" tabindex="-1"></a><span class="co">#&gt; 4  -4.242727  1.626776 -0.3924957 46.48680 53.82876 42.72637  2.57539567</span></span>
-<span id="cb4-44"><a href="#cb4-44" tabindex="-1"></a><span class="co">#&gt; 5 -11.008934  4.572537  3.2993097 96.32230 65.05559 46.32475 -1.19454182</span></span>
-<span id="cb4-45"><a href="#cb4-45" tabindex="-1"></a><span class="co">#&gt; 6  -7.469713  2.796905  2.4281792 52.94737 38.65515 34.72995 -0.19321836</span></span>
-<span id="cb4-46"><a href="#cb4-46" tabindex="-1"></a><span class="co">#&gt;        SPV2      SPV3</span></span>
-<span id="cb4-47"><a href="#cb4-47" tabindex="-1"></a><span class="co">#&gt; 1  9.480391  5.059562</span></span>
-<span id="cb4-48"><a href="#cb4-48" tabindex="-1"></a><span class="co">#&gt; 2  2.749741  9.958982</span></span>
-<span id="cb4-49"><a href="#cb4-49" tabindex="-1"></a><span class="co">#&gt; 3 10.628104 10.260073</span></span>
-<span id="cb4-50"><a href="#cb4-50" tabindex="-1"></a><span class="co">#&gt; 4  8.963585  6.144046</span></span>
-<span id="cb4-51"><a href="#cb4-51" tabindex="-1"></a><span class="co">#&gt; 5 12.638241 10.105538</span></span>
-<span id="cb4-52"><a href="#cb4-52" tabindex="-1"></a><span class="co">#&gt; 6  9.014232  8.321392</span></span>
-<span id="cb4-53"><a href="#cb4-53" tabindex="-1"></a><span class="fu">head</span>(out_4w_RIL<span class="sc">$</span>cross_values)</span>
-<span id="cb4-54"><a href="#cb4-54" tabindex="-1"></a><span class="co">#&gt;        EGBV1     EGBV2      EGBV3     var1     var2     var3      SPV1</span></span>
-<span id="cb4-55"><a href="#cb4-55" tabindex="-1"></a><span class="co">#&gt; 1  -8.679178  1.571351 -0.5561845 28.72763 37.97434 20.92195 -3.319362</span></span>
-<span id="cb4-56"><a href="#cb4-56" tabindex="-1"></a><span class="co">#&gt; 2  -6.911959 -4.818164  1.8482537 29.63843 37.57444 43.74931 -1.467840</span></span>
-<span id="cb4-57"><a href="#cb4-57" tabindex="-1"></a><span class="co">#&gt; 3 -10.793321  3.376622  2.7731417 36.70382 32.87256 36.61327 -4.734953</span></span>
-<span id="cb4-58"><a href="#cb4-58" tabindex="-1"></a><span class="co">#&gt; 4  -4.242727  1.626776 -0.3924957 28.53827 34.76459 28.08512  1.099395</span></span>
-<span id="cb4-59"><a href="#cb4-59" tabindex="-1"></a><span class="co">#&gt; 5 -11.008934  4.572537  3.2993097 55.32553 43.52975 29.68484 -3.570821</span></span>
-<span id="cb4-60"><a href="#cb4-60" tabindex="-1"></a><span class="co">#&gt; 6  -7.469713  2.796905  2.4281792 31.76215 24.70790 22.60786 -1.833921</span></span>
-<span id="cb4-61"><a href="#cb4-61" tabindex="-1"></a><span class="co">#&gt;        SPV2     SPV3</span></span>
-<span id="cb4-62"><a href="#cb4-62" tabindex="-1"></a><span class="co">#&gt; 1  7.733684 4.017867</span></span>
-<span id="cb4-63"><a href="#cb4-63" tabindex="-1"></a><span class="co">#&gt; 2  1.311635 8.462580</span></span>
-<span id="cb4-64"><a href="#cb4-64" tabindex="-1"></a><span class="co">#&gt; 3  9.110082 8.824031</span></span>
-<span id="cb4-65"><a href="#cb4-65" tabindex="-1"></a><span class="co">#&gt; 4  7.522926 4.907044</span></span>
-<span id="cb4-66"><a href="#cb4-66" tabindex="-1"></a><span class="co">#&gt; 5 11.170245 8.747690</span></span>
-<span id="cb4-67"><a href="#cb4-67" tabindex="-1"></a><span class="co">#&gt; 6  7.767609 7.182951</span></span></code></pre></div>
+<p>Four-way (and three-way) crosses are constructed by combining
+multiple biparental crosses. Columns 1:2 correspond to the first pair,
+and columns 3:4 to the second pair. For a 3-way cross, the first pair
+can be duplicated in columns 1:2, with new parents in columns 3 and/or
+4.</p>
+<p>The four-way variants work similarly and can also compute an
+index.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a>crosses4 <span class="ot">&lt;-</span> <span class="fu">t</span>(<span class="fu">combn</span>(n_ind, <span class="dv">4</span>))</span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>out_4w_DH <span class="ot">&lt;-</span> <span class="fu">calculate_variances_4W_DH</span>(</span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>  <span class="at">crosses         =</span> crosses4,</span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a>  <span class="at">genetic.map     =</span> map,</span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a>  <span class="at">M               =</span> M,</span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a>  <span class="at">U               =</span> U,</span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a>  <span class="at">t               =</span> <span class="dv">1</span>,</span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a>  <span class="at">intensity       =</span> <span class="dv">1</span>,</span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a>  <span class="at">covariance      =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a>  <span class="at">calculate.index =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a>  <span class="at">weights         =</span> DG<span class="sc">$</span>weight</span>
+<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a>)</span>
+<span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a></span>
+<span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a>out_4w_RIL <span class="ot">&lt;-</span> <span class="fu">calculate_variances_4W_RIL</span>(</span>
+<span id="cb6-16"><a href="#cb6-16" tabindex="-1"></a>  <span class="at">crosses         =</span> crosses4,</span>
+<span id="cb6-17"><a href="#cb6-17" tabindex="-1"></a>  <span class="at">genetic.map     =</span> map,</span>
+<span id="cb6-18"><a href="#cb6-18" tabindex="-1"></a>  <span class="at">M               =</span> M,</span>
+<span id="cb6-19"><a href="#cb6-19" tabindex="-1"></a>  <span class="at">U               =</span> U,</span>
+<span id="cb6-20"><a href="#cb6-20" tabindex="-1"></a>  <span class="at">t               =</span> <span class="dv">1</span>,</span>
+<span id="cb6-21"><a href="#cb6-21" tabindex="-1"></a>  <span class="at">intensity       =</span> <span class="dv">1</span>,</span>
+<span id="cb6-22"><a href="#cb6-22" tabindex="-1"></a>  <span class="at">covariance      =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb6-23"><a href="#cb6-23" tabindex="-1"></a>  <span class="at">calculate.index =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb6-24"><a href="#cb6-24" tabindex="-1"></a>  <span class="at">weights         =</span> DG<span class="sc">$</span>weight</span>
+<span id="cb6-25"><a href="#cb6-25" tabindex="-1"></a>)</span>
+<span id="cb6-26"><a href="#cb6-26" tabindex="-1"></a></span>
+<span id="cb6-27"><a href="#cb6-27" tabindex="-1"></a><span class="fu">head</span>(out_4w_DH<span class="sc">$</span>cross_values)</span>
+<span id="cb6-28"><a href="#cb6-28" tabindex="-1"></a><span class="co">#&gt;   parent1 parent2 parent3 parent4      EGBV1     EGBV2     EGBV3     var1</span></span>
+<span id="cb6-29"><a href="#cb6-29" tabindex="-1"></a><span class="co">#&gt; 1       1       2       3       4  1.1617849 -3.131850 -12.27295 139.1047</span></span>
+<span id="cb6-30"><a href="#cb6-30" tabindex="-1"></a><span class="co">#&gt; 2       1       2       3       5  1.1798883 -5.288475 -16.92518 144.1050</span></span>
+<span id="cb6-31"><a href="#cb6-31" tabindex="-1"></a><span class="co">#&gt; 3       1       2       3       6  6.3289412  2.443580 -13.84878 161.2766</span></span>
+<span id="cb6-32"><a href="#cb6-32" tabindex="-1"></a><span class="co">#&gt; 4       1       2       3       7  3.2886686  2.228004 -11.62307 165.8959</span></span>
+<span id="cb6-33"><a href="#cb6-33" tabindex="-1"></a><span class="co">#&gt; 5       1       2       3       8 -0.1732359 -6.655804 -11.17255 148.1484</span></span>
+<span id="cb6-34"><a href="#cb6-34" tabindex="-1"></a><span class="co">#&gt; 6       1       2       3       9 -3.8144028  5.192009 -14.26392 139.3630</span></span>
+<span id="cb6-35"><a href="#cb6-35" tabindex="-1"></a><span class="co">#&gt;       var2      var3      SPV1      SPV2       SPV3</span></span>
+<span id="cb6-36"><a href="#cb6-36" tabindex="-1"></a><span class="co">#&gt; 1 101.0913 100.44738 12.956052  6.922566 -2.2506082</span></span>
+<span id="cb6-37"><a href="#cb6-37" tabindex="-1"></a><span class="co">#&gt; 2 159.0036  80.54382 13.184261  7.321187 -7.9505626</span></span>
+<span id="cb6-38"><a href="#cb6-38" tabindex="-1"></a><span class="co">#&gt; 3 205.2898 106.76046 19.028415 16.771516 -3.5162832</span></span>
+<span id="cb6-39"><a href="#cb6-39" tabindex="-1"></a><span class="co">#&gt; 4 115.0564 102.33549 16.168728 12.954441 -1.5069700</span></span>
+<span id="cb6-40"><a href="#cb6-40" tabindex="-1"></a><span class="co">#&gt; 5 123.3239 111.13510 11.998386  4.449326 -0.6304831</span></span>
+<span id="cb6-41"><a href="#cb6-41" tabindex="-1"></a><span class="co">#&gt; 6 167.2301  87.15083  7.990809 18.123757 -4.9284601</span></span>
+<span id="cb6-42"><a href="#cb6-42" tabindex="-1"></a><span class="fu">head</span>(out_4w_RIL<span class="sc">$</span>cross_values)</span>
+<span id="cb6-43"><a href="#cb6-43" tabindex="-1"></a><span class="co">#&gt;   parent1 parent2 parent3 parent4      EGBV1     EGBV2     EGBV3      var1</span></span>
+<span id="cb6-44"><a href="#cb6-44" tabindex="-1"></a><span class="co">#&gt; 1       1       2       3       4  1.1617849 -3.131850 -12.27295  94.96875</span></span>
+<span id="cb6-45"><a href="#cb6-45" tabindex="-1"></a><span class="co">#&gt; 2       1       2       3       5  1.1798883 -5.288475 -16.92518  97.67875</span></span>
+<span id="cb6-46"><a href="#cb6-46" tabindex="-1"></a><span class="co">#&gt; 3       1       2       3       6  6.3289412  2.443580 -13.84878 114.65557</span></span>
+<span id="cb6-47"><a href="#cb6-47" tabindex="-1"></a><span class="co">#&gt; 4       1       2       3       7  3.2886686  2.228004 -11.62307 117.15858</span></span>
+<span id="cb6-48"><a href="#cb6-48" tabindex="-1"></a><span class="co">#&gt; 5       1       2       3       8 -0.1732359 -6.655804 -11.17255  98.84306</span></span>
+<span id="cb6-49"><a href="#cb6-49" tabindex="-1"></a><span class="co">#&gt; 6       1       2       3       9 -3.8144028  5.192009 -14.26392  91.05820</span></span>
+<span id="cb6-50"><a href="#cb6-50" tabindex="-1"></a><span class="co">#&gt;        var2     var3      SPV1      SPV2      SPV3</span></span>
+<span id="cb6-51"><a href="#cb6-51" tabindex="-1"></a><span class="co">#&gt; 1  67.93567 72.00643 10.906976  5.110460 -3.787292</span></span>
+<span id="cb6-52"><a href="#cb6-52" tabindex="-1"></a><span class="co">#&gt; 2 105.54894 50.15476 11.063144  4.985227 -9.843181</span></span>
+<span id="cb6-53"><a href="#cb6-53" tabindex="-1"></a><span class="co">#&gt; 3 146.54813 68.18557 17.036675 14.549286 -5.591323</span></span>
+<span id="cb6-54"><a href="#cb6-54" tabindex="-1"></a><span class="co">#&gt; 4  81.04403 68.18346 14.112650 11.230450 -3.365743</span></span>
+<span id="cb6-55"><a href="#cb6-55" tabindex="-1"></a><span class="co">#&gt; 5  84.89901 70.81267  9.768749  2.558261 -2.757520</span></span>
+<span id="cb6-56"><a href="#cb6-56" tabindex="-1"></a><span class="co">#&gt; 6 111.97522 55.23902  5.728039 15.773843 -6.831626</span></span></code></pre></div>
 </div>
 <div id="clonal-breeding-with-heterozygous-parents-and-f1s-additive-dominance" class="section level3">
 <h3>Clonal Breeding with Heterozygous Parents and F1s (Additive +
 Dominance)</h3>
-<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="co"># ------------------------------------------------------------</span></span>
-<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="co"># Clonal breeding: Heterozygous Parents (Additive + Dominance Effects)</span></span>
-<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a><span class="co"># ------------------------------------------------------------</span></span>
-<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a><span class="co"># For clonal breeding When parents are heterozygous, both additive and dominance effects</span></span>
-<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a><span class="co"># contribute to offspring performance. To model this, we provide haplotype</span></span>
-<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a><span class="co"># matrices for each parent: hap1 and hap2 (0/1 coding).</span></span>
-<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a></span>
-<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a>hap1 <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">sample</span>(<span class="dv">0</span><span class="sc">:</span><span class="dv">1</span>, n_ind <span class="sc">*</span> n_mark, <span class="at">replace =</span> <span class="cn">TRUE</span>), <span class="at">nrow =</span> n_ind, <span class="at">ncol =</span> n_mark)</span>
-<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a>hap2 <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">sample</span>(<span class="dv">0</span><span class="sc">:</span><span class="dv">1</span>, n_ind <span class="sc">*</span> n_mark, <span class="at">replace =</span> <span class="cn">TRUE</span>), <span class="at">nrow =</span> n_ind, <span class="at">ncol =</span> n_mark)</span>
-<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a></span>
-<span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a><span class="co"># Simulate dominance marker effects (markers x traits)</span></span>
-<span id="cb5-12"><a href="#cb5-12" tabindex="-1"></a>D <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">rnorm</span>(n_mark <span class="sc">*</span> n_trait), <span class="at">ncol =</span> n_trait)</span>
-<span id="cb5-13"><a href="#cb5-13" tabindex="-1"></a></span>
-<span id="cb5-14"><a href="#cb5-14" tabindex="-1"></a>out_f1 <span class="ot">&lt;-</span> <span class="fu">calculate_variances_F1</span>(</span>
-<span id="cb5-15"><a href="#cb5-15" tabindex="-1"></a>  <span class="at">crosses         =</span> crosses,</span>
-<span id="cb5-16"><a href="#cb5-16" tabindex="-1"></a>  <span class="at">genetic.map     =</span> map,</span>
-<span id="cb5-17"><a href="#cb5-17" tabindex="-1"></a>  <span class="at">hap1            =</span> hap1,</span>
-<span id="cb5-18"><a href="#cb5-18" tabindex="-1"></a>  <span class="at">hap2            =</span> hap2,</span>
-<span id="cb5-19"><a href="#cb5-19" tabindex="-1"></a>  <span class="at">U               =</span> U,</span>
-<span id="cb5-20"><a href="#cb5-20" tabindex="-1"></a>  <span class="at">D               =</span> D,</span>
-<span id="cb5-21"><a href="#cb5-21" tabindex="-1"></a>  <span class="at">intensity       =</span> <span class="dv">1</span>,</span>
-<span id="cb5-22"><a href="#cb5-22" tabindex="-1"></a>  <span class="at">calculate.gains =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb5-23"><a href="#cb5-23" tabindex="-1"></a>  <span class="at">gains           =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">1</span>, <span class="dv">1</span>),</span>
-<span id="cb5-24"><a href="#cb5-24" tabindex="-1"></a>  <span class="at">covariance      =</span> <span class="cn">TRUE</span></span>
-<span id="cb5-25"><a href="#cb5-25" tabindex="-1"></a>)</span>
-<span id="cb5-26"><a href="#cb5-26" tabindex="-1"></a></span>
-<span id="cb5-27"><a href="#cb5-27" tabindex="-1"></a><span class="co"># The results include additive and dominance contributions to genetic variance:</span></span>
-<span id="cb5-28"><a href="#cb5-28" tabindex="-1"></a><span class="co">#  * EGBV: Expected Genetic Breeding Value (additive)</span></span>
-<span id="cb5-29"><a href="#cb5-29" tabindex="-1"></a><span class="co">#  * ETGV: Expected Total Genetic Value (additive + dominance)</span></span>
-<span id="cb5-30"><a href="#cb5-30" tabindex="-1"></a><span class="co">#  * var_a, var_d: Additive and dominance variance components</span></span>
-<span id="cb5-31"><a href="#cb5-31" tabindex="-1"></a><span class="co">#  * SPV, TSPV: Superior Progeny Value Values with and without dominance</span></span>
-<span id="cb5-32"><a href="#cb5-32" tabindex="-1"></a><span class="fu">head</span>(out_f1<span class="sc">$</span>cross_values)</span>
-<span id="cb5-33"><a href="#cb5-33" tabindex="-1"></a><span class="co">#&gt;       EGBV1       EGBV2     EGBV3     ETGV1     ETGV2    ETGV3   var_a1</span></span>
-<span id="cb5-34"><a href="#cb5-34" tabindex="-1"></a><span class="co">#&gt; 1 -13.34195   0.1530257 13.097309 29.298373 28.345523 47.87354 48.27005</span></span>
-<span id="cb5-35"><a href="#cb5-35" tabindex="-1"></a><span class="co">#&gt; 2 -16.55451  -2.5546496 11.940193 32.546556 18.042414 46.39850 58.04584</span></span>
-<span id="cb5-36"><a href="#cb5-36" tabindex="-1"></a><span class="co">#&gt; 3 -21.57688  12.6851814  5.216237  7.445928 44.236267 36.10452 61.49155</span></span>
-<span id="cb5-37"><a href="#cb5-37" tabindex="-1"></a><span class="co">#&gt; 4 -16.51096 -13.0113148 13.040077 41.439983 -8.278784 20.90536 59.58287</span></span>
-<span id="cb5-38"><a href="#cb5-38" tabindex="-1"></a><span class="co">#&gt; 5 -10.45721  -2.2936605  5.988841 33.706892 24.402729 11.98288 52.61669</span></span>
-<span id="cb5-39"><a href="#cb5-39" tabindex="-1"></a><span class="co">#&gt; 6 -14.95489  -7.4861732  5.202463 39.755597 24.988775 28.66845 45.03801</span></span>
-<span id="cb5-40"><a href="#cb5-40" tabindex="-1"></a><span class="co">#&gt;     var_a2   var_a3       SPV1      SPV2     SPV3   var_d1   var_d2   var_d3</span></span>
-<span id="cb5-41"><a href="#cb5-41" tabindex="-1"></a><span class="co">#&gt; 1 63.76289 87.11284  -6.394283  8.138193 22.43073 21.44753 17.04339 19.01523</span></span>
-<span id="cb5-42"><a href="#cb5-42" tabindex="-1"></a><span class="co">#&gt; 2 35.89069 66.59834  -8.935730  3.436234 20.10097 16.71090 22.83667 19.66420</span></span>
-<span id="cb5-43"><a href="#cb5-43" tabindex="-1"></a><span class="co">#&gt; 3 43.60542 61.21599 -13.735222 19.288622 13.04030 13.57977 13.58099 17.67010</span></span>
-<span id="cb5-44"><a href="#cb5-44" tabindex="-1"></a><span class="co">#&gt; 4 43.13043 63.25629  -8.791961 -6.443938 20.99346 13.48668 14.47741 28.19501</span></span>
-<span id="cb5-45"><a href="#cb5-45" tabindex="-1"></a><span class="co">#&gt; 5 39.18543 55.27476  -3.203476  3.966166 13.42354 12.46482 19.80001 24.87121</span></span>
-<span id="cb5-46"><a href="#cb5-46" tabindex="-1"></a><span class="co">#&gt; 6 40.08551 59.13014  -8.243855 -1.154861 12.89208 14.97311 17.22014 20.47102</span></span>
-<span id="cb5-47"><a href="#cb5-47" tabindex="-1"></a><span class="co">#&gt;      TSPV1     TSPV2    TSPV3</span></span>
-<span id="cb5-48"><a href="#cb5-48" tabindex="-1"></a><span class="co">#&gt; 1 40.87719 40.459055 61.56761</span></span>
-<span id="cb5-49"><a href="#cb5-49" tabindex="-1"></a><span class="co">#&gt; 2 44.25323 28.812071 58.99371</span></span>
-<span id="cb5-50"><a href="#cb5-50" tabindex="-1"></a><span class="co">#&gt; 3 18.97266 54.524948 48.13216</span></span>
-<span id="cb5-51"><a href="#cb5-51" tabindex="-1"></a><span class="co">#&gt; 4 52.83140  2.093512 34.16864</span></span>
-<span id="cb5-52"><a href="#cb5-52" tabindex="-1"></a><span class="co">#&gt; 5 44.49118 35.112276 24.40469</span></span>
-<span id="cb5-53"><a href="#cb5-53" tabindex="-1"></a><span class="co">#&gt; 6 50.33614 35.469803 40.88255</span></span>
-<span id="cb5-54"><a href="#cb5-54" tabindex="-1"></a><span class="fu">head</span>(out_f1<span class="sc">$</span>gains)</span>
-<span id="cb5-55"><a href="#cb5-55" tabindex="-1"></a><span class="co">#&gt;         IDG_A   VARIDG_A    SPVIDG_A   IDG_AD  VARIDG_AD SPVIDG_AD</span></span>
-<span id="cb5-56"><a href="#cb5-56" tabindex="-1"></a><span class="co">#&gt; 1 -0.05749601 0.02463044  0.09944489 1.307533 0.02322309 1.4599240</span></span>
-<span id="cb5-57"><a href="#cb5-57" tabindex="-1"></a><span class="co">#&gt; 2 -0.17959358 0.05106834  0.04638948 1.291228 0.03561595 1.4799496</span></span>
-<span id="cb5-58"><a href="#cb5-58" tabindex="-1"></a><span class="co">#&gt; 3  0.03180707 0.05236983  0.26065162 1.360410 0.04274382 1.5671561</span></span>
-<span id="cb5-59"><a href="#cb5-59" tabindex="-1"></a><span class="co">#&gt; 4 -0.35121262 0.06851174 -0.08946515 0.699069 0.05028565 0.9233136</span></span>
-<span id="cb5-60"><a href="#cb5-60" tabindex="-1"></a><span class="co">#&gt; 5 -0.14463600 0.05773116  0.09563710 1.105971 0.04692971 1.3226034</span></span>
-<span id="cb5-61"><a href="#cb5-61" tabindex="-1"></a><span class="co">#&gt; 6 -0.44084739 0.05227152 -0.21221773 1.459859 0.04455817 1.6709470</span></span>
-<span id="cb5-62"><a href="#cb5-62" tabindex="-1"></a></span>
-<span id="cb5-63"><a href="#cb5-63" tabindex="-1"></a><span class="co"># Additive covariance matrices per cross are available under:</span></span>
-<span id="cb5-64"><a href="#cb5-64" tabindex="-1"></a><span class="co">#out_f1$additive_covariances</span></span>
-<span id="cb5-65"><a href="#cb5-65" tabindex="-1"></a><span class="co">#out_f1$dominance_covariances</span></span></code></pre></div>
+<p>For clonal breeding with heterozygous parents, both additive and
+dominance effects contribute to offspring performance. To model this,
+provide haplotype matrices for each parent: <code>hap1</code> and
+<code>hap2</code> (0/1 coding), as well as additive (<code>U</code>) and
+dominance (<code>D</code>) marker effects.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a>hap1 <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">sample</span>(<span class="dv">0</span><span class="sc">:</span><span class="dv">1</span>, n_ind <span class="sc">*</span> n_mark, <span class="at">replace =</span> <span class="cn">TRUE</span>), <span class="at">nrow =</span> n_ind, <span class="at">ncol =</span> n_mark)</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>hap2 <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">sample</span>(<span class="dv">0</span><span class="sc">:</span><span class="dv">1</span>, n_ind <span class="sc">*</span> n_mark, <span class="at">replace =</span> <span class="cn">TRUE</span>), <span class="at">nrow =</span> n_ind, <span class="at">ncol =</span> n_mark)</span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a></span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a><span class="co"># Simulate dominance marker effects (markers x traits)</span></span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a>D <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">rnorm</span>(n_mark <span class="sc">*</span> n_trait), <span class="at">ncol =</span> n_trait)</span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a></span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a>out_f1 <span class="ot">&lt;-</span> <span class="fu">calculate_variances_F1</span>(</span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a>  <span class="at">crosses         =</span> crosses,</span>
+<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a>  <span class="at">genetic.map     =</span> map,</span>
+<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a>  <span class="at">hap1            =</span> hap1,</span>
+<span id="cb7-11"><a href="#cb7-11" tabindex="-1"></a>  <span class="at">hap2            =</span> hap2,</span>
+<span id="cb7-12"><a href="#cb7-12" tabindex="-1"></a>  <span class="at">U               =</span> U,</span>
+<span id="cb7-13"><a href="#cb7-13" tabindex="-1"></a>  <span class="at">D               =</span> D,</span>
+<span id="cb7-14"><a href="#cb7-14" tabindex="-1"></a>  <span class="at">intensity       =</span> <span class="dv">1</span>,</span>
+<span id="cb7-15"><a href="#cb7-15" tabindex="-1"></a>  <span class="at">covariance      =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb7-16"><a href="#cb7-16" tabindex="-1"></a>  <span class="at">calculate.index =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb7-17"><a href="#cb7-17" tabindex="-1"></a>  <span class="at">weights         =</span> DG<span class="sc">$</span>weight</span>
+<span id="cb7-18"><a href="#cb7-18" tabindex="-1"></a>)</span>
+<span id="cb7-19"><a href="#cb7-19" tabindex="-1"></a></span>
+<span id="cb7-20"><a href="#cb7-20" tabindex="-1"></a><span class="co"># The results include additive and dominance contributions to genetic variance</span></span>
+<span id="cb7-21"><a href="#cb7-21" tabindex="-1"></a><span class="co"># and (if covariance = TRUE) additive/dominance covariance matrices per cross.</span></span>
+<span id="cb7-22"><a href="#cb7-22" tabindex="-1"></a><span class="fu">head</span>(out_f1<span class="sc">$</span>cross_values)</span>
+<span id="cb7-23"><a href="#cb7-23" tabindex="-1"></a><span class="co">#&gt;   parent1 parent2       EGBV1      EGBV2     EGBV3     ETGV1     ETGV2</span></span>
+<span id="cb7-24"><a href="#cb7-24" tabindex="-1"></a><span class="co">#&gt; 1       1       2  4.09552910  0.6016574 -17.95582 -31.31028 -58.29857</span></span>
+<span id="cb7-25"><a href="#cb7-25" tabindex="-1"></a><span class="co">#&gt; 2       1       3  1.40249150  9.4245332 -19.14483 -60.63730 -35.82511</span></span>
+<span id="cb7-26"><a href="#cb7-26" tabindex="-1"></a><span class="co">#&gt; 3       1       4 -0.05926035 -7.3134096 -14.37354 -34.72909 -17.54111</span></span>
+<span id="cb7-27"><a href="#cb7-27" tabindex="-1"></a><span class="co">#&gt; 4       1       5 -1.34517769 -4.2816530  -9.23420 -50.66457 -19.79458</span></span>
+<span id="cb7-28"><a href="#cb7-28" tabindex="-1"></a><span class="co">#&gt; 5       1       6 -7.21160269 -2.3119715 -13.30675 -32.40217 -36.32385</span></span>
+<span id="cb7-29"><a href="#cb7-29" tabindex="-1"></a><span class="co">#&gt; 6       1       7 -5.42312293  2.9985658 -10.48842 -63.66769 -19.98893</span></span>
+<span id="cb7-30"><a href="#cb7-30" tabindex="-1"></a><span class="co">#&gt;        ETGV3   var_a1   var_a2   var_a3       SPV1      SPV2       SPV3</span></span>
+<span id="cb7-31"><a href="#cb7-31" tabindex="-1"></a><span class="co">#&gt; 1 20.3241049 53.17735 69.39559 43.70391 11.3878089  8.932059 -11.344923</span></span>
+<span id="cb7-32"><a href="#cb7-32" tabindex="-1"></a><span class="co">#&gt; 2 -3.7747897 56.69495 58.57033 52.53019  8.9320962 17.077659 -11.897056</span></span>
+<span id="cb7-33"><a href="#cb7-33" tabindex="-1"></a><span class="co">#&gt; 3  0.6760586 44.42290 89.07035 41.07478  6.6057906  2.124299  -7.964582</span></span>
+<span id="cb7-34"><a href="#cb7-34" tabindex="-1"></a><span class="co">#&gt; 4 22.9691086 61.36193 51.42946 53.22980  6.4882081  2.889781  -1.938325</span></span>
+<span id="cb7-35"><a href="#cb7-35" tabindex="-1"></a><span class="co">#&gt; 5  6.4228517 54.47752 66.50577 51.71656  0.1692858  5.843136  -6.115332</span></span>
+<span id="cb7-36"><a href="#cb7-36" tabindex="-1"></a><span class="co">#&gt; 6  1.8130442 65.20831 77.42612 47.86488  2.6520435 11.797777  -3.569971</span></span>
+<span id="cb7-37"><a href="#cb7-37" tabindex="-1"></a><span class="co">#&gt;      var_d1   var_d2   var_d3     TSPV1      TSPV2     TSPV3</span></span>
+<span id="cb7-38"><a href="#cb7-38" tabindex="-1"></a><span class="co">#&gt; 1 12.697537 19.83735 26.78499 -20.45464 -45.514257 32.110420</span></span>
+<span id="cb7-39"><a href="#cb7-39" tabindex="-1"></a><span class="co">#&gt; 2 11.598667 14.76592 30.00576 -49.70201 -24.329336  8.950733</span></span>
+<span id="cb7-40"><a href="#cb7-40" tabindex="-1"></a><span class="co">#&gt; 3  8.695134 18.44813 22.85889 -25.11529  -3.808271 11.866117</span></span>
+<span id="cb7-41"><a href="#cb7-41" tabindex="-1"></a><span class="co">#&gt; 4  8.928257 15.94878 16.81856 -39.84316  -8.629556 34.366028</span></span>
+<span id="cb7-42"><a href="#cb7-42" tabindex="-1"></a><span class="co">#&gt; 5 13.461498 20.75741 25.14256 -21.35229 -23.612712 18.628511</span></span>
+<span id="cb7-43"><a href="#cb7-43" tabindex="-1"></a><span class="co">#&gt; 6 13.171831 19.84962 26.34283 -51.96322  -6.734425 13.864016</span></span>
+<span id="cb7-44"><a href="#cb7-44" tabindex="-1"></a></span>
+<span id="cb7-45"><a href="#cb7-45" tabindex="-1"></a><span class="co"># Example: first cross additive and dominance covariance matrices (trait x trait)</span></span>
+<span id="cb7-46"><a href="#cb7-46" tabindex="-1"></a>out_f1<span class="sc">$</span>additive_covariances[[<span class="dv">1</span>]]</span>
+<span id="cb7-47"><a href="#cb7-47" tabindex="-1"></a><span class="co">#&gt;             [,1]        [,2]      [,3]</span></span>
+<span id="cb7-48"><a href="#cb7-48" tabindex="-1"></a><span class="co">#&gt; [1,]  53.1773451  -0.9846724 -18.68021</span></span>
+<span id="cb7-49"><a href="#cb7-49" tabindex="-1"></a><span class="co">#&gt; [2,]  -0.9846724  69.3955948 -29.48004</span></span>
+<span id="cb7-50"><a href="#cb7-50" tabindex="-1"></a><span class="co">#&gt; [3,] -18.6802078 -29.4800397  43.70391</span></span>
+<span id="cb7-51"><a href="#cb7-51" tabindex="-1"></a>out_f1<span class="sc">$</span>dominance_covariances[[<span class="dv">1</span>]]</span>
+<span id="cb7-52"><a href="#cb7-52" tabindex="-1"></a><span class="co">#&gt;           [,1]      [,2]      [,3]</span></span>
+<span id="cb7-53"><a href="#cb7-53" tabindex="-1"></a><span class="co">#&gt; [1,] 12.697537 -2.841023 -1.864943</span></span>
+<span id="cb7-54"><a href="#cb7-54" tabindex="-1"></a><span class="co">#&gt; [2,] -2.841023 19.837345 -5.809891</span></span>
+<span id="cb7-55"><a href="#cb7-55" tabindex="-1"></a><span class="co">#&gt; [3,] -1.864943 -5.809891 26.784994</span></span>
+<span id="cb7-56"><a href="#cb7-56" tabindex="-1"></a></span>
+<span id="cb7-57"><a href="#cb7-57" tabindex="-1"></a><span class="co"># Index summary per cross</span></span>
+<span id="cb7-58"><a href="#cb7-58" tabindex="-1"></a><span class="fu">head</span>(out_f1<span class="sc">$</span>index)</span>
+<span id="cb7-59"><a href="#cb7-59" tabindex="-1"></a><span class="co">#&gt;   parent1 parent2      IDG_A   VARIDG_A   SPVIDG_A     IDG_AD VARIDG_AD</span></span>
+<span id="cb7-60"><a href="#cb7-60" tabindex="-1"></a><span class="co">#&gt; 1       1       2 -1.3398450 0.16672447 -0.9315260 -1.5658558 0.3349278</span></span>
+<span id="cb7-61"><a href="#cb7-61" tabindex="-1"></a><span class="co">#&gt; 2       1       3 -1.1332151 0.38224818 -0.5149528 -3.3184549 0.5912397</span></span>
+<span id="cb7-62"><a href="#cb7-62" tabindex="-1"></a><span class="co">#&gt; 3       1       4 -1.4828286 0.09585065 -1.1732311 -1.5437036 0.2664524</span></span>
+<span id="cb7-63"><a href="#cb7-63" tabindex="-1"></a><span class="co">#&gt; 4       1       5 -0.9675739 0.29482463 -0.4245963 -0.2128535 0.4090115</span></span>
+<span id="cb7-64"><a href="#cb7-64" tabindex="-1"></a><span class="co">#&gt; 5       1       6 -1.3631439 0.12388779 -1.0111669 -1.8054731 0.2452854</span></span>
+<span id="cb7-65"><a href="#cb7-65" tabindex="-1"></a><span class="co">#&gt; 6       1       7 -0.8654491 0.47306443 -0.1776523 -2.2720111 0.6812104</span></span>
+<span id="cb7-66"><a href="#cb7-66" tabindex="-1"></a><span class="co">#&gt;    SPVIDG_AD</span></span>
+<span id="cb7-67"><a href="#cb7-67" tabindex="-1"></a><span class="co">#&gt; 1 -0.9871263</span></span>
+<span id="cb7-68"><a href="#cb7-68" tabindex="-1"></a><span class="co">#&gt; 2 -2.5495338</span></span>
+<span id="cb7-69"><a href="#cb7-69" tabindex="-1"></a><span class="co">#&gt; 3 -1.0275133</span></span>
+<span id="cb7-70"><a href="#cb7-70" tabindex="-1"></a><span class="co">#&gt; 4  0.4266867</span></span>
+<span id="cb7-71"><a href="#cb7-71" tabindex="-1"></a><span class="co">#&gt; 5 -1.3102101</span></span>
+<span id="cb7-72"><a href="#cb7-72" tabindex="-1"></a><span class="co">#&gt; 6 -1.4466564</span></span></code></pre></div>
 </div>
 <div id="optimal-cross-selection-ocs" class="section level3">
 <h3>Optimal Cross Selection (OCS)</h3>
-<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="co"># ------------------------------------------------------------</span></span>
-<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a><span class="co"># Optimal Cross Selection (OCS)</span></span>
-<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a><span class="co"># ------------------------------------------------------------</span></span>
-<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a><span class="co"># OCS identifies an optimal subset of crosses balancing expected genetic gain</span></span>
-<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a><span class="co"># and diversity using a genetic algorithm (GA). It can use all values calculated above</span></span>
-<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a><span class="co"># such as EGBV or SPV</span></span>
-<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a></span>
-<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a><span class="co"># Compute a genomic relationship matrix (G) as a measure of relatedness.</span></span>
-<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a>G <span class="ot">&lt;-</span> <span class="fu">tcrossprod</span>(<span class="fu">scale</span>(M, <span class="at">center =</span> <span class="cn">TRUE</span>, <span class="at">scale =</span> <span class="cn">FALSE</span>)) <span class="sc">/</span> n_mark</span>
-<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a></span>
-<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a><span class="co"># Select a cross-level criterion, here SPV for the first trait.</span></span>
-<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a>crit <span class="ot">&lt;-</span> out_dh<span class="sc">$</span>cross_values<span class="sc">$</span>SPV1</span>
-<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a></span>
-<span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a><span class="co"># Execute OCS optimization.</span></span>
-<span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a>ocs <span class="ot">&lt;-</span> <span class="fu">optimal_cross_selection</span>(</span>
-<span id="cb6-16"><a href="#cb6-16" tabindex="-1"></a>  <span class="at">crosses        =</span> crosses,</span>
-<span id="cb6-17"><a href="#cb6-17" tabindex="-1"></a>  <span class="at">ncrosses       =</span> <span class="dv">20</span>,</span>
-<span id="cb6-18"><a href="#cb6-18" tabindex="-1"></a>  <span class="at">G              =</span> G,</span>
-<span id="cb6-19"><a href="#cb6-19" tabindex="-1"></a>  <span class="at">u              =</span> crit,</span>
-<span id="cb6-20"><a href="#cb6-20" tabindex="-1"></a>  <span class="at">target.angle   =</span> <span class="dv">30</span> <span class="sc">*</span> pi <span class="sc">/</span> <span class="dv">180</span>,  <span class="co"># trade-off between gain and diversity (radians)</span></span>
-<span id="cb6-21"><a href="#cb6-21" tabindex="-1"></a>  <span class="at">n.select       =</span> <span class="dv">200</span>,            <span class="co"># GA parent pool size</span></span>
-<span id="cb6-22"><a href="#cb6-22" tabindex="-1"></a>  <span class="at">n.pop          =</span> <span class="dv">1000</span>,           <span class="co"># GA population size</span></span>
-<span id="cb6-23"><a href="#cb6-23" tabindex="-1"></a>  <span class="at">max.generation =</span> <span class="dv">200</span>,            <span class="co"># max GA iterations</span></span>
-<span id="cb6-24"><a href="#cb6-24" tabindex="-1"></a>  <span class="at">max.iteration  =</span> <span class="dv">50</span>,             <span class="co"># early stopping threshold</span></span>
-<span id="cb6-25"><a href="#cb6-25" tabindex="-1"></a>  <span class="at">angle.penalty  =</span> <span class="fl">0.01</span>,           <span class="co"># penalty for angle deviation</span></span>
-<span id="cb6-26"><a href="#cb6-26" tabindex="-1"></a>  <span class="at">n.Threads      =</span> 2L</span>
-<span id="cb6-27"><a href="#cb6-27" tabindex="-1"></a>)</span>
-<span id="cb6-28"><a href="#cb6-28" tabindex="-1"></a><span class="co">#&gt; Optimize for Similarity</span></span>
-<span id="cb6-29"><a href="#cb6-29" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb6-30"><a href="#cb6-30" tabindex="-1"></a><span class="co">#&gt; Gen  Similarity</span></span>
-<span id="cb6-31"><a href="#cb6-31" tabindex="-1"></a><span class="co">#&gt; 0  0.004875</span></span>
-<span id="cb6-32"><a href="#cb6-32" tabindex="-1"></a><span class="co">#&gt; 10  0.0023375</span></span>
-<span id="cb6-33"><a href="#cb6-33" tabindex="-1"></a><span class="co">#&gt; 20  0.001175</span></span>
-<span id="cb6-34"><a href="#cb6-34" tabindex="-1"></a><span class="co">#&gt; 30  0.001025</span></span>
-<span id="cb6-35"><a href="#cb6-35" tabindex="-1"></a><span class="co">#&gt; 40  3.42608e-17</span></span>
-<span id="cb6-36"><a href="#cb6-36" tabindex="-1"></a><span class="co">#&gt; 50  3.42608e-17</span></span>
-<span id="cb6-37"><a href="#cb6-37" tabindex="-1"></a><span class="co">#&gt; 60  3.42608e-17</span></span>
-<span id="cb6-38"><a href="#cb6-38" tabindex="-1"></a><span class="co">#&gt; 70  3.42608e-17</span></span>
-<span id="cb6-39"><a href="#cb6-39" tabindex="-1"></a><span class="co">#&gt; 80  3.42608e-17</span></span>
-<span id="cb6-40"><a href="#cb6-40" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb6-41"><a href="#cb6-41" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb6-42"><a href="#cb6-42" tabindex="-1"></a><span class="co">#&gt; Optimize for Crossing Plan</span></span>
-<span id="cb6-43"><a href="#cb6-43" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb6-44"><a href="#cb6-44" tabindex="-1"></a><span class="co">#&gt; Gen  acc_cross_value  Similarity  Angle  Length  Value</span></span>
-<span id="cb6-45"><a href="#cb6-45" tabindex="-1"></a><span class="co">#&gt; 0  -4.92879  0.0057625  1.47621  0.960029  0.950503</span></span>
-<span id="cb6-46"><a href="#cb6-46" tabindex="-1"></a><span class="co">#&gt; 10  -5.19525  0.002175  1.5005  0.985728  0.975959</span></span>
-<span id="cb6-47"><a href="#cb6-47" tabindex="-1"></a><span class="co">#&gt; 20  -4.14403  0.0023875  1.41536  0.99364  0.984723</span></span>
-<span id="cb6-48"><a href="#cb6-48" tabindex="-1"></a><span class="co">#&gt; 30  -3.77395  0.0023125  1.386  0.999251  0.990627</span></span>
-<span id="cb6-49"><a href="#cb6-49" tabindex="-1"></a><span class="co">#&gt; 40  -3.67548  0.0023125  1.37822  1.00074  0.992191</span></span>
-<span id="cb6-50"><a href="#cb6-50" tabindex="-1"></a><span class="co">#&gt; 50  -3.67347  0.0023125  1.37806  1.00077  0.992223</span></span>
-<span id="cb6-51"><a href="#cb6-51" tabindex="-1"></a><span class="co">#&gt; 60  -3.67347  0.0023125  1.37806  1.00077  0.992223</span></span>
-<span id="cb6-52"><a href="#cb6-52" tabindex="-1"></a><span class="co">#&gt; 70  -3.67347  0.0023125  1.37806  1.00077  0.992223</span></span>
-<span id="cb6-53"><a href="#cb6-53" tabindex="-1"></a><span class="co">#&gt; 80  -3.67347  0.0023125  1.37806  1.00077  0.992223</span></span>
-<span id="cb6-54"><a href="#cb6-54" tabindex="-1"></a><span class="co">#&gt; 90  -3.67347  0.0023125  1.37806  1.00077  0.992223</span></span>
-<span id="cb6-55"><a href="#cb6-55" tabindex="-1"></a></span>
-<span id="cb6-56"><a href="#cb6-56" tabindex="-1"></a><span class="co"># The selected optimal cross plan (ncrosses x 2) is returned as:</span></span>
-<span id="cb6-57"><a href="#cb6-57" tabindex="-1"></a><span class="fu">head</span>(ocs<span class="sc">$</span>crossPlan)</span>
-<span id="cb6-58"><a href="#cb6-58" tabindex="-1"></a><span class="co">#&gt;      [,1] [,2]</span></span>
-<span id="cb6-59"><a href="#cb6-59" tabindex="-1"></a><span class="co">#&gt; [1,]    1    3</span></span>
-<span id="cb6-60"><a href="#cb6-60" tabindex="-1"></a><span class="co">#&gt; [2,]    1   13</span></span>
-<span id="cb6-61"><a href="#cb6-61" tabindex="-1"></a><span class="co">#&gt; [3,]    1   16</span></span>
-<span id="cb6-62"><a href="#cb6-62" tabindex="-1"></a><span class="co">#&gt; [4,]    2    8</span></span>
-<span id="cb6-63"><a href="#cb6-63" tabindex="-1"></a><span class="co">#&gt; [5,]    2   20</span></span>
-<span id="cb6-64"><a href="#cb6-64" tabindex="-1"></a><span class="co">#&gt; [6,]    3   14</span></span></code></pre></div>
-</div>
-<div id="multi-trait-optimization-with-crossingtools" class="section level3">
-<h3>Multi-Trait Optimization with CrossingTools</h3>
-<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="co"># ------------------------------------------------------------</span></span>
-<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="co"># Multi-Trait Optimization and Desired Gains Index (DGI)</span></span>
-<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a><span class="co"># ------------------------------------------------------------</span></span>
-<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a><span class="co"># Multi-trait optimization in CrossingTools is based on the Desired Gains Index (DGI).</span></span>
-<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a><span class="co"># The DGI provides a unified framework to achieve user-specified improvement goals across</span></span>
-<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a><span class="co"># multiple traits, by combining expected means and covariances into a single index.</span></span>
-<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a></span>
-<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a><span class="co"># Example scenario:</span></span>
-<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a><span class="co"># We aim to increase the first two traits equally while keeping the third constant.</span></span>
-<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a>gains <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">1</span>, <span class="dv">0</span>)</span>
-<span id="cb7-11"><a href="#cb7-11" tabindex="-1"></a></span>
-<span id="cb7-12"><a href="#cb7-12" tabindex="-1"></a><span class="co"># ------------------------------------------------------------</span></span>
-<span id="cb7-13"><a href="#cb7-13" tabindex="-1"></a><span class="co"># Approach 1: DGI based on Genomic BLUPs (A) and posterior variance (V)</span></span>
-<span id="cb7-14"><a href="#cb7-14" tabindex="-1"></a><span class="co"># ------------------------------------------------------------</span></span>
-<span id="cb7-15"><a href="#cb7-15" tabindex="-1"></a><span class="co"># Following Werner et al. (2024), this method uses genomic BLUPs (A) as predicted</span></span>
-<span id="cb7-16"><a href="#cb7-16" tabindex="-1"></a><span class="co"># genetic values per individual and their associated (co)variance structure (V).</span></span>
-<span id="cb7-17"><a href="#cb7-17" tabindex="-1"></a><span class="co"># When posterior variances are unavailable, the covariance matrix of A can be used</span></span>
-<span id="cb7-18"><a href="#cb7-18" tabindex="-1"></a><span class="co"># as an approximation (V.approx). This assumes balanced data.</span></span>
-<span id="cb7-19"><a href="#cb7-19" tabindex="-1"></a></span>
-<span id="cb7-20"><a href="#cb7-20" tabindex="-1"></a>A <span class="ot">&lt;-</span> M <span class="sc">%*%</span> U         <span class="co"># predicted genetic values per trait</span></span>
-<span id="cb7-21"><a href="#cb7-21" tabindex="-1"></a>V.approx <span class="ot">&lt;-</span> <span class="fu">cov</span>(A)   <span class="co"># approximate posterior covariance of BLUPs</span></span>
-<span id="cb7-22"><a href="#cb7-22" tabindex="-1"></a></span>
-<span id="cb7-23"><a href="#cb7-23" tabindex="-1"></a>IDG <span class="ot">&lt;-</span> <span class="fu">calculate_desired_gains</span>(</span>
-<span id="cb7-24"><a href="#cb7-24" tabindex="-1"></a>  <span class="at">A             =</span> A,</span>
-<span id="cb7-25"><a href="#cb7-25" tabindex="-1"></a>  <span class="at">V.approx      =</span> V.approx,</span>
-<span id="cb7-26"><a href="#cb7-26" tabindex="-1"></a>  <span class="at">gains         =</span> gains,</span>
-<span id="cb7-27"><a href="#cb7-27" tabindex="-1"></a>  <span class="at">use.V.approx  =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb7-28"><a href="#cb7-28" tabindex="-1"></a>  <span class="at">use.V =</span> <span class="cn">FALSE</span>,</span>
-<span id="cb7-29"><a href="#cb7-29" tabindex="-1"></a>  <span class="at">use.marginal.V =</span> F</span>
-<span id="cb7-30"><a href="#cb7-30" tabindex="-1"></a>)</span>
-<span id="cb7-31"><a href="#cb7-31" tabindex="-1"></a></span>
-<span id="cb7-32"><a href="#cb7-32" tabindex="-1"></a><span class="co"># Returns a single-column data.frame containing DGI scores per individual.</span></span>
-<span id="cb7-33"><a href="#cb7-33" tabindex="-1"></a><span class="fu">head</span>(IDG)</span>
-<span id="cb7-34"><a href="#cb7-34" tabindex="-1"></a><span class="co">#&gt;      DG_index</span></span>
-<span id="cb7-35"><a href="#cb7-35" tabindex="-1"></a><span class="co">#&gt; 1  0.01459255</span></span>
-<span id="cb7-36"><a href="#cb7-36" tabindex="-1"></a><span class="co">#&gt; 2 -0.15084393</span></span>
-<span id="cb7-37"><a href="#cb7-37" tabindex="-1"></a><span class="co">#&gt; 3 -0.24681194</span></span>
-<span id="cb7-38"><a href="#cb7-38" tabindex="-1"></a><span class="co">#&gt; 4 -0.23975509</span></span>
-<span id="cb7-39"><a href="#cb7-39" tabindex="-1"></a><span class="co">#&gt; 5 -0.27036839</span></span>
-<span id="cb7-40"><a href="#cb7-40" tabindex="-1"></a><span class="co">#&gt; 6 -0.30914515</span></span>
-<span id="cb7-41"><a href="#cb7-41" tabindex="-1"></a></span>
-<span id="cb7-42"><a href="#cb7-42" tabindex="-1"></a><span class="co"># ------------------------------------------------------------</span></span>
-<span id="cb7-43"><a href="#cb7-43" tabindex="-1"></a><span class="co"># Approach 2: DGI based on Segregation (Co)variances from Crosses</span></span>
-<span id="cb7-44"><a href="#cb7-44" tabindex="-1"></a><span class="co"># ------------------------------------------------------------</span></span>
-<span id="cb7-45"><a href="#cb7-45" tabindex="-1"></a><span class="co"># This approach estimates the DGI at the cross level by leveraging segregation</span></span>
-<span id="cb7-46"><a href="#cb7-46" tabindex="-1"></a><span class="co"># variances. This can be interpreted as a posterior segregation variance based</span></span>
-<span id="cb7-47"><a href="#cb7-47" tabindex="-1"></a><span class="co"># on marker BLUPs.</span></span>
-<span id="cb7-48"><a href="#cb7-48" tabindex="-1"></a>out_dh <span class="ot">&lt;-</span> <span class="fu">calculate_variances_DH</span>(</span>
-<span id="cb7-49"><a href="#cb7-49" tabindex="-1"></a>  <span class="at">crosses         =</span> crosses,</span>
-<span id="cb7-50"><a href="#cb7-50" tabindex="-1"></a>  <span class="at">genetic.map     =</span> map,</span>
-<span id="cb7-51"><a href="#cb7-51" tabindex="-1"></a>  <span class="at">M               =</span> M,</span>
-<span id="cb7-52"><a href="#cb7-52" tabindex="-1"></a>  <span class="at">U               =</span> U,</span>
-<span id="cb7-53"><a href="#cb7-53" tabindex="-1"></a>  <span class="at">t               =</span> <span class="dv">2</span>,</span>
-<span id="cb7-54"><a href="#cb7-54" tabindex="-1"></a>  <span class="at">intensity       =</span> <span class="dv">1</span>,</span>
-<span id="cb7-55"><a href="#cb7-55" tabindex="-1"></a>  <span class="at">covariance      =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb7-56"><a href="#cb7-56" tabindex="-1"></a>  <span class="at">gains           =</span> gains,</span>
-<span id="cb7-57"><a href="#cb7-57" tabindex="-1"></a>  <span class="at">calculate.gains =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb7-58"><a href="#cb7-58" tabindex="-1"></a>  <span class="at">method          =</span> <span class="st">&quot;osthushenrich&quot;</span></span>
-<span id="cb7-59"><a href="#cb7-59" tabindex="-1"></a>)</span>
-<span id="cb7-60"><a href="#cb7-60" tabindex="-1"></a></span>
-<span id="cb7-61"><a href="#cb7-61" tabindex="-1"></a><span class="co"># The resulting $gains component summarizes expected multi-trait progress</span></span>
-<span id="cb7-62"><a href="#cb7-62" tabindex="-1"></a><span class="co"># under the specified desired gains vector.</span></span>
-<span id="cb7-63"><a href="#cb7-63" tabindex="-1"></a><span class="fu">head</span>(out_dh<span class="sc">$</span>gains)</span>
-<span id="cb7-64"><a href="#cb7-64" tabindex="-1"></a><span class="co">#&gt;         IDG_A   VARIDG_A    SPVIDG_A</span></span>
-<span id="cb7-65"><a href="#cb7-65" tabindex="-1"></a><span class="co">#&gt; 1 -0.04253995 0.02608534  0.11896961</span></span>
-<span id="cb7-66"><a href="#cb7-66" tabindex="-1"></a><span class="co">#&gt; 2 -0.13904323 0.04622204  0.07594988</span></span>
-<span id="cb7-67"><a href="#cb7-67" tabindex="-1"></a><span class="co">#&gt; 3 -0.22830528 0.04144450 -0.02472605</span></span>
-<span id="cb7-68"><a href="#cb7-68" tabindex="-1"></a><span class="co">#&gt; 4 -0.17144814 0.02598011 -0.01026467</span></span>
-<span id="cb7-69"><a href="#cb7-69" tabindex="-1"></a><span class="co">#&gt; 5 -0.08056714 0.02639651  0.08190289</span></span>
-<span id="cb7-70"><a href="#cb7-70" tabindex="-1"></a><span class="co">#&gt; 6  0.07470746 0.06548816  0.33061401</span></span></code></pre></div>
+<p>OCS identifies an optimal subset of crosses balancing expected
+genetic gain and diversity using a genetic algorithm (GA). It can use
+any cross-level criterion computed above (e.g., EGBV, SPV, or the index
+SPV).</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="co"># Compute a genomic relationship matrix (G) as a measure of relatedness.</span></span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>G <span class="ot">&lt;-</span> <span class="fu">tcrossprod</span>(<span class="fu">scale</span>(M, <span class="at">center =</span> <span class="cn">TRUE</span>, <span class="at">scale =</span> <span class="cn">FALSE</span>)) <span class="sc">/</span> n_mark</span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a></span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a><span class="co"># Select a cross-level criterion (example: SPV for trait 1).</span></span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>crit <span class="ot">&lt;-</span> out_dh<span class="sc">$</span>cross_values<span class="sc">$</span>SPV1</span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a></span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a>ocs <span class="ot">&lt;-</span> <span class="fu">optimal_cross_selection</span>(</span>
+<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a>  <span class="at">crosses        =</span> crosses,</span>
+<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a>  <span class="at">ncrosses       =</span> <span class="dv">20</span>,</span>
+<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a>  <span class="at">G              =</span> G,</span>
+<span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a>  <span class="at">u              =</span> crit,</span>
+<span id="cb8-12"><a href="#cb8-12" tabindex="-1"></a>  <span class="at">target.angle   =</span> <span class="dv">30</span> <span class="sc">*</span> pi <span class="sc">/</span> <span class="dv">180</span>,  <span class="co"># trade-off between gain and diversity (radians)</span></span>
+<span id="cb8-13"><a href="#cb8-13" tabindex="-1"></a>  <span class="at">n.select       =</span> <span class="dv">200</span>,            <span class="co"># GA parent pool size</span></span>
+<span id="cb8-14"><a href="#cb8-14" tabindex="-1"></a>  <span class="at">n.pop          =</span> <span class="dv">1000</span>,           <span class="co"># GA population size</span></span>
+<span id="cb8-15"><a href="#cb8-15" tabindex="-1"></a>  <span class="at">max.generation =</span> <span class="dv">200</span>,            <span class="co"># max GA iterations</span></span>
+<span id="cb8-16"><a href="#cb8-16" tabindex="-1"></a>  <span class="at">max.iteration  =</span> <span class="dv">50</span>,             <span class="co"># early stopping threshold</span></span>
+<span id="cb8-17"><a href="#cb8-17" tabindex="-1"></a>  <span class="at">angle.penalty  =</span> <span class="fl">0.01</span>,           <span class="co"># penalty for angle deviation</span></span>
+<span id="cb8-18"><a href="#cb8-18" tabindex="-1"></a>  <span class="at">n.Threads      =</span> 2L</span>
+<span id="cb8-19"><a href="#cb8-19" tabindex="-1"></a>)</span>
+<span id="cb8-20"><a href="#cb8-20" tabindex="-1"></a><span class="co">#&gt; Optimize for Similarity</span></span>
+<span id="cb8-21"><a href="#cb8-21" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb8-22"><a href="#cb8-22" tabindex="-1"></a><span class="co">#&gt; Gen  Similarity</span></span>
+<span id="cb8-23"><a href="#cb8-23" tabindex="-1"></a><span class="co">#&gt; 0  0.0027625</span></span>
+<span id="cb8-24"><a href="#cb8-24" tabindex="-1"></a><span class="co">#&gt; 10  0.002425</span></span>
+<span id="cb8-25"><a href="#cb8-25" tabindex="-1"></a><span class="co">#&gt; 20  0.0012375</span></span>
+<span id="cb8-26"><a href="#cb8-26" tabindex="-1"></a><span class="co">#&gt; 30  0.0011125</span></span>
+<span id="cb8-27"><a href="#cb8-27" tabindex="-1"></a><span class="co">#&gt; 40  5.63785e-18</span></span>
+<span id="cb8-28"><a href="#cb8-28" tabindex="-1"></a><span class="co">#&gt; 50  5.63785e-18</span></span>
+<span id="cb8-29"><a href="#cb8-29" tabindex="-1"></a><span class="co">#&gt; 60  5.63785e-18</span></span>
+<span id="cb8-30"><a href="#cb8-30" tabindex="-1"></a><span class="co">#&gt; 70  5.63785e-18</span></span>
+<span id="cb8-31"><a href="#cb8-31" tabindex="-1"></a><span class="co">#&gt; 80  5.63785e-18</span></span>
+<span id="cb8-32"><a href="#cb8-32" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb8-33"><a href="#cb8-33" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb8-34"><a href="#cb8-34" tabindex="-1"></a><span class="co">#&gt; Optimize for Crossing Plan</span></span>
+<span id="cb8-35"><a href="#cb8-35" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb8-36"><a href="#cb8-36" tabindex="-1"></a><span class="co">#&gt; Gen  acc_cross_value  Similarity  Angle  Length  Value</span></span>
+<span id="cb8-37"><a href="#cb8-37" tabindex="-1"></a><span class="co">#&gt; 0  13.9051  0.00435  1.45765  0.960694  0.951354</span></span>
+<span id="cb8-38"><a href="#cb8-38" tabindex="-1"></a><span class="co">#&gt; 10  17.0521  0.0063125  1.26091  0.980762  0.973389</span></span>
+<span id="cb8-39"><a href="#cb8-39" tabindex="-1"></a><span class="co">#&gt; 20  21.4034  0.016175  0.975631  1.00356  0.999041</span></span>
+<span id="cb8-40"><a href="#cb8-40" tabindex="-1"></a><span class="co">#&gt; 30  23.095  0.0225375  0.854831  1.01335  1.01003</span></span>
+<span id="cb8-41"><a href="#cb8-41" tabindex="-1"></a><span class="co">#&gt; 40  23.095  0.0225375  0.854831  1.01335  1.01003</span></span>
+<span id="cb8-42"><a href="#cb8-42" tabindex="-1"></a><span class="co">#&gt; 50  23.095  0.0225375  0.854831  1.01335  1.01003</span></span>
+<span id="cb8-43"><a href="#cb8-43" tabindex="-1"></a><span class="co">#&gt; 60  23.095  0.0225375  0.854831  1.01335  1.01003</span></span>
+<span id="cb8-44"><a href="#cb8-44" tabindex="-1"></a><span class="co">#&gt; 70  23.095  0.0225375  0.854831  1.01335  1.01003</span></span>
+<span id="cb8-45"><a href="#cb8-45" tabindex="-1"></a></span>
+<span id="cb8-46"><a href="#cb8-46" tabindex="-1"></a><span class="co"># The selected optimal cross plan (ncrosses x 3: parent 1; parent 2; the row in crosses which it refers to) is returned as:</span></span>
+<span id="cb8-47"><a href="#cb8-47" tabindex="-1"></a><span class="fu">head</span>(ocs<span class="sc">$</span>crossPlan)</span>
+<span id="cb8-48"><a href="#cb8-48" tabindex="-1"></a><span class="co">#&gt;   parent1 parent2  i</span></span>
+<span id="cb8-49"><a href="#cb8-49" tabindex="-1"></a><span class="co">#&gt; 1       1       2  1</span></span>
+<span id="cb8-50"><a href="#cb8-50" tabindex="-1"></a><span class="co">#&gt; 2       1      17 16</span></span>
+<span id="cb8-51"><a href="#cb8-51" tabindex="-1"></a><span class="co">#&gt; 3       2       5 22</span></span>
+<span id="cb8-52"><a href="#cb8-52" tabindex="-1"></a><span class="co">#&gt; 4       2       7 24</span></span>
+<span id="cb8-53"><a href="#cb8-53" tabindex="-1"></a><span class="co">#&gt; 5       4       6 56</span></span>
+<span id="cb8-54"><a href="#cb8-54" tabindex="-1"></a><span class="co">#&gt; 6       4      18 68</span></span></code></pre></div>
 </div>
 <div id="other-utilities" class="section level3">
 <h3>Other Utilities</h3>
-<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="co"># ------------------------------------------------------------</span></span>
-<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a><span class="co"># Optimal Haploid Value (OHV)</span></span>
-<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a><span class="co"># ------------------------------------------------------------</span></span>
-<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a><span class="co"># The OHV function identifies optimal haploid gamete combinations given</span></span>
-<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a><span class="co"># additive marker effects. It can operate using defined marker blocks or</span></span>
-<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a><span class="co"># treat each marker independently if none are provided.</span></span>
-<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a></span>
-<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a>ohv <span class="ot">&lt;-</span> <span class="fu">calculate_optimal_haploid_value</span>(</span>
-<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a>  <span class="at">crosses =</span> crosses,</span>
-<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a>  <span class="at">M       =</span> M,</span>
-<span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a>  <span class="at">U       =</span> U</span>
-<span id="cb8-12"><a href="#cb8-12" tabindex="-1"></a>)</span>
-<span id="cb8-13"><a href="#cb8-13" tabindex="-1"></a></span>
-<span id="cb8-14"><a href="#cb8-14" tabindex="-1"></a><span class="fu">head</span>(ohv)</span>
-<span id="cb8-15"><a href="#cb8-15" tabindex="-1"></a><span class="co">#&gt;      OHV_1    OHV_2    OHV_3</span></span>
-<span id="cb8-16"><a href="#cb8-16" tabindex="-1"></a><span class="co">#&gt; 1 74.29228 83.26458 73.85890</span></span>
-<span id="cb8-17"><a href="#cb8-17" tabindex="-1"></a><span class="co">#&gt; 2 64.25726 92.83333 91.31085</span></span>
-<span id="cb8-18"><a href="#cb8-18" tabindex="-1"></a><span class="co">#&gt; 3 57.29607 71.88496 71.90016</span></span>
-<span id="cb8-19"><a href="#cb8-19" tabindex="-1"></a><span class="co">#&gt; 4 61.21938 60.27577 81.77836</span></span>
-<span id="cb8-20"><a href="#cb8-20" tabindex="-1"></a><span class="co">#&gt; 5 64.72115 91.34410 89.42593</span></span>
-<span id="cb8-21"><a href="#cb8-21" tabindex="-1"></a><span class="co">#&gt; 6 67.25226 60.76760 71.09905</span></span></code></pre></div>
-<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="co"># ------------------------------------------------------------</span></span>
-<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a><span class="co"># Backsolving Marker Effects</span></span>
-<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a><span class="co"># ------------------------------------------------------------</span></span>
-<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a><span class="co"># If you have individual-level genetic values (e.g., BLUPs or GEBVs),</span></span>
-<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a><span class="co"># `u_from_g` can estimate the underlying marker effects U. This is useful</span></span>
-<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a><span class="co"># for reconstructing marker effects consistent with a known relationship matrix.</span></span>
-<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a></span>
-<span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a></span>
-<span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a></span>
-<span id="cb9-10"><a href="#cb9-10" tabindex="-1"></a>u_fit <span class="ot">&lt;-</span> <span class="fu">u_from_g</span>(</span>
-<span id="cb9-11"><a href="#cb9-11" tabindex="-1"></a>  <span class="at">M                   =</span> M,</span>
-<span id="cb9-12"><a href="#cb9-12" tabindex="-1"></a>  <span class="at">G                   =</span> G,</span>
-<span id="cb9-13"><a href="#cb9-13" tabindex="-1"></a>  <span class="at">g                   =</span> A,</span>
-<span id="cb9-14"><a href="#cb9-14" tabindex="-1"></a>  <span class="at">scaling.factor      =</span> <span class="dv">1</span> <span class="sc">/</span> n_mark, <span class="co"># scaling factor applied to the GRM</span></span>
-<span id="cb9-15"><a href="#cb9-15" tabindex="-1"></a>  <span class="at">tol                 =</span> <span class="fl">1e-10</span>,</span>
-<span id="cb9-16"><a href="#cb9-16" tabindex="-1"></a>  <span class="at">LD.var              =</span> <span class="cn">FALSE</span>, </span>
-<span id="cb9-17"><a href="#cb9-17" tabindex="-1"></a>  <span class="at">calc.prior.Vcov     =</span> <span class="cn">FALSE</span>,</span>
-<span id="cb9-18"><a href="#cb9-18" tabindex="-1"></a>  <span class="at">calc.posterior.Vcov =</span> <span class="cn">FALSE</span></span>
-<span id="cb9-19"><a href="#cb9-19" tabindex="-1"></a>)</span>
-<span id="cb9-20"><a href="#cb9-20" tabindex="-1"></a><span class="co">#&gt; G matrix near-singular; adding 1e-4 to diagonal.</span></span>
-<span id="cb9-21"><a href="#cb9-21" tabindex="-1"></a></span>
-<span id="cb9-22"><a href="#cb9-22" tabindex="-1"></a><span class="co"># The output contains:</span></span>
-<span id="cb9-23"><a href="#cb9-23" tabindex="-1"></a><span class="co">#  * mu_matrix: Estimated marker effects (n_mark x n_trait)</span></span>
-<span id="cb9-24"><a href="#cb9-24" tabindex="-1"></a><span class="co">#  * variance_LD: LD-adjusted variance components (per trait or group)</span></span>
-<span id="cb9-25"><a href="#cb9-25" tabindex="-1"></a></span>
-<span id="cb9-26"><a href="#cb9-26" tabindex="-1"></a><span class="fu">head</span>(u_fit<span class="sc">$</span>mu_matrix)</span>
-<span id="cb9-27"><a href="#cb9-27" tabindex="-1"></a><span class="co">#&gt;            [,1]     [,2]      [,3]</span></span>
-<span id="cb9-28"><a href="#cb9-28" tabindex="-1"></a><span class="co">#&gt; [1,] -12481.831 4930.189 11506.210</span></span>
-<span id="cb9-29"><a href="#cb9-29" tabindex="-1"></a><span class="co">#&gt; [2,] -12481.671 4929.883 11506.167</span></span>
-<span id="cb9-30"><a href="#cb9-30" tabindex="-1"></a><span class="co">#&gt; [3,] -11094.771 4381.293 10228.213</span></span>
-<span id="cb9-31"><a href="#cb9-31" tabindex="-1"></a><span class="co">#&gt; [4,] -12481.585 4929.446 11505.876</span></span>
-<span id="cb9-32"><a href="#cb9-32" tabindex="-1"></a><span class="co">#&gt; [5,]  -8321.197 3286.630  7670.858</span></span>
-<span id="cb9-33"><a href="#cb9-33" tabindex="-1"></a><span class="co">#&gt; [6,]  -8321.010 3285.825  7671.284</span></span>
-<span id="cb9-34"><a href="#cb9-34" tabindex="-1"></a><span class="co">#u_fit$variance_LD </span></span></code></pre></div>
+<div id="optimal-haploid-value-ohv" class="section level4">
+<h4>Optimal Haploid Value (OHV)</h4>
+<p>The OHV function identifies optimal haploid gamete combinations given
+additive marker effects. It can operate using defined marker blocks or
+treat each marker independently if none are provided.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>ohv <span class="ot">&lt;-</span> <span class="fu">calculate_optimal_haploid_value</span>(</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>  <span class="at">crosses =</span> crosses,</span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>  <span class="at">M       =</span> M,</span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a>  <span class="at">U       =</span> U</span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a>)</span>
+<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a></span>
+<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a><span class="fu">head</span>(ohv)</span>
+<span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a><span class="co">#&gt;   1 2     OHV_1    OHV_2    OHV_3</span></span>
+<span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a><span class="co">#&gt; 1 1 2  85.13036 72.20160 49.66194</span></span>
+<span id="cb9-10"><a href="#cb9-10" tabindex="-1"></a><span class="co">#&gt; 2 1 3  73.13901 75.86709 58.51527</span></span>
+<span id="cb9-11"><a href="#cb9-11" tabindex="-1"></a><span class="co">#&gt; 3 1 4  71.09917 75.73508 63.84336</span></span>
+<span id="cb9-12"><a href="#cb9-12" tabindex="-1"></a><span class="co">#&gt; 4 1 5  79.60375 70.87873 45.37276</span></span>
+<span id="cb9-13"><a href="#cb9-13" tabindex="-1"></a><span class="co">#&gt; 5 1 6  95.98691 89.92828 67.14531</span></span>
+<span id="cb9-14"><a href="#cb9-14" tabindex="-1"></a><span class="co">#&gt; 6 1 7 103.11875 98.13153 64.12288</span></span></code></pre></div>
+</div>
+<div id="backsolving-marker-effects" class="section level4">
+<h4>Backsolving Marker Effects</h4>
+<p>If you have individual-level genetic values (e.g., BLUPs or GEBVs),
+<code>u_from_g()</code> can estimate underlying marker effects
+<code>U</code>. This is useful for reconstructing marker effects
+consistent with a known relationship matrix.</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a>u_fit <span class="ot">&lt;-</span> <span class="fu">u_from_g</span>(</span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>  <span class="at">M              =</span> M,</span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a>  <span class="at">G              =</span> G,</span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a>  <span class="at">g              =</span> A,</span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a>  <span class="at">scaling.factor =</span> <span class="dv">1</span> <span class="sc">/</span> n_mark <span class="co"># scaling factor applied to the GRM</span></span>
+<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a>)</span>
+<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a><span class="co">#&gt; G matrix near-singular; adding 1e-4 to diagonal.</span></span>
+<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a></span>
+<span id="cb10-9"><a href="#cb10-9" tabindex="-1"></a><span class="co"># `u_fit` contains estimated marker effects and (depending on settings) variance components.</span></span>
+<span id="cb10-10"><a href="#cb10-10" tabindex="-1"></a><span class="fu">head</span>(u_fit)</span>
+<span id="cb10-11"><a href="#cb10-11" tabindex="-1"></a><span class="co">#&gt;           [,1]     [,2]       [,3]</span></span>
+<span id="cb10-12"><a href="#cb10-12" tabindex="-1"></a><span class="co">#&gt; [1,] 1192.1055 2435.687  -8396.018</span></span>
+<span id="cb10-13"><a href="#cb10-13" tabindex="-1"></a><span class="co">#&gt; [2,] 2043.4770 4174.851 -14393.036</span></span>
+<span id="cb10-14"><a href="#cb10-14" tabindex="-1"></a><span class="co">#&gt; [3,]  851.7855 1739.820  -5996.770</span></span>
+<span id="cb10-15"><a href="#cb10-15" tabindex="-1"></a><span class="co">#&gt; [4,] 1192.1352 2435.102  -8395.912</span></span>
+<span id="cb10-16"><a href="#cb10-16" tabindex="-1"></a><span class="co">#&gt; [5,] 1872.8221 3827.111 -13193.855</span></span>
+<span id="cb10-17"><a href="#cb10-17" tabindex="-1"></a><span class="co">#&gt; [6,] 1362.1783 2783.938  -9595.473</span></span></code></pre></div>
+</div>
+</div>
 </div>
 
 
