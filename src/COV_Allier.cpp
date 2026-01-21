@@ -135,7 +135,6 @@ SEXP cpp_calculate_covariance_allier(
     return ti * numTrait - (ti * (ti - 1)) / 2 + (tj - ti);
   };
 
-  // --- Lehermeier style: parallel over crosses; inside, loop chromosomes and accumulate ---
   ct_parallel_for(0, static_cast<int>(numCrosses), [&](int xi) {
     arma::uword x = static_cast<arma::uword>(xi);
 
@@ -145,7 +144,7 @@ SEXP cpp_calculate_covariance_allier(
       return;
     }
 
-    // Precompute eG once per trait (genome-wide)
+    // ---- (A) Precompute eG once per trait (same as your first code) ----
     for (arma::uword ti = 0; ti < numTrait; ++ti) {
       double G1 = arma::dot(M_mat.row(P1), U_mat.col(ti));
       double G2 = arma::dot(M_mat.row(P2), U_mat.col(ti));
@@ -154,27 +153,38 @@ SEXP cpp_calculate_covariance_allier(
       results2(x, OFF_EG + ti) = 0.25 * (G1 + G2 + G3 + G4);
     }
 
-    // Trait pairs
+    // ---- (B) Precompute diff markers ONCE per chromosome for this cross ----
+    std::vector<std::vector<arma::uword>> diff_by_chr;
+    diff_by_chr.resize(chr.size());
+
+    for (std::size_t cidx = 0; cidx < chr.size(); ++cidx) {
+      const auto& cc = chr[cidx];
+      diff_by_chr[cidx].clear();
+      diff_by_chr[cidx].reserve(256);
+
+      for (arma::uword g = cc.startC; g <= cc.endC; ++g) {
+        double a = M_mat(P1, g), b = M_mat(P2, g), c = M_mat(P3, g), d = M_mat(P4, g);
+        // keep marker if not all equal
+        if ((a!=b) || (a!=c) || (a!=d) || (b!=c) || (b!=d) || (c!=d)) {
+          diff_by_chr[cidx].push_back(g);
+        }
+      }
+    }
+
+    // ---- (C) Now trait pairs reuse the precomputed diff lists ----
     for (arma::uword ti = 0; ti < numTrait; ++ti) {
       for (arma::uword tj = ti; tj < numTrait; ++tj) {
         if (!covariance && ti != tj) continue;
 
-        double Sigma = 0.0; // accumulate across chromosomes
+        double Sigma = 0.0;
 
-        for (const auto& cc : chr) {
-          const arma::uword startC = cc.startC;
-          const arma::uword endC   = cc.endC;
-          const arma::uword nc     = cc.nc;
-
-          // Markers that differ among the 4 parents on this chromosome
-          std::vector<arma::uword> diff;
-          diff.reserve(256);
-
-          for (arma::uword g = startC; g <= endC; ++g) {
-            double a = M_mat(P1, g), b = M_mat(P2, g), c = M_mat(P3, g), d = M_mat(P4, g);
-            if ((a!=b) || (a!=c) || (a!=d) || (b!=c) || (b!=d) || (c!=d)) diff.push_back(g);
-          }
+        for (std::size_t cidx = 0; cidx < chr.size(); ++cidx) {
+          const auto& cc   = chr[cidx];
+          const auto& diff = diff_by_chr[cidx];
           if (diff.empty()) continue;
+
+          const arma::uword startC = cc.startC;
+          const arma::uword nc     = cc.nc;
 
           double add_chr = 0.0;
 
@@ -200,9 +210,9 @@ SEXP cpp_calculate_covariance_allier(
               double ck1 = tri_get(cc.CK1, (std::size_t)li, (std::size_t)lj, (std::size_t)nc);
               double c1  = tri_get(cc.C1,  (std::size_t)li, (std::size_t)lj, (std::size_t)nc);
 
-              double Dcomb = (ck * phi2) + ((ck + ck1) * c1 * phi1);
-
+              double Dcomb   = (ck * phi2) + ((ck + ck1) * c1 * phi1);
               double contrib = U_mat(gi, ti) * Dcomb * U_mat(gj, tj);
+
               add_chr += (ii == jj) ? contrib : 2.0 * contrib;
             }
           }
@@ -221,6 +231,7 @@ SEXP cpp_calculate_covariance_allier(
       }
     }
   });
+
 
   // If requested, convert each row to an nTrait×nTrait symmetric matrix + desired gains index
   if (covariance) {

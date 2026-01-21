@@ -127,8 +127,8 @@ SEXP cpp_calculate_covariance_RIL_allier(
     return ti * numTrait - (ti * (ti - 1)) / 2 + (tj - ti);
   };
 
-  // --- Lehermeier style: parallel over crosses; inside, loop chromosomes and accumulate ---
-  ct_parallel_for(0, static_cast<int>(numCrosses), [&](int xi) {
+
+    ct_parallel_for(0, static_cast<int>(numCrosses), [&](int xi) {
     arma::uword x = static_cast<arma::uword>(xi);
 
     const int P1 = P(x,0), P2 = P(x,1), P3 = P(x,2), P4 = P(x,3);
@@ -146,24 +146,40 @@ SEXP cpp_calculate_covariance_RIL_allier(
       results2(x, OFF_EG + ti) = 0.25 * (G1 + G2 + G3 + G4);
     }
 
+
+    std::vector<std::vector<arma::uword>> diff_by_chr;
+    diff_by_chr.resize(chr.size());
+
+    for (std::size_t cidx = 0; cidx < chr.size(); ++cidx) {
+      const auto& cc = chr[cidx];
+      const arma::uword startC = cc.startC;
+      const arma::uword endC   = cc.endC;
+
+      auto& diff = diff_by_chr[cidx];
+      diff.clear();
+      diff.reserve(256);
+
+      for (arma::uword g = startC; g <= endC; ++g) {
+        double a = M_mat(P1, g), b = M_mat(P2, g), c = M_mat(P3, g), d = M_mat(P4, g);
+        if ((a!=b) || (a!=c) || (a!=d) || (b!=c) || (b!=d) || (c!=d)) {
+          diff.push_back(g);
+        }
+      }
+    }
+
+
     for (arma::uword ti = 0; ti < numTrait; ++ti) {
       for (arma::uword tj = ti; tj < numTrait; ++tj) {
         if (!covariance && ti != tj) continue;
 
         double Sigma = 0.0; // accumulate across chromosomes
 
-        for (const auto& cc : chr) {
+        for (std::size_t cidx = 0; cidx < chr.size(); ++cidx) {
+          const auto& cc = chr[cidx];
           const arma::uword startC = cc.startC;
-          const arma::uword endC   = cc.endC;
           const arma::uword nc     = cc.nc;
 
-          // differing markers in this chromosome
-          std::vector<arma::uword> diff;
-          diff.reserve(256);
-          for (arma::uword g = startC; g <= endC; ++g) {
-            double a = M_mat(P1, g), b = M_mat(P2, g), c = M_mat(P3, g), d = M_mat(P4, g);
-            if ((a!=b) || (a!=c) || (a!=d) || (b!=c) || (b!=d) || (c!=d)) diff.push_back(g);
-          }
+          const auto& diff = diff_by_chr[cidx];
           if (diff.empty()) continue;
 
           double add_chr = 0.0;
@@ -210,6 +226,7 @@ SEXP cpp_calculate_covariance_RIL_allier(
       }
     }
   });
+
 
   // If requested, convert each row to an nTrait×nTrait symmetric matrix + desired gains index
   if (covariance) {
