@@ -153,25 +153,63 @@ SEXP cpp_calculate_covariance_allier(
       results2(x, OFF_EG + ti) = 0.25 * (G1 + G2 + G3 + G4);
     }
 
-    // ---- (B) Precompute diff markers ONCE per chromosome for this cross ----
-    std::vector<std::vector<arma::uword>> diff_by_chr;
-    diff_by_chr.resize(chr.size());
+    // ------------------------------------------------------------
+    // (B) Precompute per-chromosome diff markers ONCE per cross
+    //     + precompute genotype-difference vectors for those markers
+    // ------------------------------------------------------------
+    struct ChrDiffWork {
+      std::vector<arma::uword> li;     // local indices (0..nc-1)
+      std::vector<double> a12, a34;    // M(P1)-M(P2), M(P3)-M(P4)
+      std::vector<double> a14, a13;    // M(P1)-M(P4), M(P1)-M(P3)
+      std::vector<double> a24, a23;    // M(P2)-M(P4), M(P2)-M(P3)
+    };
+
+    std::vector<ChrDiffWork> work;
+    work.resize(chr.size());
 
     for (std::size_t cidx = 0; cidx < chr.size(); ++cidx) {
       const auto& cc = chr[cidx];
-      diff_by_chr[cidx].clear();
-      diff_by_chr[cidx].reserve(256);
+      const arma::uword startC = cc.startC;
+      const arma::uword endC   = cc.endC;
 
-      for (arma::uword g = cc.startC; g <= cc.endC; ++g) {
-        double a = M_mat(P1, g), b = M_mat(P2, g), c = M_mat(P3, g), d = M_mat(P4, g);
+      auto& w = work[cidx];
+      w.li.clear();
+      w.a12.clear(); w.a34.clear();
+      w.a14.clear(); w.a13.clear();
+      w.a24.clear(); w.a23.clear();
+
+      w.li.reserve(256);
+      w.a12.reserve(256); w.a34.reserve(256);
+      w.a14.reserve(256); w.a13.reserve(256);
+      w.a24.reserve(256); w.a23.reserve(256);
+
+      for (arma::uword g = startC; g <= endC; ++g) {
+        // load once
+        const double m1 = M_mat(P1, g);
+        const double m2 = M_mat(P2, g);
+        const double m3 = M_mat(P3, g);
+        const double m4 = M_mat(P4, g);
+
         // keep marker if not all equal
-        if ((a!=b) || (a!=c) || (a!=d) || (b!=c) || (b!=d) || (c!=d)) {
-          diff_by_chr[cidx].push_back(g);
+        if ((m1!=m2) || (m1!=m3) || (m1!=m4) || (m2!=m3) || (m2!=m4) || (m3!=m4)) {
+          const arma::uword li = g - startC;
+          w.li.push_back(li);
+
+          // precompute genotype differences
+          w.a12.push_back(m1 - m2);
+          w.a34.push_back(m3 - m4);
+
+          w.a14.push_back(m1 - m4);
+          w.a13.push_back(m1 - m3);
+          w.a24.push_back(m2 - m4);
+          w.a23.push_back(m2 - m3);
         }
       }
     }
 
-    // ---- (C) Now trait pairs reuse the precomputed diff lists ----
+    // ------------------------------------------------------------
+    // (C) Trait pairs reuse the precomputed per-chromosome work
+    // ------------------------------------------------------------
     for (arma::uword ti = 0; ti < numTrait; ++ti) {
       for (arma::uword tj = ti; tj < numTrait; ++tj) {
         if (!covariance && ti != tj) continue;
@@ -179,40 +217,51 @@ SEXP cpp_calculate_covariance_allier(
         double Sigma = 0.0;
 
         for (std::size_t cidx = 0; cidx < chr.size(); ++cidx) {
-          const auto& cc   = chr[cidx];
-          const auto& diff = diff_by_chr[cidx];
-          if (diff.empty()) continue;
-
+          const auto& cc = chr[cidx];
           const arma::uword startC = cc.startC;
           const arma::uword nc     = cc.nc;
 
+          const auto& w = work[cidx];
+          const std::size_t k = w.li.size();
+          if (k == 0) continue;
+
           double add_chr = 0.0;
 
-          for (std::size_t ii = 0; ii < diff.size(); ++ii) {
-            arma::uword gi = diff[ii];
-            arma::uword li = gi - startC;
+          for (std::size_t ii = 0; ii < k; ++ii) {
+            const arma::uword li = w.li[ii];
+            const arma::uword gi = startC + li;
 
-            for (std::size_t jj = ii; jj < diff.size(); ++jj) {
-              arma::uword gj = diff[jj];
-              arma::uword lj = gj - startC;
+            // pull once per ii
+            const double a12_i = w.a12[ii];
+            const double a34_i = w.a34[ii];
+            const double a14_i = w.a14[ii];
+            const double a13_i = w.a13[ii];
+            const double a24_i = w.a24[ii];
+            const double a23_i = w.a23[ii];
 
-              double D12 = 0.0625 * ((M_mat(P1,gi)-M_mat(P2,gi))*(M_mat(P1,gj)-M_mat(P2,gj)));
-              double D34 = 0.0625 * ((M_mat(P3,gi)-M_mat(P4,gi))*(M_mat(P3,gj)-M_mat(P4,gj)));
-              double phi1 = D12 + D34;
+            for (std::size_t jj = ii; jj < k; ++jj) {
+              const arma::uword lj = w.li[jj];
+              const arma::uword gj = startC + lj;
 
-              double D14 = 0.0625 * ((M_mat(P1,gi)-M_mat(P4,gi))*(M_mat(P1,gj)-M_mat(P4,gj)));
-              double D13 = 0.0625 * ((M_mat(P1,gi)-M_mat(P3,gi))*(M_mat(P1,gj)-M_mat(P3,gj)));
-              double D24 = 0.0625 * ((M_mat(P2,gi)-M_mat(P4,gi))*(M_mat(P2,gj)-M_mat(P4,gj)));
-              double D23 = 0.0625 * ((M_mat(P2,gi)-M_mat(P3,gi))*(M_mat(P2,gj)-M_mat(P3,gj)));
-              double phi2 = D14 + D13 + D24 + D23;
+              // phi1/phi2 using precomputed diffs (no M_mat loads here)
+              const double D12 = 0.0625 * (a12_i * w.a12[jj]);
+              const double D34 = 0.0625 * (a34_i * w.a34[jj]);
+              const double phi1 = D12 + D34;
 
-              double ck  = tri_get(cc.CK,  (std::size_t)li, (std::size_t)lj, (std::size_t)nc);
-              double ck1 = tri_get(cc.CK1, (std::size_t)li, (std::size_t)lj, (std::size_t)nc);
-              double c1  = tri_get(cc.C1,  (std::size_t)li, (std::size_t)lj, (std::size_t)nc);
+              const double D14 = 0.0625 * (a14_i * w.a14[jj]);
+              const double D13 = 0.0625 * (a13_i * w.a13[jj]);
+              const double D24 = 0.0625 * (a24_i * w.a24[jj]);
+              const double D23 = 0.0625 * (a23_i * w.a23[jj]);
+              const double phi2 = D14 + D13 + D24 + D23;
 
-              double Dcomb   = (ck * phi2) + ((ck + ck1) * c1 * phi1);
-              double contrib = U_mat(gi, ti) * Dcomb * U_mat(gj, tj);
+              // recombination cache lookups
+              const double ck  = tri_get(cc.CK,  (std::size_t)li, (std::size_t)lj, (std::size_t)nc);
+              const double ck1 = tri_get(cc.CK1, (std::size_t)li, (std::size_t)lj, (std::size_t)nc);
+              const double c1  = tri_get(cc.C1,  (std::size_t)li, (std::size_t)lj, (std::size_t)nc);
 
+              const double Dcomb = (ck * phi2) + ((ck + ck1) * c1 * phi1);
+
+              const double contrib = U_mat(gi, ti) * Dcomb * U_mat(gj, tj);
               add_chr += (ii == jj) ? contrib : 2.0 * contrib;
             }
           }
@@ -220,17 +269,18 @@ SEXP cpp_calculate_covariance_allier(
           Sigma += add_chr;
         }
 
-        const arma::uword k = tri_u_idx_incl(ti, tj);
-        results1(x, k) = Sigma;
+        const arma::uword kcol = tri_u_idx_incl(ti, tj);
+        results1(x, kcol) = Sigma;
 
         if (ti == tj) {
-          double eG = results2(x, OFF_EG + ti);
+          const double eG = results2(x, OFF_EG + ti);
           results2(x, OFF_VAR + ti) = Sigma;
           results2(x, OFF_SPV + ti) = eG + intensity * std::sqrt(Sigma);
         }
       }
     }
   });
+
 
 
   // If requested, convert each row to an nTrait×nTrait symmetric matrix + desired gains index
