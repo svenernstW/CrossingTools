@@ -2,6 +2,8 @@
 #include <RcppArmadillo.h>
 #include <cmath>
 #include <vector>
+#include <atomic>
+
 #include "parallel_backend.h"  // OpenMP when available, else RcppParallel
 
 using namespace Rcpp;
@@ -28,6 +30,7 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
                                     int nThreads = 4) {
   // portable thread setup
   ct_set_threads(nThreads);
+  std::atomic<bool> any_psd(false);
 
   const arma::uword numCrosses   = Crosses.nrow();
   const arma::uword numMarkers   = Hap1.ncol();
@@ -226,8 +229,33 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
 
       if (calcindex) {
         arma::mat VA = GA;
+        arma::mat VD = GD;
+        arma::mat L;
+        bool spd = arma::chol(L, VA);
+        if (!spd) {
+          any_psd.store(true, std::memory_order_relaxed);
+          arma::vec eval;
+          arma::mat evec;
+          arma::eig_sym(eval, evec, VA);
 
-        double var_index_A = arma::as_scalar(weights_vec.t() * GA * weights_vec);
+          eval.transform([](double x){ return (x < 0.0) ? 0.0 : x; });
+
+          VA = evec * arma::diagmat(eval) * evec.t();
+        }
+
+        spd = arma::chol(L, VD);
+        if (!spd) {
+          any_psd.store(true, std::memory_order_relaxed);
+          arma::vec eval;
+          arma::mat evec;
+          arma::eig_sym(eval, evec, VD);
+
+          eval.transform([](double x){ return (x < 0.0) ? 0.0 : x; });
+
+          VD = evec * arma::diagmat(eval) * evec.t();
+        }
+
+        double var_index_A = arma::as_scalar(weights_vec.t() * VA * weights_vec);
         var_index_A = std::max(0.0, var_index_A); // numeric safety
         double index_A = arma::as_scalar(results2.row(x).cols(0, numTrait - 1) * weights_vec);
         double spvi_A  = index_A + intensity * std::sqrt(var_index_A);
@@ -236,7 +264,7 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
         results2(x, OFF_VARIDX_A) = var_index_A;
         results2(x, OFF_SPVI_A)   = spvi_A;
 
-        arma::mat VAD = GA + GD;
+        arma::mat VAD = VA + VD;
 
         double var_index_AD = arma::as_scalar(weights_vec.t() * VAD * weights_vec);
         var_index_AD = std::max(0.0, var_index_AD);
@@ -258,7 +286,8 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
     return Rcpp::List::create(
       Rcpp::Named("cross_values") = results2,
       Rcpp::Named("covA")         = out_A,
-      Rcpp::Named("covD")         = out_D
+      Rcpp::Named("covD")         = out_D,
+      Rcpp::Named("check_psd")  = any_psd.load(std::memory_order_relaxed)
     );
   }
 

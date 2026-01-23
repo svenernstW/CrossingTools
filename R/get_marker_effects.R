@@ -2,38 +2,38 @@
 #'
 #' Computes marker effects \eqn{\mu = (scalingFactor * M' * G^{-1}) * g}.
 #'
-#' @param M Numeric matrix (n x p): marker/genotype matrix (individuals in rows, markers in columns).
+#' @param marker.mat Numeric matrix (n x p): marker/genotype matrix (individuals in rows, markers in columns).
 #' @param G Numeric matrix (n x n): relationship matrix among individuals.
-#' @param g Numeric (n x k) or length-n vector: individual effects (one or more traits).
+#' @param effects Numeric (n x k) or length-n vector: individual effects (one or more traits).
 #' @param scaling.factor Numeric scalar used to scale the GRM.
 #' @param tol Numeric scalar tolerance for near-singularity checks in \code{G}. Default: \code{1e-10}.
 #' @param n.Threads Integer >= 1; OpenMP threads (if enabled at compile time). Default: \code{4L}.
 #'
 #' @return A numeric \code{p x k} matrix of marker effects (\code{mu_matrix}).
 #' @export
-u_from_g <- function(M,
+get_marker_effects <- function(M,
                      G,
-                     g,
+                     effects,
                      scaling.factor,
                      tol = 1e-10,
                      n.Threads = 4L) {
   # Coerce base types
-  if (!is.matrix(M)) M <- as.matrix(M)
+  if (!is.matrix(marker.mat)) marker.mat <- as.matrix(marker.mat)
   if (!is.matrix(G)) G <- as.matrix(G)
-  if (is.vector(g))  g <- matrix(as.numeric(g), ncol = 1)
-  if (!is.matrix(g)) g <- as.matrix(g)
+  if (is.vector(effects))  effects <- matrix(as.numeric(effects), ncol = 1)
+  if (!is.matrix(effects)) effects <- as.matrix(effects)
 
   # Basic shape checks
-  if (!is.numeric(M) || !is.numeric(G) || !is.numeric(g))
-    stop("`M`, `G`, and `g` must be numeric.")
+  if (!is.numeric(marker.mat) || !is.numeric(G) || !is.numeric(effects))
+    stop("`marker.mat`, `G`, and `effects` must be numeric.")
 
-  n <- nrow(M); p <- ncol(M)
-  if (n < 1L || p < 1L) stop("`M` must have at least 1 row and 1 column.")
-  if (nrow(G) != n || ncol(G) != n) stop("`G` must be n x n with n = nrow(M).")
-  if (nrow(g) != n) stop("`g` must have nrow(g) == nrow(M).")
+  n <- nrow(marker.mat); p <- ncol(marker.mat)
+  if (n < 1L || p < 1L) stop("`marker.mat` must have at least 1 row and 1 column.")
+  if (nrow(G) != n || ncol(G) != n) stop("`G` must be n x n with n = nrow(marker.mat).")
+  if (nrow(marker.mat) != n) stop("`effects` must have nrow(effects) == nrow(marker.mat).")
 
-  k <- ncol(g)
-  if (k < 1L) stop("`g` must have at least one column (trait).")
+  k <- ncol(effects)
+  if (k < 1L) stop("`effects` must have at least one column (trait).")
 
   # Scalars
   if (length(scaling.factor) != 1L || !is.finite(scaling.factor))
@@ -50,9 +50,9 @@ u_from_g <- function(M,
 
   # Force all optional computations OFF inside the C++ call
   res <- cpp_u_from_from_g(
-    M                 = M,
+    M                 = marker.mat,
     G                 = G,
-    g                 = g,
+    g                 = effects,
     scalingFactor     = scalingFactor,
     tol               = tol,
     LDvar             = FALSE,

@@ -4,28 +4,18 @@
 \alias{calculate_desired_gains}
 \title{Calculation of desired gains index (Werner et al.)}
 \usage{
-calculate_desired_gains(
-  A,
-  V,
-  gains = NULL,
-  use.marginal.V = FALSE,
-  use.V.approx = FALSE,
-  n.Threads = 4L
-)
+calculate_desired_gains(effects, V = NULL, gains = NULL, n.Threads = 4L)
 }
 \arguments{
-\item{A}{A matrix (n_genotype x n_trait) of multi-trait BLUPs.}
+\item{effects}{A matrix (n_genotype x n_trait) of multi-trait BLUPs.}
 
 \item{V}{Numeric matrix ((n_genotype\emph{n_trait) x (n_genotype}n_trait)) with the
-posterior variance var(\eqn{\tilde{g}}).
-Required if \code{use.marginal.V} is TRUE.}
+posterior variance var(\eqn{\tilde{g}}) of the provided effects. If provided,
+the \emph{marginal} posterior variance (mean of per-genotype trait-blocks from \code{V})
+is used to calculate the index. If not provided an empirical estimate of V as cov(A)
+is used.}
 
 \item{gains}{Numeric vector (length = n_trait) of desired gains.}
-
-\item{use.marginal.V}{Logical. If TRUE, uses the \emph{marginal} posterior variance
-(mean of per-genotype trait-blocks from \code{V}).}
-
-\item{use.V.approx}{Logical. If TRUE, uses an empirical estimate of V as cov(A).}
 
 \item{n.Threads}{Number of OpenMP threads.}
 }

@@ -2,6 +2,7 @@
 #include <RcppArmadillo.h>
 #include <vector>
 #include <cmath>
+#include <atomic>
 #include "parallel_backend.h"
 
 using namespace Rcpp;
@@ -40,6 +41,7 @@ SEXP cpp_calculate_covariance_RIL_allier(
     int nThreads = 4) {
 
   ct_set_threads(nThreads);
+  std::atomic<bool> any_psd(false);
 
   const arma::uword numCrosses   = Crosses.nrow();
   const arma::uword numMarkers   = M.ncol();
@@ -147,17 +149,16 @@ SEXP cpp_calculate_covariance_RIL_allier(
     }
 
     // ------------------------------------------------------------
-    // Precompute per-chromosome diff markers + cached genotype diffs
+    // Precompute per-chromosome work + detect if ANY marker differs
     // ------------------------------------------------------------
+    bool any_diff = false;
+
     struct ChrWork {
-      std::vector<arma::uword> li;     // local index (g - startC)
-      std::vector<double> a12, a34;    // (P1-P2), (P3-P4)
-      std::vector<double> a14, a13;    // (P1-P4), (P1-P3)
-      std::vector<double> a24, a23;    // (P2-P4), (P2-P3)
+      std::vector<arma::uword> li;
+      std::vector<double> a12, a34, a14, a13, a24, a23;
     };
 
-    std::vector<ChrWork> work;
-    work.resize(chr.size());
+    std::vector<ChrWork> work(chr.size());
 
     for (std::size_t cidx = 0; cidx < chr.size(); ++cidx) {
       const auto& cc = chr[cidx];
@@ -181,20 +182,32 @@ SEXP cpp_calculate_covariance_RIL_allier(
         const double m3 = M_mat(P3, g);
         const double m4 = M_mat(P4, g);
 
-        // same logic as before, just written shorter:
+        // if all equal, skip
         if (m1 == m2 && m1 == m3 && m1 == m4) continue;
+
+        any_diff = true;
 
         const arma::uword li = g - startC;
         w.li.push_back(li);
 
         w.a12.push_back(m1 - m2);
         w.a34.push_back(m3 - m4);
-
         w.a14.push_back(m1 - m4);
         w.a13.push_back(m1 - m3);
         w.a24.push_back(m2 - m4);
         w.a23.push_back(m2 - m3);
       }
+    }
+
+    // ---- NEW: if no differences anywhere, Var=0 and SPV=eG ----
+    if (!any_diff) {
+      for (arma::uword ti = 0; ti < numTrait; ++ti) {
+        const double eG = results2(x, OFF_EG + ti);
+        results2(x, OFF_VAR + ti) = 0.0;
+        results2(x, OFF_SPV + ti) = eG;
+      }
+      // results1(x,*) stays 0 => V is 0 later => index variance 0 => spvi=index
+      return;
     }
 
     // ------------------------------------------------------------
@@ -221,7 +234,6 @@ SEXP cpp_calculate_covariance_RIL_allier(
             const arma::uword li = w.li[ii];
             const arma::uword gi = startC + li;
 
-            // pull once per ii
             const double a12_i = w.a12[ii];
             const double a34_i = w.a34[ii];
             const double a14_i = w.a14[ii];
@@ -233,7 +245,6 @@ SEXP cpp_calculate_covariance_RIL_allier(
               const arma::uword lj = w.li[jj];
               const arma::uword gj = startC + lj;
 
-              // D terms from cached diffs
               const double D12  = 0.0625 * (a12_i * w.a12[jj]);
               const double D34  = 0.0625 * (a34_i * w.a34[jj]);
               const double phi1 = D12 + D34;
@@ -290,7 +301,18 @@ SEXP cpp_calculate_covariance_RIL_allier(
       covs[x] = V;
 
       if (calcindex) {
+        arma::mat L;
+        bool spd = arma::chol(L, V);
+        if (!spd) {
+          any_psd.store(true, std::memory_order_relaxed);
+          arma::vec eval;
+          arma::mat evec;
+          arma::eig_sym(eval, evec, V);
 
+          eval.transform([](double x){ return (x < 0.0) ? 0.0 : x; });
+
+          V = evec * arma::diagmat(eval) * evec.t();
+        }
         double sigma_gains = arma::as_scalar(weights_vec.t() * V * weights_vec);
         double index = arma::as_scalar(results2.row(x).cols(0, numTrait - 1) * weights_vec);
         double spvi  = index + intensity * std::sqrt(sigma_gains);
@@ -306,7 +328,8 @@ SEXP cpp_calculate_covariance_RIL_allier(
 
     return Rcpp::List::create(
       Rcpp::Named("cross_values") = results2,
-      Rcpp::Named("covariances")  = out
+      Rcpp::Named("covariances")  = out,
+      Rcpp::Named("check_psd")  = any_psd.load(std::memory_order_relaxed)
     );
   }
 

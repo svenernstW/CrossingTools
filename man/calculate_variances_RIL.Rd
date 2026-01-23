@@ -7,12 +7,11 @@
 calculate_variances_RIL(
   crosses,
   genetic.map,
-  M,
-  U,
+  marker.mat,
+  effects,
   t,
   intensity,
   covariance = FALSE,
-  calculate.index = FALSE,
   weights = NULL,
   method = "osthushenrich",
   n.Threads = 4L
@@ -30,10 +29,10 @@ calculate_variances_RIL(
 }
 All markers in \code{M} must appear in \code{genetic.map$site}.}
 
-\item{M}{Numeric marker matrix (markers in columns, genotypes in rows) with
+\item{marker.mat}{Numeric marker matrix (markers in columns, genotypes in rows) with
 entries in \code{c(0, 2)} corresponding to \code{c("AA", "BB")}.}
 
-\item{U}{Numeric matrix of marker effects (markers in rows, traits in columns).
+\item{effects}{Numeric matrix of marker effects (markers in rows, traits in columns).
 Must have \code{nrow(U) == ncol(M)}.}
 
 \item{t}{Integer. Number of random‐mating generations before RIL creation.}
@@ -43,10 +42,8 @@ Must have \code{nrow(U) == ncol(M)}.}
 \item{covariance}{Logical. If \code{TRUE}, also compute the segregation
 covariance matrix between all supplied traits.}
 
-\item{calculate.index}{Logical. If \code{TRUE}, calculate the index from fixed
-trait \code{weights}. Only works if \code{covariance = TRUE}; otherwise ignored.}
-
-\item{weights}{Numeric vector of length \code{ncol(U)} with fixed trait weights.}
+\item{weights}{Numeric vector of length \code{ncol(U)} with fixed trait weights.
+If supplied the function calculates index values for each cross. Only works if \code{covariance = TRUE}; otherwise ignored.}
 
 \item{method}{Character. Which method to use; one of
 \code{c("osthushenrich", "lehermeier")}.}

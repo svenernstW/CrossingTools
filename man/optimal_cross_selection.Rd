@@ -12,13 +12,8 @@ optimal_cross_selection(
   u,
   u.fixed = NULL,
   G,
-  propability.mutate = 0.01,
-  n.mutate = 2,
-  n.select = 500,
-  n.pop = 10000,
-  max.generation = 100,
-  max.iteration = 100,
-  angle.penalty = 0.5,
+  return.params = FALSE,
+  params = list(),
   n.Threads = 4L
 )
 }
@@ -49,39 +44,36 @@ be length-0.}
 used to evaluate similarity/diversity among parents; indices in
 \code{crosses}/\code{fixed.crosses} must lie in \code{1..nrow(G)}.}
 
-\item{propability.mutate}{numeric in [0,1]. Probability that a candidate
-solution mutates in the GA.}
+\item{return.params}{logical. If \code{TRUE}, return additional information from the GA.}
 
-\item{n.mutate}{integer \eqn{\ge} 0. Number of point mutations to apply when a
-mutation occurs.}
+\item{params}{A list of parameters for the Genetic Algorithm optimization:
+\describe{
+\item{\code{propability.mutate}}{numeric in \eqn{[0,1]}. Probability that a candidate solution mutates in the GA.}
+\item{\code{n.mutate}}{integer \eqn{\ge 0}. Number of point mutations to apply when a mutation occurs.}
+\item{\code{n.select}}{integer \eqn{\ge 2}. Number of candidate solutions selected per generation (selection pool size).}
+\item{\code{n.pop}}{integer \eqn{\ge 2}. Population size (number of candidate solutions) per generation.}
+\item{\code{max.generation}}{integer \eqn{\ge 1}. Maximum number of GA generations.}
+\item{\code{max.iteration}}{integer \eqn{\ge 1}. Maximum number of iterations without improvement.}
+\item{\code{angle.penalty}}{numeric \eqn{\ge 0}. Penalty applied to solutions that deviate from \code{target.angle}.}
+}}
 
-\item{n.select}{integer \eqn{\ge} 2. Number of candidate solutions selected per
-generation (selection pool size).}
-
-\item{n.pop}{integer \eqn{\ge} 2. Population size (number of candidate solutions) per generation.}
-
-\item{max.generation}{integer \eqn{\ge} 1. Maximum number of GA generations.}
-
-\item{max.iteration}{integer \eqn{\ge} 1. Maximum number of iterations without
-improvement (early-stopping style).}
-
-\item{angle.penalty}{numeric \eqn{\ge} 0. Penalty applied to solutions that deviate
-from \code{target.angle} (encourages the desired trade-off).}
-
-\item{n.Threads}{integer \eqn{\ge} 1. Number of OpenMP threads to use.}
+\item{n.Threads}{integer \eqn{\ge 1}. Number of OpenMP threads to use.}
 }
 \value{
-A list with elements :
 \describe{
-\item{\code{crossPlan}}{Integer matrix (ncrosses x 3): the selected \emph{final} cross plan (includes fixed crosses) and an additional column i with the indeces in the original crosses data.frame.}
+\item{If \code{return.params = FALSE}:}{A data.frame with columns \code{parent1} and \code{parent2} describing the selected cross plan.}
+\item{If \code{return.params = TRUE}:}{A list with elements:
+\describe{
+\item{\code{crossPlan}}{A data.frame with columns \code{parent1} and \code{parent2} describing the selected cross plan.}
 \item{\code{uMax}}{Numeric scalar: maximum attainable average criterion when optimizing only \code{u}.}
 \item{\code{uMin}}{Numeric scalar: minimum attainable average criterion when optimizing only similarity.}
 \item{\code{simMax}}{Numeric scalar: similarity corresponding to \code{uMax}.}
 \item{\code{simMin}}{Numeric scalar: similarity corresponding to \code{uMin}.}
-\item{\code{uBest}}{Numeric scalar: average criterion achieved by the \emph{optimized} cross plan.}
+\item{\code{uBest}}{Numeric scalar: average criterion achieved by the optimized cross plan.}
 \item{\code{simBest}}{Numeric scalar: similarity of the optimized cross plan.}
 \item{\code{angleBest}}{Numeric scalar (radians): angle of the optimized solution relative to the target trade-off.}
 \item{\code{lenBest}}{Numeric scalar: length (magnitude) of the optimized solution vector in the objective space.}
+}}
 }
 }
 \description{

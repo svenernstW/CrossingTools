@@ -25,34 +25,38 @@
 #' @param G numeric square matrix (nInd x nInd). Genomic relationship matrix
 #'   used to evaluate similarity/diversity among parents; indices in
 #'   \code{crosses}/\code{fixed.crosses} must lie in \code{1..nrow(G)}.
-#' @param propability.mutate numeric in \[0,1]. Probability that a candidate
-#'   solution mutates in the GA.
-#' @param n.mutate integer \eqn{\ge} 0. Number of point mutations to apply when a
-#'   mutation occurs.
-#' @param n.select integer \eqn{\ge} 2. Number of candidate solutions selected per
-#'   generation (selection pool size).
-#' @param n.pop integer \eqn{\ge} 2. Population size (number of candidate solutions) per generation.
-#' @param max.generation integer \eqn{\ge} 1. Maximum number of GA generations.
-#' @param max.iteration integer \eqn{\ge} 1. Maximum number of iterations without
-#'   improvement (early-stopping style).
-#' @param angle.penalty numeric \eqn{\ge} 0. Penalty applied to solutions that deviate
-#'   from \code{target.angle} (encourages the desired trade-off).
-#' @param n.Threads integer \eqn{\ge} 1. Number of OpenMP threads to use.
+#' @param params A list of parameters for the Genetic Algorithm optimization:
+#'   \describe{
+#'     \item{\code{propability.mutate}}{numeric in \eqn{[0,1]}. Probability that a candidate solution mutates in the GA.}
+#'     \item{\code{n.mutate}}{integer \eqn{\ge 0}. Number of point mutations to apply when a mutation occurs.}
+#'     \item{\code{n.select}}{integer \eqn{\ge 2}. Number of candidate solutions selected per generation (selection pool size).}
+#'     \item{\code{n.pop}}{integer \eqn{\ge 2}. Population size (number of candidate solutions) per generation.}
+#'     \item{\code{max.generation}}{integer \eqn{\ge 1}. Maximum number of GA generations.}
+#'     \item{\code{max.iteration}}{integer \eqn{\ge 1}. Maximum number of iterations without improvement.}
+#'     \item{\code{angle.penalty}}{numeric \eqn{\ge 0}. Penalty applied to solutions that deviate from \code{target.angle}.}
+#'   }
+#' @param return.params logical. If \code{TRUE}, return additional information from the GA.
+#' @param n.Threads integer \eqn{\ge 1}. Number of OpenMP threads to use.
 #'
-#' @return A list with elements :
+#' @return
 #' \describe{
-#'   \item{\code{crossPlan}}{Integer matrix (ncrosses x 3): the selected \emph{final} cross plan (includes fixed crosses) and an additional column i with the indeces in the original crosses data.frame.}
-#'   \item{\code{uMax}}{Numeric scalar: maximum attainable average criterion when optimizing only \code{u}.}
-#'   \item{\code{uMin}}{Numeric scalar: minimum attainable average criterion when optimizing only similarity.}
-#'   \item{\code{simMax}}{Numeric scalar: similarity corresponding to \code{uMax}.}
-#'   \item{\code{simMin}}{Numeric scalar: similarity corresponding to \code{uMin}.}
-#'   \item{\code{uBest}}{Numeric scalar: average criterion achieved by the \emph{optimized} cross plan.}
-#'   \item{\code{simBest}}{Numeric scalar: similarity of the optimized cross plan.}
-#'   \item{\code{angleBest}}{Numeric scalar (radians): angle of the optimized solution relative to the target trade-off.}
-#'   \item{\code{lenBest}}{Numeric scalar: length (magnitude) of the optimized solution vector in the objective space.}
+#'   \item{If \code{return.params = FALSE}:}{A data.frame with columns \code{parent1} and \code{parent2} describing the selected cross plan.}
+#'   \item{If \code{return.params = TRUE}:}{A list with elements:
+#'     \describe{
+#'       \item{\code{crossPlan}}{A data.frame with columns \code{parent1} and \code{parent2} describing the selected cross plan.}
+#'       \item{\code{uMax}}{Numeric scalar: maximum attainable average criterion when optimizing only \code{u}.}
+#'       \item{\code{uMin}}{Numeric scalar: minimum attainable average criterion when optimizing only similarity.}
+#'       \item{\code{simMax}}{Numeric scalar: similarity corresponding to \code{uMax}.}
+#'       \item{\code{simMin}}{Numeric scalar: similarity corresponding to \code{uMin}.}
+#'       \item{\code{uBest}}{Numeric scalar: average criterion achieved by the optimized cross plan.}
+#'       \item{\code{simBest}}{Numeric scalar: similarity of the optimized cross plan.}
+#'       \item{\code{angleBest}}{Numeric scalar (radians): angle of the optimized solution relative to the target trade-off.}
+#'       \item{\code{lenBest}}{Numeric scalar: length (magnitude) of the optimized solution vector in the objective space.}
+#'     }}
 #' }
 #'
 #' @export
+
 optimal_cross_selection <- function(crosses,
                                     fixed.crosses = NULL,
                                     ncrosses,
@@ -60,14 +64,22 @@ optimal_cross_selection <- function(crosses,
                                     u,
                                     u.fixed = NULL,
                                     G,
-                                    propability.mutate = 0.01,
-                                    n.mutate = 2,
-                                    n.select = 500,
-                                    n.pop = 10000,
-                                    max.generation = 100,
-                                    max.iteration = 100,
-                                    angle.penalty = 0.5,
+                                    return.params=FALSE,
+                                    params = list(),
                                     n.Threads = 4L) {
+
+  defaults <-
+    list(
+      propability.mutate = 0.01,
+      n.mutate = 2,
+      n.select = 500,
+      n.pop = 10000,
+      max.generation = 100,
+      max.iteration = 100,
+      angle.penalty = 0.5
+    )
+
+  params <- modifyList(defaults, params)
 
   ##  Coerce types
   if (!is.matrix(G)) G <- as.matrix(G)
@@ -134,13 +146,13 @@ optimal_cross_selection <- function(crosses,
   req_scalar_num <- list(
     ncrosses = ncrosses,
     target.angle = target.angle,
-    propability.mutate = propability.mutate,
-    nmutate = n.mutate,
-    nselect = n.select,
-    npop = n.pop,
-    max.generation = max.generation,
-    max.iteration = max.iteration,
-    angle.penalty = angle.penalty,
+    propability.mutate = params$propability.mutate,
+    nmutate = params$n.mutate,
+    nselect = params$n.select,
+    npop = params$n.pop,
+    max.generation = params$max.generation,
+    max.iteration = params$max.iteration,
+    angle.penalty = params$angle.penalty,
     `n.Threads` = n.Threads
   )
   for (nm in names(req_scalar_num)) {
@@ -154,11 +166,11 @@ optimal_cross_selection <- function(crosses,
   }
 
   ncrosses       <- as.integer(ncrosses)
-  nmutate        <- as.integer(n.mutate)
-  nselect        <- as.integer(n.select)
-  npop           <- as.integer(n.pop)
-  max.generation <- as.integer(max.generation)
-  max.iteration  <- as.integer(max.iteration)
+  nmutate        <- as.integer(params$n.mutate)
+  nselect        <- as.integer(params$n.select)
+  npop           <- as.integer(params$n.pop)
+  max.generation <- as.integer(params$max.generation)
+  max.iteration  <- as.integer(params$max.iteration)
   nThreads       <- as.integer(n.Threads)
 
   if (ncrosses < 1L) stop("`ncrosses` must be >= 1.")
@@ -169,9 +181,9 @@ optimal_cross_selection <- function(crosses,
   if (max.iteration  < 1L) stop("`max.iteration` must be >= 1.")
   if (nThreads < 1L) stop("`n.Threads` must be >= 1.")
   if (!is.numeric(target.angle)) stop("`target.angle` must be numeric.")
-  if (!is.numeric(propability.mutate) || propability.mutate < 0 || propability.mutate > 1)
+  if (!is.numeric(params$propability.mutate) || params$propability.mutate < 0 || params$propability.mutate > 1)
     stop("`propability.mutate` must be in [0,1].")
-  if (!is.numeric(angle.penalty) || angle.penalty < 0)
+  if (!is.numeric(params$angle.penalty) || params$angle.penalty < 0)
     stop("`angle.penalty` must be >= 0.")
 
   ##  Cross count logic
@@ -194,20 +206,21 @@ optimal_cross_selection <- function(crosses,
     u             = u,
     ufixed        = u.fixed,
     G             = G,
-    probMut       = as.numeric(propability.mutate),
+    probMut       = as.numeric(params$propability.mutate),
     nMutate       = nmutate,
     nSel          = nselect,
     nPop          = npop,
     maxGen        = max.generation,
     maxRun        = max.iteration,
-    anglePenalty  = as.numeric(angle.penalty),
+    anglePenalty  = as.numeric(params$angle.penalty),
     nThreads      = nThreads
   )
+  if(return.params){
+    res$crossPlan <- as.data.frame(res$crossPlan)[,1:2]
+    names(res$crossPlan) <-c("parent1","parent2")
+    }else{
+    res <- as.data.frame(res$crossPlan)[,1:2]
+    }
 
-  res$crossPlan <- as.data.frame(res$crossPlan)
-  names(res$crossPlan) <-c("parent1","parent2")
-  res$crossPlan$i <- which(interaction(crosses[,1], crosses[,2]) %in%
-                            interaction(res$crossPlan[,1], res$crossPlan[,2]))
-
-  res
+  return(res)
 }

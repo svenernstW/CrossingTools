@@ -2,6 +2,7 @@
 #include <RcppArmadillo.h>
 #include <vector>
 #include <cmath>
+#include <atomic>
 #include "parallel_backend.h"   // OpenMP when available, else RcppParallel
 
 using namespace Rcpp;
@@ -28,6 +29,7 @@ SEXP cpp_calculate_covariance_osthushenrich(const NumericMatrix& Crosses,
                                             int nThreads = 4) {
   // portable thread setup
   ct_set_threads(nThreads);
+  std::atomic<bool> any_psd(false);
 
   const arma::uword numCrosses   = Crosses.nrow();
   const arma::uword numMarkers   = M.ncol();
@@ -96,8 +98,18 @@ SEXP cpp_calculate_covariance_osthushenrich(const NumericMatrix& Crosses,
 
     // Markers that differ between the two parents (exact compare; use tolerance if needed)
     arma::uvec differing = find(abs(M_mat.row(P1) - M_mat.row(P2)) > 1e-12);
-    if (differing.n_elem == 0) return;
+    if (differing.n_elem == 0) {
+      for (arma::uword ti = 0; ti < numTrait; ++ti) {
+        double G1 = arma::dot(M_mat.row(P1), U_mat.col(ti));
+        double G2 = arma::dot(M_mat.row(P2), U_mat.col(ti));
+        double eG = 0.5 * (G1 + G2);
 
+        results2(x, OFF_EG  + ti) = eG;
+        results2(x, OFF_VAR + ti) = 0;
+        results2(x, OFF_SPV + ti) = eG;
+      }
+      return;
+    }
     for (arma::uword ti = 0; ti < numTrait; ++ti) {
       for (arma::uword tj = ti; tj < numTrait; ++tj) {
         if (!covariance && ti != tj) continue;
@@ -163,7 +175,18 @@ SEXP cpp_calculate_covariance_osthushenrich(const NumericMatrix& Crosses,
 
       if (calcindex) {
         arma::mat V = covs[x];
+        arma::mat L;
+        bool spd = arma::chol(L, V);
+        if (!spd) {
+          any_psd.store(true, std::memory_order_relaxed);
+          arma::vec eval;
+          arma::mat evec;
+          arma::eig_sym(eval, evec, V);
 
+          eval.transform([](double x){ return (x < 0.0) ? 0.0 : x; });
+
+          V = evec * arma::diagmat(eval) * evec.t();
+        }
         double sigma_gains = arma::as_scalar(weights_vec.t() * V * weights_vec);
         double index = arma::as_scalar(results2.row(x).cols(0, numTrait - 1) * weights_vec);
         double spvi  = index + intensity * std::sqrt(sigma_gains);
@@ -180,7 +203,8 @@ SEXP cpp_calculate_covariance_osthushenrich(const NumericMatrix& Crosses,
 
     return Rcpp::List::create(
       Rcpp::Named("cross_values") = results2,
-      Rcpp::Named("covariances")  = out
+      Rcpp::Named("covariances")  = out,
+      Rcpp::Named("check_psd")  = any_psd.load(std::memory_order_relaxed)
     );
   }
 

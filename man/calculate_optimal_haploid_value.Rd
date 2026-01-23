@@ -7,22 +7,22 @@
 calculate_optimal_haploid_value(
   crosses,
   haplotype.blocks = NULL,
-  M,
-  U,
+  marker.mat,
+  effects,
   n.Threads = 4L
 )
 }
 \arguments{
 \item{crosses}{A numeric matrix or data.frame with two columns (P1, P2), giving
-indices of parents (rows of \code{M}) for each proposed cross.}
+indices of parents (rows of \code{marker.mat}) for each proposed cross.}
 
 \item{haplotype.blocks}{A list of integer vectors. Each vector contains  marker
-indices (columns of \code{M}) belonging to that block. If \code{NULL} or length 0,
+indices (columns of \code{marker.mat}) belonging to that block. If \code{NULL} or length 0,
 each marker is used as a separate block.}
 
-\item{M}{Numeric genotype/marker matrix (individuals x markers).}
+\item{marker.mat}{Numeric genotype/marker matrix (individuals x markers).}
 
-\item{U}{Numeric vector of marker effects (length \code{ncol(M)}).}
+\item{effects}{Numeric matrix of marker effects.}
 
 \item{n.Threads}{Integer larger 1. OpenMP threads (if enabled at compile time).}
 }
@@ -31,6 +31,6 @@ A data.frame with columns \code{OHV}.
 }
 \description{
 Computes the OHV for each cross using block-wise local GEBVs. If \code{haplotype.blocks}
-is not supplied (or empty), each marker column of \code{M} is treated as a
+is not supplied (or empty), each marker column of \code{marker.mat} is treated as a
 separate block.
 }

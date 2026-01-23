@@ -7,50 +7,47 @@
 calculate_variances_F1(
   crosses,
   genetic.map,
-  hap1,
-  hap2,
-  U,
-  D,
+  hap.mat1,
+  hap.mat2,
+  effects.A,
+  effects.D,
   intensity,
   covariance,
-  calculate.index = FALSE,
   weights = NULL,
   n.Threads = 4L
 )
 }
 \arguments{
 \item{crosses}{A data.frame or matrix (n_crosses x 2) of parental indices
-(row indices into \code{hap1}/\code{hap2}) specifying the crosses.}
+(row indices into \code{hap.mat1}/\code{hap.mat2}) specifying the crosses.}
 
 \item{genetic.map}{A data.frame with columns:
 \itemize{
-\item \code{site}: integer marker index (1..ncol(hap1))
+\item \code{site}: integer marker index (1..ncol(hap.mat1))
 \item \code{chr}: chromosome identifier (numeric or factor)
 \item \code{pos}: position on the chromosome in morgan
 }
-All markers in \code{hap1}/\code{hap2} must appear in \code{genetic.map$site}.}
+All markers in \code{hap.mat1}/\code{hap.mat2} must appear in \code{genetic.map$site}.}
 
-\item{hap1}{Numeric haplotype matrix (individuals x markers) for the first haplotype,
+\item{hap.mat1}{Numeric haplotype matrix (individuals x markers) for the first haplotype,
 entries in \code{c(0, 1)} for \code{c("A", "B")}.}
 
-\item{hap2}{Numeric haplotype matrix (individuals x markers) for the second haplotype,
+\item{hap.mat2}{Numeric haplotype matrix (individuals x markers) for the second haplotype,
 entries in \code{c(0, 1)} for \code{c("A", "B")}.}
 
-\item{U}{Numeric matrix of additive marker effects (markers in rows, traits in columns).
-Must have \code{nrow(U) == ncol(hap1)}.}
+\item{effects.A}{Numeric matrix of additive marker effects (markers in rows, traits in columns).
+Must have \code{nrow(effects.A) == ncol(hap.mat1)}.}
 
-\item{D}{Numeric matrix of dominance marker effects (markers in rows, traits in columns).
-Must have \code{nrow(D) == ncol(hap1)} and \code{ncol(D) == ncol(U)}.}
+\item{effects.D}{Numeric matrix of dominance marker effects (markers in rows, traits in columns).
+Must have \code{nrow(effects.D) == ncol(hap.mat1)} and \code{ncol(effects.D) == ncol(effects.A)}.}
 
 \item{intensity}{Double. Standardized selection differential (used for SPV).}
 
 \item{covariance}{Logical. If \code{TRUE}, also compute the segregation
 covariance matrix between all supplied traits.}
 
-\item{calculate.index}{Logical. If \code{TRUE}, calculate the index from fixed
-trait \code{weights}. Only works if \code{covariance = TRUE}; otherwise ignored.}
-
-\item{weights}{Numeric vector of length \code{ncol(U)} with fixed trait weights.}
+\item{weights}{Numeric vector of length \code{ncol(effects.A)} with fixed trait weights.
+If supplied the function calculates index values for each cross. Only works if \code{covariance = TRUE}; otherwise ignored.}
 
 \item{n.Threads}{Integer (default 4). Number of OpenMP threads (if enabled at compile time).}
 }

@@ -3,30 +3,39 @@
 #' Calculates the desired gains index based on multi-trait BLUPs and a chosen
 #' (co)variance matrix option.
 #'
-#' @param A A matrix (n_genotype x n_trait) of multi-trait BLUPs.
+#' @param effects A matrix (n_genotype x n_trait) of multi-trait BLUPs.
 #' @param V Numeric matrix ((n_genotype*n_trait) x (n_genotype*n_trait)) with the
-#'   posterior variance var(\eqn{\tilde{g}}).
-#'   Required if \code{use.marginal.V} is TRUE.
+#'   posterior variance var(\eqn{\tilde{g}}) of the provided effects. If provided,
+#'   the *marginal* posterior variance (mean of per-genotype trait-blocks from \code{V})
+#'   is used to calculate the index. If not provided an empirical estimate of V as cov(A)
+#'   is used.
 #' @param gains Numeric vector (length = n_trait) of desired gains.
-#' @param use.marginal.V Logical. If TRUE, uses the *marginal* posterior variance
-#'   (mean of per-genotype trait-blocks from \code{V}).
-#' @param use.V.approx Logical. If TRUE, uses an empirical estimate of V as cov(A).
 #' @param n.Threads Number of OpenMP threads.
 #'
 #' @return A list with index values and trait weights.
 #' @export
 calculate_desired_gains <- function(
-    A, V, gains = NULL,
-    use.marginal.V = FALSE, use.V.approx = FALSE,
+    effects, V=NULL, gains = NULL,
+
     n.Threads = 4L
 ) {
-  #  Coerce & basic shapes
-  if (!is.matrix(A)) A <- as.matrix(A)
-  nG <- nrow(A); nT <- ncol(A)
-  if (nG < 1L || nT < 1L) stop("`A` must have at least 1 row and 1 column.")
-  #Check A
 
-  if (any(!is.finite(A))) stop("`A` must contain only finite values.")
+  if(is.null(V)){
+    use.marginal.V = FALSE
+    use.V.approx = TRUE
+    }
+  if(!is.null(V)){
+    use.marginal.V = TRUE
+    use.V.approx = FALSE
+    }
+
+  #  Coerce & basic shapes
+  if (!is.matrix(effects)) effects <- as.matrix(effects)
+  nG <- nrow(effects); nT <- ncol(effects)
+  if (nG < 1L || nT < 1L) stop("`effects` must have at least 1 row and 1 column.")
+  #Check effects
+
+  if (any(!is.finite(effects))) stop("`effects` must contain only finite values.")
 
   # Flags: require exactly one TRUE to avoid ambiguity (C++ overwrites in order)
   flags <- c(use.marginal.V, use.V.approx)
@@ -38,7 +47,7 @@ calculate_desired_gains <- function(
 
   gains <- as.numeric(gains)
   if (length(gains) != nT || any(!is.finite(gains))) {
-    stop("`gains` must be a numeric vector of length ncol(A) with finite values.")
+    stop("`gains` must be a numeric vector of length ncol(effects) with finite values.")
   }
 
   # V / V.approx checks depending on flag
@@ -47,11 +56,11 @@ calculate_desired_gains <- function(
     if (!is.matrix(V)) V <- as.matrix(V)
     if (!is.numeric(V)) stop("`V` must be numeric.")
     if (nrow(V) != nG * nT || ncol(V) != nG * nT) {
-      stop("`V` must be a square matrix of dimension (nrow(A)*ncol(A)) x (nrow(A)*ncol(A)).")
+      stop("`V` must be a square matrix of dimension (nrow(effects)*ncol(effects)) x (nrow(effects)*ncol(effects)).")
     }
   }
   if (use.V.approx) {
-    V.approx <- cov(A)
+    V.approx <- cov(effects)
 
   }
 
@@ -63,7 +72,7 @@ calculate_desired_gains <- function(
 
   #  Call C++
   out <- cpp_calculate_desired_gains(
-    A        = A,
+    A        = effects,
     V = if (use.marginal.V) V else matrix(0, 1, 1),
     approxV  = if (use.V.approx) V.approx else matrix(0, 1, 1),
     gains    = gains,
@@ -75,7 +84,7 @@ calculate_desired_gains <- function(
 
   #  Format return
   out$index <- data.frame(DG_index = as.numeric(out$index))
-  rownames(out$index) <- rownames(A)
+  rownames(out$index) <- rownames(effects)
   out$weight <- as.numeric(out$weight)
   return(out)
 }

@@ -7,37 +7,36 @@
 calculate_variances_4W_DH(
   crosses,
   genetic.map,
-  M,
-  U,
+  marker.mat,
+  effects,
   t,
   intensity,
   covariance = FALSE,
-  calculate.index = FALSE,
   weights = NULL,
   n.Threads = 4L
 )
 }
 \arguments{
 \item{crosses}{A data.frame or matrix (n_crosses x 4) of parental indices
-(row indices into \code{M}) specifying four- or three-way crosses.
+(row indices into \code{marker.mat}) specifying four- or three-way crosses.
 For three-way crosses, the first two crossing partners are the same.
 You can also compute the variance for two heterozygous individuals by
-passing haplotypes in \code{M}; then indices refer to haplotypes.}
+passing haplotypes in \code{marker.mat}; then indices refer to haplotypes.}
 
 \item{genetic.map}{A data.frame with columns:
 \itemize{
-\item \code{site}: integer marker index (1..ncol(M))
+\item \code{site}: integer marker index (1..ncol(marker.mat))
 \item \code{chr}: chromosome identifier
 \item \code{pos}: position on the chromosome in morgan
 }
-All markers in \code{M} must appear in \code{genetic.map$site}.}
+All markers in \code{marker.mat} must appear in \code{genetic.map$site}.}
 
-\item{M}{Numeric marker matrix (genotypes/haplotypes in rows, markers in columns)
+\item{marker.mat}{Numeric marker matrix (genotypes/haplotypes in rows, markers in columns)
 with entries in \code{c(0, 2)} corresponding to \code{c("AA", "BB")}.
-For heterozygotes, store haplotypes in \code{M} (each individual uses two rows).}
+For heterozygotes, store haplotypes in \code{marker.mat} (each individual uses two rows).}
 
-\item{U}{Numeric matrix of marker effects (markers in rows, traits in columns).
-Must have \code{nrow(U) == ncol(M)}.}
+\item{effects}{Numeric matrix of marker effects (markers in rows, traits in columns).
+Must have \code{nrow(effects) == ncol(marker.mat)}.}
 
 \item{t}{Integer. Number of random-mating generations before DH creation.}
 
@@ -46,10 +45,8 @@ Must have \code{nrow(U) == ncol(M)}.}
 \item{covariance}{Logical. If \code{TRUE}, also compute the segregation
 covariance matrix between all supplied traits.}
 
-\item{calculate.index}{Logical. If \code{TRUE}, calculate the index based on weights
-based on segregation (co)variances. This only works if covariance is TRUE, else will be ignored.}
-
-\item{weights}{a vector of length equal to the number of traits with values representing the weight}
+\item{weights}{Numeric vector of length \code{ncol(effects)} with fixed trait weights.
+If supplied the function calculates index values for each cross. Only works if \code{covariance = TRUE}; otherwise ignored.}
 
 \item{n.Threads}{Integer (default 4). Number of OpenMP threads (if enabled at compile time).}
 }
@@ -70,9 +67,9 @@ derived after \code{t} rounds of random mating.
 \dontrun{
 out <- calculate_variances_DH(
   crosses = matrix(c(1,2, 3,4), ncol = 4, byrow = TRUE),
-  genetic.map = data.frame(site = 1:ncol(M), chr = 1, pos = seq_len(ncol(M))),
-  M = M,
-  U = matrix(rnorm(ncol(M)), ncol = 1),
+  genetic.map = data.frame(site = 1:ncol(marker.mat), chr = 1, pos = seq_len(ncol(marker.mat))),
+  marker.mat = marker.mat,
+  effects = matrix(rnorm(ncol(marker.mat)), ncol = 1),
   t = 0,
   intensity = 1.0,
   covariance = FALSE

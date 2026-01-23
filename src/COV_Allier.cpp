@@ -2,6 +2,7 @@
 #include <RcppArmadillo.h>
 #include <vector>
 #include <cmath>
+#include <atomic>
 #include "parallel_backend.h"
 
 using namespace Rcpp;
@@ -42,6 +43,7 @@ SEXP cpp_calculate_covariance_allier(
 
   ct_set_threads(nThreads);
 
+  std::atomic<bool> any_psd(false);
   const arma::uword numCrosses   = Crosses.nrow();
   const arma::uword numMarkers   = M.ncol();
   const arma::uword numTrait     = U.ncol();
@@ -144,7 +146,7 @@ SEXP cpp_calculate_covariance_allier(
       return;
     }
 
-    // ---- (A) Precompute eG once per trait (same as your first code) ----
+    // (A) eG once per trait
     for (arma::uword ti = 0; ti < numTrait; ++ti) {
       double G1 = arma::dot(M_mat.row(P1), U_mat.col(ti));
       double G2 = arma::dot(M_mat.row(P2), U_mat.col(ti));
@@ -153,19 +155,15 @@ SEXP cpp_calculate_covariance_allier(
       results2(x, OFF_EG + ti) = 0.25 * (G1 + G2 + G3 + G4);
     }
 
-    // ------------------------------------------------------------
-    // (B) Precompute per-chromosome diff markers ONCE per cross
-    //     + precompute genotype-difference vectors for those markers
-    // ------------------------------------------------------------
+    // (B) build work + detect if there is ANY differing marker genome-wide
+    bool any_diff = false;
+
     struct ChrDiffWork {
-      std::vector<arma::uword> li;     // local indices (0..nc-1)
-      std::vector<double> a12, a34;    // M(P1)-M(P2), M(P3)-M(P4)
-      std::vector<double> a14, a13;    // M(P1)-M(P4), M(P1)-M(P3)
-      std::vector<double> a24, a23;    // M(P2)-M(P4), M(P2)-M(P3)
+      std::vector<arma::uword> li;
+      std::vector<double> a12, a34, a14, a13, a24, a23;
     };
 
-    std::vector<ChrDiffWork> work;
-    work.resize(chr.size());
+    std::vector<ChrDiffWork> work(chr.size());
 
     for (std::size_t cidx = 0; cidx < chr.size(); ++cidx) {
       const auto& cc = chr[cidx];
@@ -184,32 +182,40 @@ SEXP cpp_calculate_covariance_allier(
       w.a24.reserve(256); w.a23.reserve(256);
 
       for (arma::uword g = startC; g <= endC; ++g) {
-        // load once
         const double m1 = M_mat(P1, g);
         const double m2 = M_mat(P2, g);
         const double m3 = M_mat(P3, g);
         const double m4 = M_mat(P4, g);
 
-        // keep marker if not all equal
-        if ((m1!=m2) || (m1!=m3) || (m1!=m4) || (m2!=m3) || (m2!=m4) || (m3!=m4)) {
-          const arma::uword li = g - startC;
-          w.li.push_back(li);
+        // if all equal, skip
+        if (m1 == m2 && m1 == m3 && m1 == m4) continue;
 
-          // precompute genotype differences
-          w.a12.push_back(m1 - m2);
-          w.a34.push_back(m3 - m4);
+        any_diff = true;
 
-          w.a14.push_back(m1 - m4);
-          w.a13.push_back(m1 - m3);
-          w.a24.push_back(m2 - m4);
-          w.a23.push_back(m2 - m3);
-        }
+        const arma::uword li = g - startC;
+        w.li.push_back(li);
+
+        w.a12.push_back(m1 - m2);
+        w.a34.push_back(m3 - m4);
+        w.a14.push_back(m1 - m4);
+        w.a13.push_back(m1 - m3);
+        w.a24.push_back(m2 - m4);
+        w.a23.push_back(m2 - m3);
       }
     }
 
-    // ------------------------------------------------------------
-    // (C) Trait pairs reuse the precomputed per-chromosome work
-    // ------------------------------------------------------------
+    // ---- NEW: if no differences anywhere, variance=0 and SPV=eG (and index variance=0 later) ----
+    if (!any_diff) {
+      for (arma::uword ti = 0; ti < numTrait; ++ti) {
+        const double eG = results2(x, OFF_EG + ti);
+        results2(x, OFF_VAR + ti) = 0.0;
+        results2(x, OFF_SPV + ti) = eG;
+      }
+      // results1 row stays 0 => covariance matrix is 0 => sigma_gains=0 and spvi=index later
+      return;
+    }
+
+    // (C) ... your existing trait-pair loops using `work` ...
     for (arma::uword ti = 0; ti < numTrait; ++ti) {
       for (arma::uword tj = ti; tj < numTrait; ++tj) {
         if (!covariance && ti != tj) continue;
@@ -231,7 +237,6 @@ SEXP cpp_calculate_covariance_allier(
             const arma::uword li = w.li[ii];
             const arma::uword gi = startC + li;
 
-            // pull once per ii
             const double a12_i = w.a12[ii];
             const double a34_i = w.a34[ii];
             const double a14_i = w.a14[ii];
@@ -243,25 +248,23 @@ SEXP cpp_calculate_covariance_allier(
               const arma::uword lj = w.li[jj];
               const arma::uword gj = startC + lj;
 
-              // phi1/phi2 using precomputed diffs (no M_mat loads here)
-              const double D12 = 0.0625 * (a12_i * w.a12[jj]);
-              const double D34 = 0.0625 * (a34_i * w.a34[jj]);
+              const double D12  = 0.0625 * (a12_i * w.a12[jj]);
+              const double D34  = 0.0625 * (a34_i * w.a34[jj]);
               const double phi1 = D12 + D34;
 
-              const double D14 = 0.0625 * (a14_i * w.a14[jj]);
-              const double D13 = 0.0625 * (a13_i * w.a13[jj]);
-              const double D24 = 0.0625 * (a24_i * w.a24[jj]);
-              const double D23 = 0.0625 * (a23_i * w.a23[jj]);
+              const double D14  = 0.0625 * (a14_i * w.a14[jj]);
+              const double D13  = 0.0625 * (a13_i * w.a13[jj]);
+              const double D24  = 0.0625 * (a24_i * w.a24[jj]);
+              const double D23  = 0.0625 * (a23_i * w.a23[jj]);
               const double phi2 = D14 + D13 + D24 + D23;
 
-              // recombination cache lookups
               const double ck  = tri_get(cc.CK,  (std::size_t)li, (std::size_t)lj, (std::size_t)nc);
               const double ck1 = tri_get(cc.CK1, (std::size_t)li, (std::size_t)lj, (std::size_t)nc);
               const double c1  = tri_get(cc.C1,  (std::size_t)li, (std::size_t)lj, (std::size_t)nc);
 
               const double Dcomb = (ck * phi2) + ((ck + ck1) * c1 * phi1);
-
               const double contrib = U_mat(gi, ti) * Dcomb * U_mat(gj, tj);
+
               add_chr += (ii == jj) ? contrib : 2.0 * contrib;
             }
           }
@@ -280,6 +283,7 @@ SEXP cpp_calculate_covariance_allier(
       }
     }
   });
+
 
 
 
@@ -302,7 +306,18 @@ SEXP cpp_calculate_covariance_allier(
       covs[x] = V;
 
       if (calcindex) {
+        arma::mat L;
+        bool spd = arma::chol(L, V);
+        if (!spd) {
+          any_psd.store(true, std::memory_order_relaxed);
+          arma::vec eval;
+          arma::mat evec;
+          arma::eig_sym(eval, evec, V);
 
+          eval.transform([](double x){ return (x < 0.0) ? 0.0 : x; });
+
+          V = evec * arma::diagmat(eval) * evec.t();
+        }
         double sigma_gains = arma::as_scalar(weights_vec.t() * V * weights_vec);
         double index = arma::as_scalar(results2.row(x).cols(0, numTrait - 1) * weights_vec);
         double spvi  = index + intensity * std::sqrt(sigma_gains);
@@ -318,7 +333,8 @@ SEXP cpp_calculate_covariance_allier(
 
     return Rcpp::List::create(
       Rcpp::Named("cross_values") = results2,
-      Rcpp::Named("covariances")  = out
+      Rcpp::Named("covariances")  = out,
+      Rcpp::Named("check_psd")  = any_psd.load(std::memory_order_relaxed)
     );
   }
 

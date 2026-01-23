@@ -7,12 +7,11 @@
 calculate_variances_4W_RIL(
   crosses,
   genetic.map,
-  M,
-  U,
+  marker.mat,
+  effects,
   t,
   intensity,
   covariance = FALSE,
-  calculate.index = FALSE,
   weights = NULL,
   n.Threads = 4L
 )
@@ -32,11 +31,11 @@ passing haplotypes in \code{M}; then indices refer to haplotypes.}
 }
 All markers in \code{M} must appear in \code{genetic.map$site}.}
 
-\item{M}{Numeric marker matrix (genotypes/haplotypes in rows, markers in columns)
+\item{marker.mat}{Numeric marker matrix (genotypes/haplotypes in rows, markers in columns)
 with entries in \code{c(0, 2)} corresponding to \code{c("AA", "BB")}.
 For heterozygotes, store haplotypes in \code{M} (each individual uses two rows).}
 
-\item{U}{Numeric matrix of marker effects (markers in rows, traits in columns).
+\item{effects}{Numeric matrix of marker effects (markers in rows, traits in columns).
 Must have \code{nrow(U) == ncol(M)}.}
 
 \item{t}{Integer. Number of random-mating generations before RIL creation.}
@@ -46,12 +45,10 @@ Must have \code{nrow(U) == ncol(M)}.}
 \item{covariance}{Logical. If \code{TRUE}, also compute the segregation
 covariance matrix between all supplied traits.}
 
-\item{calculate.index}{Logical. If \code{TRUE}, calculate the index
-based on segregation (co)variances. This only works if covariance is TRUE, else will be ignored.}
+\item{weights}{Numeric vector of length \code{ncol(U)} with fixed trait weights.
+If supplied the function calculates index values for each cross. Only works if \code{covariance = TRUE}; otherwise ignored.}
 
 \item{n.Threads}{Integer (default 4). Number of OpenMP threads (if enabled at compile time).}
-
-\item{weigths}{a vector of length equal to the number of traits with values representing the desired weights}
 }
 \value{
 If \code{covariance = TRUE}, a list with element \code{cross_values}
@@ -71,8 +68,8 @@ derived after \code{t} rounds of random mating.
 out <- calculate_variances_RIL(
   crosses = matrix(c(1,2, 3,4), ncol = 4, byrow = TRUE),
   genetic.map = data.frame(site = 1:ncol(M), chr = 1, pos = seq_len(ncol(M))),
-  M = M,
-  U = matrix(rnorm(ncol(M)), ncol = 1),
+  marker.mat = M,
+  effects = matrix(rnorm(ncol(M)), ncol = 1),
   t = 0,
   intensity = 1.0,
   covariance = FALSE
