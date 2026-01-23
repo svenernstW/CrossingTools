@@ -4,9 +4,18 @@
 \alias{get_marker_effects}
 \title{Backsolve marker effects (mu) from individual effects (g)}
 \usage{
-get_marker_effects(M, G, effects, scaling.factor, tol = 1e-10, n.Threads = 4L)
+get_marker_effects(
+  marker.mat,
+  G,
+  effects,
+  scaling.factor,
+  tol = 1e-10,
+  n.Threads = 4L
+)
 }
 \arguments{
+\item{marker.mat}{Numeric matrix (n x p): marker/genotype matrix (individuals in rows, markers in columns).}
+
 \item{G}{Numeric matrix (n x n): relationship matrix among individuals.}
 
 \item{effects}{Numeric (n x k) or length-n vector: individual effects (one or more traits).}
@@ -16,8 +25,6 @@ get_marker_effects(M, G, effects, scaling.factor, tol = 1e-10, n.Threads = 4L)
 \item{tol}{Numeric scalar tolerance for near-singularity checks in \code{G}. Default: \code{1e-10}.}
 
 \item{n.Threads}{Integer >= 1; OpenMP threads (if enabled at compile time). Default: \code{4L}.}
-
-\item{marker.mat}{Numeric matrix (n x p): marker/genotype matrix (individuals in rows, markers in columns).}
 }
 \value{
 A numeric \code{p x k} matrix of marker effects (\code{mu_matrix}).

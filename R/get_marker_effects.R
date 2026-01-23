@@ -11,7 +11,7 @@
 #'
 #' @return A numeric \code{p x k} matrix of marker effects (\code{mu_matrix}).
 #' @export
-get_marker_effects <- function(M,
+get_marker_effects <- function(marker.mat,
                      G,
                      effects,
                      scaling.factor,
