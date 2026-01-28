@@ -176,10 +176,10 @@ optimal_cross_selection <- function(crosses,
   u.fixed <- as.numeric(u.fixed)
 
   ##  Basic matrix checks
-  if (!is.numeric(G)) stop("`G` must be a numeric matrix.")
-  if (nrow(G) != ncol(G)) stop("`G` must be square.")
+  if (!is.numeric(G)) stop("`G.mat` must be a numeric matrix.")
+  if (nrow(G) != ncol(G)) stop("`G.mat` must be square.")
   nInd <- ncol(G)
-  if (nInd < 2) stop("`G` must have at least 2 individuals.")
+  if (nInd < 2) stop("`G.mat` must have at least 2 individuals.")
 
   # Cross matrices must be 2 columns (allow 0 rows for fixed)
   if (ncol(crosses) != 2) stop("`crosses` must have exactly 2 columns.")
@@ -192,9 +192,9 @@ optimal_cross_selection <- function(crosses,
   if (any(!is.finite(crosses2))) stop("`crosses` contains non-finite entries.")
   if (nrow(fixed.crosses2) && any(!is.finite(fixed.crosses2))) stop("`fixed.crosses` contains non-finite entries.")
 
-  if (any(crosses2 < 1 | crosses2 > nInd)) stop("Some indices in `crosses` are outside 1..nrow(G).")
+  if (any(crosses2 < 1 | crosses2 > nInd)) stop("Some indices in `crosses` are outside 1..nrow(G.mat).")
   if (nrow(fixed.crosses2) && any(fixed.crosses2 < 1 | fixed.crosses2 > nInd)) {
-    stop("Some indices in `fixed.crosses` are outside 1..nrow(G).")
+    stop("Some indices in `fixed.crosses` are outside 1..nrow(G.mat).")
   }
 
   if (any(crosses2[,1] == crosses2[,2])) stop("`crosses` contains self-crosses.")
@@ -215,7 +215,7 @@ optimal_cross_selection <- function(crosses,
   ##  Vector checks
   if (!all(is.finite(u))) stop("`u` contains non-finite values.")
   if (nrow(crosses) != length(u)) {
-    stop("`u` length (", length(u), ") must equal nrow(crosses) (", nrow(crosses), ").")
+    stop("`criterion` length (", length(u), ") must equal nrow(crosses) (", nrow(crosses), ").")
   }
   if (ncol(crosses) != 2) stop("`crosses` must have exactly 2 columns.")
   if (nrow(fixed.crosses2) > 0L && ncol(fixed.crosses2) != 2) stop("`fixed.crosses` must have exactly 2 columns (or 0 rows).")
