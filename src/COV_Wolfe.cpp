@@ -272,7 +272,7 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
         double spvi_AD  = index_AD + intensity * std::sqrt(var_index_AD);
 
         results2(x, OFF_IDX_AD)    = index_AD;
-        results2(x, OFF_VARIDX_AD) = var_index_AD;
+        results2(x, OFF_VARIDX_AD) = var_index_AD-var_index_A;
         results2(x, OFF_SPVI_AD)   = spvi_AD;
       }
     });

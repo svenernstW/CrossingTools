@@ -62,3 +62,4 @@ Calculate expected genomic estimated breeding values (EGBV), segregation
 variance, and superior progeny value (SPV) for recombinant inbred lines (RIL)
 derived after \code{t} rounds of random mating.
 }
+\keyword{internal}

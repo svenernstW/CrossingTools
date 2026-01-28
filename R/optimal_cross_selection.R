@@ -1,72 +1,89 @@
 #' Optimal cross selection via a genetic algorithm (with optional fixed crosses)
 #'
-#' Uses a simple genetic algorithm (GA) to choose \code{ncrosses} parent pairs
-#' that balance an average criterion (utility \code{u}) and genomic similarity
-#' according to a target trade-off angle. Fixed crosses (if any) are forced
-#' into the final solution, and the GA fills the remaining slots from
-#' \code{crosses}.
+#' Uses a genetic algorithm (GA) to choose \code{ncrosses} parent pairs that
+#' balance an average criterion (utility, \code{criterion}) and genomic similarity
+#' (computed from \code{G.mat}) according to a target trade-off angle.
+#' If \code{fixed.crosses} is provided, those crosses are always included and the
+#' GA selects the remaining crosses from \code{crosses}.
 #'
-#' @param crosses integer matrix (K x 2). Candidate \emph{variable} crosses (1-based indices
-#'   referring to rows/columns of \code{G}). Must have exactly two columns
-#'   (P1, P2); selfings are not allowed.
-#' @param fixed.crosses integer matrix (F x 2) or \code{NULL}. Crosses that must be
-#'   included in the final plan. Can have 0 rows. Must use the same indexing as
-#'   \code{crosses}. Selfings are not allowed.
-#' @param ncrosses integer. Total number of crosses in the final plan
-#'   (variable + fixed). Must be \eqn{\ge} number of rows in \code{fixed.crosses}.
-#' @param target.angle numeric (radians). Target trade-off angle between the
-#'   average criterion and the similarity objective. Smaller angles emphasize
-#'   utility \code{u}; larger angles emphasize similarity control.
-#' @param u numeric vector (length = nrow(crosses)). Utility (average criterion)
-#'   for each candidate cross in \code{crosses}.
-#' @param u.fixed numeric vector (length = nrow(fixed.crosses)) or \code{NULL}.
-#'   Utility for each fixed cross; if \code{fixed.crosses} has 0 rows, this can
-#'   be length-0.
-#' @param G numeric square matrix (nInd x nInd). Genomic relationship matrix
-#'   used to evaluate similarity/diversity among parents; indices in
-#'   \code{crosses}/\code{fixed.crosses} must lie in \code{1..nrow(G)}.
-#' @param params A list of parameters for the Genetic Algorithm optimization:
+#' Both \code{crosses} and \code{fixed.crosses} may be provided either as
+#' integer indices (1-based, referring to rows/columns of \code{G.mat}) or as
+#' character identifiers matching \code{rownames(G.mat)}. I
+#'
+#' @param crosses Integer or character data.frame or matrix (\eqn{K \times 2}). Candidate
+#'   \emph{variable} crosses. Must have exactly two columns; selfings
+#'   are not allowed.
+#' @param fixed.crosses Integer or character data.frame or matrix (\eqn{F \times 2}) or \code{NULL}.
+#'   Crosses that must be included in the final plan. Can have 0 rows. Must use
+#'   the same indexing/identifiers as \code{crosses}. Selfings are not allowed.
+#' @param ncrosses Integer. Total number of crosses in the final plan
+#'   (variable + fixed). Must be \eqn{\ge} \code{nrow(fixed.crosses)}.
+#' @param target.angle Numeric, target trade-off angle between utility
+#'   and similarity. Smaller angles emphasize \code{criterion}; larger angles
+#'   emphasize similarity control, allowed values are in the range of 0 to 90.
+#'   Use 0 to prioritize criterion only, and 90 to prioritize diversity (G.mat).
+#'   Everything in between is a trade-off.
+#' @param criterion Numeric vector (length = \code{nrow(crosses)}). Utility for
+#'   each candidate cross in \code{crosses}.
+#' @param criterion.fixed Numeric vector (length = \code{nrow(fixed.crosses)}) or
+#'   \code{NULL}. Utility for each fixed cross; if \code{fixed.crosses} has 0 rows,
+#'   this can be length-0.
+#' @param G.mat Numeric square matrix (\eqn{n \times n}). Genomic relationship matrix
+#'   used to evaluate similarity/diversity among parents. If \code{crosses} or
+#'   \code{fixed.crosses} are character, \code{rownames(G.mat)} must be present.
+#' @param params A list of GA parameters:
 #'   \describe{
-#'     \item{\code{propability.mutate}}{numeric in \eqn{[0,1]}. Probability that a candidate solution mutates in the GA.}
-#'     \item{\code{n.mutate}}{integer \eqn{\ge 0}. Number of point mutations to apply when a mutation occurs.}
-#'     \item{\code{n.select}}{integer \eqn{\ge 2}. Number of candidate solutions selected per generation (selection pool size).}
-#'     \item{\code{n.pop}}{integer \eqn{\ge 2}. Population size (number of candidate solutions) per generation.}
-#'     \item{\code{max.generation}}{integer \eqn{\ge 1}. Maximum number of GA generations.}
-#'     \item{\code{max.iteration}}{integer \eqn{\ge 1}. Maximum number of iterations without improvement.}
-#'     \item{\code{angle.penalty}}{numeric \eqn{\ge 0}. Penalty applied to solutions that deviate from \code{target.angle}.}
+#'     \item{\code{propability.mutate}}{Numeric in \eqn{[0,1]}. Mutation probability.}
+#'     \item{\code{n.mutate}}{Integer \eqn{\ge 0}. Mutation magnitude parameter.}
+#'     \item{\code{n.select}}{Integer \eqn{\ge 2}. Number selected per generation.}
+#'     \item{\code{n.pop}}{Integer \eqn{\ge 2}. Population size.}
+#'     \item{\code{max.generation}}{Integer \eqn{\ge 1}. Maximum generations.}
+#'     \item{\code{max.iteration}}{Integer \eqn{\ge 1}. Max iterations without improvement.}
+#'     \item{\code{angle.penalty}}{Numeric \eqn{\ge 0}. Penalty for deviation from \code{target.angle}.}
 #'   }
-#' @param return.params logical. If \code{TRUE}, return additional information from the GA.
-#' @param n.Threads integer \eqn{\ge 1}. Number of OpenMP threads to use.
+#' @param return.params Logical. If \code{TRUE}, return additional GA summary metrics.
+#' @param nthreads Integer \eqn{\ge 1}. Number of threads to use.
 #'
 #' @return
 #' \describe{
-#'   \item{If \code{return.params = FALSE}:}{A data.frame with columns \code{parent1} and \code{parent2} describing the selected cross plan.}
+#'   \item{If \code{return.params = FALSE}:}{A data.frame with columns
+#'     \code{parent1} and \code{parent2} describing the selected cross plan,
+#'     returned in the same representation (integer indices or character IDs)
+#'     as supplied in \code{crosses}/\code{fixed.crosses}.}
 #'   \item{If \code{return.params = TRUE}:}{A list with elements:
 #'     \describe{
-#'       \item{\code{crossPlan}}{A data.frame with columns \code{parent1} and \code{parent2} describing the selected cross plan.}
-#'       \item{\code{uMax}}{Numeric scalar: maximum attainable average criterion when optimizing only \code{u}.}
-#'       \item{\code{uMin}}{Numeric scalar: minimum attainable average criterion when optimizing only similarity.}
-#'       \item{\code{simMax}}{Numeric scalar: similarity corresponding to \code{uMax}.}
-#'       \item{\code{simMin}}{Numeric scalar: similarity corresponding to \code{uMin}.}
-#'       \item{\code{uBest}}{Numeric scalar: average criterion achieved by the optimized cross plan.}
-#'       \item{\code{simBest}}{Numeric scalar: similarity of the optimized cross plan.}
-#'       \item{\code{angleBest}}{Numeric scalar (radians): angle of the optimized solution relative to the target trade-off.}
-#'       \item{\code{lenBest}}{Numeric scalar: length (magnitude) of the optimized solution vector in the objective space.}
+#'       \item{\code{crossPlan}}{A data.frame with columns \code{parent1} and
+#'         \code{parent2} describing the selected cross plan (mapped back to the
+#'         original input representation).}
+#'       \item{\code{uMax}}{Maximum attainable average utility when optimizing only utility.}
+#'       \item{\code{uMin}}{Minimum attainable average utility under similarity optimization.}
+#'       \item{\code{simMax}}{Similarity corresponding to \code{uMax}.}
+#'       \item{\code{simMin}}{Similarity corresponding to \code{uMin}.}
+#'       \item{\code{uBest}}{Average utility achieved by the optimized cross plan.}
+#'       \item{\code{simBest}}{Similarity of the optimized cross plan.}
+#'       \item{\code{angleBest}}{Angle (radians) of the optimized solution.}
+#'       \item{\code{lenBest}}{Objective-space length of the optimized solution vector.}
 #'     }}
 #' }
 #'
+#' @details
+#' The returned cross plan is assembled from the selected rows of \code{crosses}
+#' and all rows of \code{fixed.crosses}. If fixed crosses also appear among the
+#' candidate crosses, duplicates may occur in the final plan (a warning is issued).
+#'
 #' @export
+
 
 optimal_cross_selection <- function(crosses,
                                     fixed.crosses = NULL,
                                     ncrosses,
                                     target.angle,
-                                    u,
-                                    u.fixed = NULL,
-                                    G,
+                                    criterion,
+                                    criterion.fixed = NULL,
+                                    G.mat,
                                     return.params=FALSE,
                                     params = list(),
-                                    n.Threads = 4L) {
+                                    nthreads = 4L) {
 
   defaults <-
     list(
@@ -78,19 +95,84 @@ optimal_cross_selection <- function(crosses,
       max.iteration = 100,
       angle.penalty = 0.5
     )
-
+  G <- G.mat
+  n.Threads <- nthreads
   params <- modifyList(defaults, params)
-
+  u <- criterion
+  u.fixed = criterion.fixed
   ##  Coerce types
+
+  # target.angle is supplied in DEGREES (0..90)
+  if (length(target.angle) != 1L || !is.finite(target.angle)) {
+    stop("`target.angle` must be a single finite number (in degrees).")
+  }
+  if (target.angle < 0 || target.angle > 90) {
+    stop("`target.angle` must be between 0 and 90 degrees. ",
+         "Use 0 to prioritize criterion only, and 90 to prioritize diversity (G.mat).")
+  }
+
+  target.angle <- target.angle * pi / 180
+
+
   if (!is.matrix(G)) G <- as.matrix(G)
   crosses <- as.matrix(crosses)
+
+
+
+  if(!is.null(fixed.crosses)){
+    fixed.crosses <- as.matrix(fixed.crosses)
+
+    fixed.crosses <- as.matrix(fixed.crosses)
+
+    if (is.numeric(fixed.crosses) || is.integer(fixed.crosses)) {
+      if (any(!is.finite(fixed.crosses))) stop("`fixed.crosses` contains non-finite entries.")
+      if (any(fixed.crosses < 1 | fixed.crosses > nrow(G.mat))) {
+        stop("Some genotype indices in `fixed.crosses` are outside 1..nrow(G.mat).")
+      }
+      fixed.crosses2 <- as.data.frame(fixed.crosses)
+    } else {
+      if (is.null(rownames(G.mat))) stop("Character `fixed.crosses` requires rownames(G.mat).")
+
+      idx <- match(as.vector(fixed.crosses), rownames(G.mat))
+      if (anyNA(idx)) stop("Some entries in `fixed.crosses` are not in rownames(G.mat).")
+
+      idx <- matrix(idx, nrow = nrow(fixed.crosses), ncol = ncol(fixed.crosses), byrow = FALSE)
+      fixed.crosses2 <- as.data.frame(idx)
+    }
+
+    fixed.crosses2 <- as.matrix(fixed.crosses2)
+
+  }
+
+
+  crosses <- as.matrix(crosses)
+
+  if (is.numeric(crosses) || is.integer(crosses)) {
+    if (any(!is.finite(crosses))) stop("`crosses` contains non-finite entries.")
+    if (any(crosses < 1 | crosses > nrow(G.mat))) {
+      stop("Some genotype indices in `crosses` are outside 1..nrow(G.mat).")
+    }
+    crosses2 <- as.data.frame(crosses)
+  } else {
+    if (is.null(rownames(G.mat))) stop("Character `crosses` requires rownames(G.mat).")
+
+    idx <- match(as.vector(crosses), rownames(G.mat))
+    if (anyNA(idx)) stop("Some entries in `crosses` are not in rownames(G.mat).")
+
+    idx <- matrix(idx, nrow = nrow(crosses), ncol = ncol(crosses), byrow = FALSE)
+    crosses2 <- as.data.frame(idx)
+  }
+
+  crosses2 <- as.matrix(crosses2)
+
+
   u       <- as.numeric(u)
 
   if (is.null(fixed.crosses) || nrow(fixed.crosses) == 0) {
-    fixed.crosses <- crosses[0, , drop = FALSE]  # 0-row, 2-col
+    fixed.crosses2 <- crosses2[0, , drop = FALSE]  # 0-row, 2-col
     u.fixed <- u[0]                              # numeric(0)
   }
-  fixed.crosses <- as.matrix(fixed.crosses)
+  fixed.crosses2 <- as.matrix(fixed.crosses2)
   u.fixed <- as.numeric(u.fixed)
 
   ##  Basic matrix checks
@@ -101,30 +183,27 @@ optimal_cross_selection <- function(crosses,
 
   # Cross matrices must be 2 columns (allow 0 rows for fixed)
   if (ncol(crosses) != 2) stop("`crosses` must have exactly 2 columns.")
-  if (nrow(fixed.crosses) > 0L && ncol(fixed.crosses) != 2) {
+  if (!is.null(fixed.crosses) && nrow(fixed.crosses) > 0L && ncol(fixed.crosses) != 2) {
     stop("`fixed.crosses` must have exactly 2 columns (or 0 rows).")
   }
 
+
   ##  Index validity & structure
-  if (any(!is.finite(crosses))) stop("`crosses` contains non-finite entries.")
-  if (nrow(fixed.crosses) && any(!is.finite(fixed.crosses))) {
-    stop("`fixed.crosses` contains non-finite entries.")
-  }
-  if (any(crosses < 1 | crosses > nInd)) {
-    stop("Some indices in `crosses` are outside 1..nrow(G).")
-  }
-  if (nrow(fixed.crosses) && any(fixed.crosses < 1 | fixed.crosses > nInd)) {
+  if (any(!is.finite(crosses2))) stop("`crosses` contains non-finite entries.")
+  if (nrow(fixed.crosses2) && any(!is.finite(fixed.crosses2))) stop("`fixed.crosses` contains non-finite entries.")
+
+  if (any(crosses2 < 1 | crosses2 > nInd)) stop("Some indices in `crosses` are outside 1..nrow(G).")
+  if (nrow(fixed.crosses2) && any(fixed.crosses2 < 1 | fixed.crosses2 > nInd)) {
     stop("Some indices in `fixed.crosses` are outside 1..nrow(G).")
   }
 
-  # No self-crosses
-  if (any(crosses[,1] == crosses[,2])) stop("`crosses` contains self-crosses.")
-  if (nrow(fixed.crosses) && any(fixed.crosses[,1] == fixed.crosses[,2])) {
-    stop("`fixed.crosses` contains self-crosses.")
-  }
+  if (any(crosses2[,1] == crosses2[,2])) stop("`crosses` contains self-crosses.")
+  if (nrow(fixed.crosses2) && any(fixed.crosses2[,1] == fixed.crosses2[,2])) stop("`fixed.crosses` contains self-crosses.")
+
 
   # Overlap warning
-  if (nrow(fixed.crosses)) {
+  if (!is.null(fixed.crosses) && nrow(fixed.crosses) > 0) {
+
     ov <- paste0(fixed.crosses[,1], "_", fixed.crosses[,2]) %in%
       paste0(crosses[,1], "_", crosses[,2])
     if (any(ov)) {
@@ -138,9 +217,9 @@ optimal_cross_selection <- function(crosses,
   if (nrow(crosses) != length(u)) {
     stop("`u` length (", length(u), ") must equal nrow(crosses) (", nrow(crosses), ").")
   }
-  if (nrow(fixed.crosses) != length(u.fixed)) {
-    stop("`u.fixed` length (", length(u.fixed), ") must equal nrow(fixed.crosses) (", nrow(fixed.crosses), ").")
-  }
+  if (ncol(crosses) != 2) stop("`crosses` must have exactly 2 columns.")
+  if (nrow(fixed.crosses2) > 0L && ncol(fixed.crosses2) != 2) stop("`fixed.crosses` must have exactly 2 columns (or 0 rows).")
+
 
   ##  Scalar checks (use n.Threads)
   req_scalar_num <- list(
@@ -181,13 +260,13 @@ optimal_cross_selection <- function(crosses,
   if (max.iteration  < 1L) stop("`max.iteration` must be >= 1.")
   if (nThreads < 1L) stop("`n.Threads` must be >= 1.")
   if (!is.numeric(target.angle)) stop("`target.angle` must be numeric.")
-  if (!is.numeric(params$propability.mutate) || params$propability.mutate < 0 || params$propability.mutate > 1)
-    stop("`propability.mutate` must be in [0,1].")
-  if (!is.numeric(params$angle.penalty) || params$angle.penalty < 0)
-    stop("`angle.penalty` must be >= 0.")
+  if (!is.numeric(params$propability.mutate) || params$propability.mutate < 0 || params$propability.mutate > 1){
+    stop("`propability.mutate` must be in [0,1].")}
+  if (!is.numeric(params$angle.penalty) || params$angle.penalty < 0){
+    stop("`angle.penalty` must be >= 0.")}
 
   ##  Cross count logic
-  fixedCount <- nrow(fixed.crosses)
+  fixedCount <- nrow(fixed.crosses2)
   nVar <- ncrosses - fixedCount
   if (nVar < 0L) {
     stop("`ncrosses` (", ncrosses, ") must be >= number of fixed crosses (", fixedCount, ").")
@@ -199,8 +278,8 @@ optimal_cross_selection <- function(crosses,
 
   ##  Map names to C++
   res <- cpp_optimal_cross_selection(
-    Crosses       = crosses,
-    fixedCrosses  = fixed.crosses,
+    Crosses       = crosses2,
+    fixedCrosses  = fixed.crosses2,
     nCross        = ncrosses,
     targetAngle   = as.numeric(target.angle),
     u             = u,
@@ -216,10 +295,39 @@ optimal_cross_selection <- function(crosses,
     nThreads      = nThreads
   )
   if(return.params){
-    res$crossPlan <- as.data.frame(res$crossPlan)[,1:2]
+    res$crossPlan <- as.data.frame(res$crossPlan)[,]
+    temp <- rbind(crosses2,fixed.crosses2)
+    if (is.null(fixed.crosses) || nrow(fixed.crosses)==0){
+      fixed.orig <- crosses[0,,drop=FALSE]
+    } else{
+        fixed.orig <- fixed.crosses
+    }
+    temp2 <- rbind(crosses, fixed.orig)
+
+
+    idx <- match(
+      paste(res$crossPlan[,1], res$crossPlan[,2]),
+      paste(temp[,1],     temp[,2])
+    )
+    res$crossPlan <- as.data.frame(temp2[idx,])
     names(res$crossPlan) <-c("parent1","parent2")
     }else{
-    res <- as.data.frame(res$crossPlan)[,1:2]
+      temp <- rbind(crosses2,fixed.crosses2)
+      if (is.null(fixed.crosses) || nrow(fixed.crosses)==0){
+        fixed.orig <- crosses[0,,drop=FALSE]
+      } else{
+        fixed.orig <- fixed.crosses
+      }
+      temp2 <- rbind(crosses, fixed.orig)
+
+
+      idx <- match(
+        paste(res$crossPlan[,1], res$crossPlan[,2]),
+        paste(temp[,1],     temp[,2])
+      )
+
+      res <- as.data.frame(temp2[idx,])
+    names(res) <-c("parent1","parent2")
     }
 
   return(res)

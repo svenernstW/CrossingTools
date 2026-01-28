@@ -32,7 +32,7 @@
 #'   If \code{covariance = TRUE} and \code{calculate.index = TRUE}, additionally an element \code{index}
 #'   (a data.frame) with \code{IDG_A, VARIDG_A, SPVIDG_A}.
 #'   If \code{covariance = FALSE}, a data.frame with the same columns \code{EGBV1, var1, SPV1, EGBV2, ...}.
-#' @export
+#' @keywords internal
 calculate_variances_DH <- function(crosses, genetic.map, marker.mat, effects, t, intensity,
                                    covariance = FALSE,  weights = NULL,
                                    method = "osthushenrich", n.Threads = 4L) {

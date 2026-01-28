@@ -3,21 +3,21 @@
 #' Computes marker effects \eqn{\mu = (scalingFactor * M' * G^{-1}) * g}.
 #'
 #' @param marker.mat Numeric matrix (n x p): marker/genotype matrix (individuals in rows, markers in columns).
-#' @param G Numeric matrix (n x n): relationship matrix among individuals.
+#' @param G.mat Numeric matrix (n x n): relationship matrix among individuals.
 #' @param effects Numeric (n x k) or length-n vector: individual effects (one or more traits).
 #' @param scaling.factor Numeric scalar used to scale the GRM.
-#' @param tol Numeric scalar tolerance for near-singularity checks in \code{G}. Default: \code{1e-10}.
 #' @param n.Threads Integer >= 1; OpenMP threads (if enabled at compile time). Default: \code{4L}.
-#'
 #' @return A numeric \code{p x k} matrix of marker effects (\code{mu_matrix}).
 #' @export
 get_marker_effects <- function(marker.mat,
-                     G,
+                     G.mat,
                      effects,
                      scaling.factor,
-                     tol = 1e-10,
+
                      n.Threads = 4L) {
   # Coerce base types
+  G <- G.mat
+  tol = 1e-10
   if (!is.matrix(marker.mat)) marker.mat <- as.matrix(marker.mat)
   if (!is.matrix(G)) G <- as.matrix(G)
   if (is.vector(effects))  effects <- matrix(as.numeric(effects), ncol = 1)

@@ -2,28 +2,50 @@
 % Please edit documentation in R/make_cross_plan.R
 \name{make_cross_plan}
 \alias{make_cross_plan}
-\title{Creation of a plan of all potential crosses for CrossingTools}
+\title{Creation of a plan of all potential crosses}
 \usage{
-make_cross_plan(
-  candidates = NULL,
-  male_candidates = NULL,
-  female_candidates = NULL
-)
+make_cross_plan(parents = NULL, self = FALSE, males = NULL, females = NULL)
 }
 \arguments{
-\item{candidates}{A vector of integers that identify each genotype. Should be consistent with genotypic data.
-Use this function if there are no sexes.}
+\item{parents}{A vector of genotype identifiers defining the candidate parents
+for an unsexed crossing design. Identifiers may be integers or character strings
+(for example, row names of a genotype matrix). Must contain at least two unique
+entries.}
 
-\item{male_candidates}{A vector of integers that identify each male genotype. Ignored if candidates is supplied.
-Should be consistent with genotypic data.}
+\item{self}{Logical. If \code{TRUE} and \code{parents} is supplied, self-crosses
+(parent × itself) are included in addition to all pairwise crosses. Ignored when
+\code{males} and \code{females} are supplied.}
 
-\item{female_candidates}{A vector of integers that identify each female genotype. Ignored if candidates is supplied.
-Should be consistent with genotypic data.}
+\item{males}{A vector of genotype identifiers defining male parents in a sexed
+crossing design. Identifiers may be integers or character strings. Ignored if
+\code{parents} is supplied.}
+
+\item{females}{A vector of genotype identifiers defining female parents in a sexed
+crossing design. Identifiers may be integers or character strings. Ignored if
+\code{parents} is supplied.}
 }
 \value{
-A two-column data.frame with the the combinations of all supplied individuals.
-If male and female candidates are supplied, the first column corresponds to males, and the second to females
+A two-column \code{data.frame} defining the crossing plan.
+\itemize{
+\item If \code{parents} is supplied, the columns are named \code{parent1} and
+\code{parent2} and contain all unique pairwise combinations (and optionally
+self-crosses).
+\item If \code{males} and \code{females} are supplied, the columns are named
+\code{male} and \code{female} and contain all male–female combinations.
+}
+The output preserves the type of the supplied identifiers (integer or character),
+with factors automatically coerced to character.
 }
 \description{
-Creation of a plan of all potential crosses for CrossingTools
+Generates a crossing plan containing all possible pairwise crosses among a set
+of candidate genotypes. The function supports both unsexed (symmetric) crossing
+designs and sexed designs with distinct male and female candidate sets.
+}
+\details{
+If \code{parents} is supplied, all unique unordered pairs of parents are returned.
+Optionally, self-crosses can be included by setting \code{self = TRUE}.
+
+Alternatively, if \code{males} and \code{females} are supplied, all possible
+male–female combinations are returned. In this case, the \code{self} argument
+is ignored.
 }

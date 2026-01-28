@@ -1,26 +1,56 @@
-#' Creation of a plan of all potential crosses for CrossingTools
+#' Creation of a plan of all potential crosses
 #'
+#' Generates a crossing plan containing all possible pairwise crosses among a set
+#' of candidate genotypes. The function supports both unsexed (symmetric) crossing
+#' designs and sexed designs with distinct male and female candidate sets.
 #'
+#' If \code{parents} is supplied, all unique unordered pairs of parents are returned.
+#' Optionally, self-crosses can be included by setting \code{self = TRUE}.
 #'
-#' @param candidates A vector of integers that identify each genotype. Should be consistent with genotypic data.
-#' Use this function if there are no sexes.
-#' @param male_candidates A vector of integers that identify each male genotype. Ignored if candidates is supplied.
-#' Should be consistent with genotypic data.
-#' @param female_candidates A vector of integers that identify each female genotype. Ignored if candidates is supplied.
-#' Should be consistent with genotypic data.
-#' @return A two-column data.frame with the the combinations of all supplied individuals.
-#' If male and female candidates are supplied, the first column corresponds to males, and the second to females
+#' Alternatively, if \code{males} and \code{females} are supplied, all possible
+#' male–female combinations are returned. In this case, the \code{self} argument
+#' is ignored.
+#'
+#' @param parents A vector of genotype identifiers defining the candidate parents
+#'   for an unsexed crossing design. Identifiers may be integers or character strings
+#'   (for example, row names of a genotype matrix). Must contain at least two unique
+#'   entries.
+#'
+#' @param self Logical. If \code{TRUE} and \code{parents} is supplied, self-crosses
+#'   (parent × itself) are included in addition to all pairwise crosses. Ignored when
+#'   \code{males} and \code{females} are supplied.
+#'
+#' @param males A vector of genotype identifiers defining male parents in a sexed
+#'   crossing design. Identifiers may be integers or character strings. Ignored if
+#'   \code{parents} is supplied.
+#'
+#' @param females A vector of genotype identifiers defining female parents in a sexed
+#'   crossing design. Identifiers may be integers or character strings. Ignored if
+#'   \code{parents} is supplied.
+#'
+#' @return A two-column \code{data.frame} defining the crossing plan.
+#' \itemize{
+#'   \item If \code{parents} is supplied, the columns are named \code{parent1} and
+#'   \code{parent2} and contain all unique pairwise combinations (and optionally
+#'   self-crosses).
+#'   \item If \code{males} and \code{females} are supplied, the columns are named
+#'   \code{male} and \code{female} and contain all male–female combinations.
+#' }
+#' The output preserves the type of the supplied identifiers (integer or character),
+#' with factors automatically coerced to character.
+#'
 #' @export
+
 make_cross_plan <- function(
-    candidates = NULL, male_candidates = NULL, female_candidates = NULL
+    parents = NULL, self = FALSE, males = NULL, females = NULL
 ) {
+  candidates <- parents
+  male_candidates <- males
+  female_candidates <- females
   # helper to validate ID vectors
   .validate_ids <- function(x, name, min_len = 1) {
     if (is.null(x)) return(invisible(NULL))
-    if (!is.atomic(x)) stop(sprintf("`%s` must be an atomic vector.", name), call. = FALSE)
-    if (!is.numeric(x) && !is.integer(x)) {
-      stop(sprintf("`%s` must be numeric/integer IDs.", name), call. = FALSE)
-    }
+    if (!is.atomic(x)) stop(sprintf("`%s` must be an vector.", name), call. = FALSE)
     if (anyNA(x)) stop(sprintf("`%s` contains NA.", name), call. = FALSE)
     if (length(x) < min_len) {
       stop(sprintf("`%s` must have length >= %d.", name, min_len), call. = FALSE)
@@ -42,14 +72,21 @@ make_cross_plan <- function(
     if (have_male || have_female) {
       warning("`candidates` supplied; ignoring `male_candidates` and `female_candidates`.")
     }
+
+    if (is.factor(candidates)) candidates <- as.character(candidates)
+
     .validate_ids(candidates, "candidates", min_len = 2)
     ids <- unique(candidates)
     if (length(ids) < 2) stop("`candidates` must contain at least 2 unique IDs.", call. = FALSE)
-    comb <- utils::combn(ids, 2)
+    comb <- t(utils::combn(ids, 2))
+    if(self){
+      comb <- rbind(comb,cbind(ids,ids))
+    }
     plan <- data.frame(
-      parent1 = comb[1, ],
-      parent2 = comb[2, ],
-      row.names = NULL
+      parent1 = comb[,1],
+      parent2 = comb[,2],
+      row.names = NULL,
+      stringsAsFactors = FALSE
     )
     return(plan)
   }
@@ -61,6 +98,12 @@ make_cross_plan <- function(
   if (!have_male && have_female) {
     stop("`female_candidates` supplied but `male_candidates` is missing.", call. = FALSE)
   }
+  if(self){
+    warning("`female_candidates` and `male_candidates` supplied, ignoring self argument")
+  }
+
+  if (is.factor(male_candidates)) male_candidates <- as.character(male_candidates)
+  if (is.factor(female_candidates)) female_candidates <- as.character(female_candidates)
 
   .validate_ids(male_candidates, "male_candidates", min_len = 1)
   .validate_ids(female_candidates, "female_candidates", min_len = 1)

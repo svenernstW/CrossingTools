@@ -76,3 +76,4 @@ out <- calculate_variances_DH(
 )
 }
 }
+\keyword{internal}

@@ -167,6 +167,21 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cpp_calcOHV4W
+DataFrame cpp_calcOHV4W(const NumericMatrix& Crosses, const List& HBlocks, const NumericMatrix& M, const NumericVector& mu_vec, int nThreads);
+RcppExport SEXP _CrossingTools_cpp_calcOHV4W(SEXP CrossesSEXP, SEXP HBlocksSEXP, SEXP MSEXP, SEXP mu_vecSEXP, SEXP nThreadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const NumericMatrix& >::type Crosses(CrossesSEXP);
+    Rcpp::traits::input_parameter< const List& >::type HBlocks(HBlocksSEXP);
+    Rcpp::traits::input_parameter< const NumericMatrix& >::type M(MSEXP);
+    Rcpp::traits::input_parameter< const NumericVector& >::type mu_vec(mu_vecSEXP);
+    Rcpp::traits::input_parameter< int >::type nThreads(nThreadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(cpp_calcOHV4W(Crosses, HBlocks, M, mu_vec, nThreads));
+    return rcpp_result_gen;
+END_RCPP
+}
 // cpp_calculate_desired_gains
 SEXP cpp_calculate_desired_gains(const NumericMatrix& A, const NumericMatrix& V, const NumericMatrix& approxV, const NumericVector& gains, bool useMargV, bool useV, bool useapproxV, int nThreads);
 RcppExport SEXP _CrossingTools_cpp_calculate_desired_gains(SEXP ASEXP, SEXP VSEXP, SEXP approxVSEXP, SEXP gainsSEXP, SEXP useMargVSEXP, SEXP useVSEXP, SEXP useapproxVSEXP, SEXP nThreadsSEXP) {
@@ -243,6 +258,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_CrossingTools_cpp_calculate_covariance_RIL_osthushenrich", (DL_FUNC) &_CrossingTools_cpp_calculate_covariance_RIL_osthushenrich, 10},
     {"_CrossingTools_cpp_calculate_covariance_wolfe", (DL_FUNC) &_CrossingTools_cpp_calculate_covariance_wolfe, 11},
     {"_CrossingTools_cpp_calcOHV", (DL_FUNC) &_CrossingTools_cpp_calcOHV, 5},
+    {"_CrossingTools_cpp_calcOHV4W", (DL_FUNC) &_CrossingTools_cpp_calcOHV4W, 5},
     {"_CrossingTools_cpp_calculate_desired_gains", (DL_FUNC) &_CrossingTools_cpp_calculate_desired_gains, 8},
     {"_CrossingTools_cpp_u_from_from_g", (DL_FUNC) &_CrossingTools_cpp_u_from_from_g, 13},
     {"_CrossingTools_cpp_optimal_cross_selection", (DL_FUNC) &_CrossingTools_cpp_optimal_cross_selection, 15},

@@ -76,3 +76,4 @@ out <- calculate_variances_RIL(
 )
 }
 }
+\keyword{internal}

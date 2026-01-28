@@ -33,6 +33,10 @@ cpp_calcOHV <- function(Crosses, HBlocks, M, mu_vec, nThreads = 4L) {
     .Call(`_CrossingTools_cpp_calcOHV`, Crosses, HBlocks, M, mu_vec, nThreads)
 }
 
+cpp_calcOHV4W <- function(Crosses, HBlocks, M, mu_vec, nThreads = 4L) {
+    .Call(`_CrossingTools_cpp_calcOHV4W`, Crosses, HBlocks, M, mu_vec, nThreads)
+}
+
 cpp_calculate_desired_gains <- function(A, V, approxV, gains, useMargV = FALSE, useV = FALSE, useapproxV = FALSE, nThreads = 4L) {
     .Call(`_CrossingTools_cpp_calculate_desired_gains`, A, V, approxV, gains, useMargV, useV, useapproxV, nThreads)
 }

@@ -13,7 +13,7 @@
 #' @param n.Threads Number of OpenMP threads.
 #'
 #' @return A list with index values and trait weights.
-#' @export
+#' @keywords internal
 calculate_desired_gains <- function(
     effects, V=NULL, gains = NULL,
 

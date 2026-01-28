@@ -51,12 +51,20 @@ SEXP cpp_u_from_from_g(const NumericMatrix& M,
   }
 
   // Check/regularize G, then invert
-  mat L,U,Pmat;
-  lu(L, U, Pmat, G_mat);
-  if (U.is_empty() || U.diag().min() < tol) {
-    Rcpp::Rcout << "G matrix near-singular; adding 1e-4 to diagonal.\n";
-    G_mat.diag() += 1e-4;
+  arma::mat L;
+  bool spd = arma::chol(L, G_mat);
+  if (!spd) {
+    Rcpp::Rcout << "G.mat is not psd, calculating nearest psd.\n";
+    arma::vec eval;
+    arma::mat evec;
+    arma::eig_sym(eval, evec,G_mat);
+
+    eval.transform([](double xx){ return (xx < 0.0) ? 0.0 : xx; });
+
+    G_mat = evec * arma::diagmat(eval) * evec.t();
   }
+
+
   mat Gi;
   bool ok = inv_sympd(Gi, G_mat);
   if (!ok) Gi = inv(G_mat);

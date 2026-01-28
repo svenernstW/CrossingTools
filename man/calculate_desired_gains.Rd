@@ -26,3 +26,4 @@ A list with index values and trait weights.
 Calculates the desired gains index based on multi-trait BLUPs and a chosen
 (co)variance matrix option.
 }
+\keyword{internal}

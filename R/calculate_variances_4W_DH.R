@@ -48,7 +48,7 @@
 #'   covariance = FALSE
 #' )
 #' }
-#' @export
+#' @keywords internal
 calculate_variances_4W_DH <- function(crosses, genetic.map, marker.mat, effects, t, intensity,
                                       covariance = FALSE, weights = NULL,
                                       n.Threads = 4L) {

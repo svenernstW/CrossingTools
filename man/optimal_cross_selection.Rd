@@ -9,77 +9,93 @@ optimal_cross_selection(
   fixed.crosses = NULL,
   ncrosses,
   target.angle,
-  u,
-  u.fixed = NULL,
-  G,
+  criterion,
+  criterion.fixed = NULL,
+  G.mat,
   return.params = FALSE,
   params = list(),
-  n.Threads = 4L
+  nthreads = 4L
 )
 }
 \arguments{
-\item{crosses}{integer matrix (K x 2). Candidate \emph{variable} crosses (1-based indices
-referring to rows/columns of \code{G}). Must have exactly two columns
-(P1, P2); selfings are not allowed.}
+\item{crosses}{Integer or character data.frame or matrix (\eqn{K \times 2}). Candidate
+\emph{variable} crosses. Must have exactly two columns; selfings
+are not allowed.}
 
-\item{fixed.crosses}{integer matrix (F x 2) or \code{NULL}. Crosses that must be
-included in the final plan. Can have 0 rows. Must use the same indexing as
-\code{crosses}. Selfings are not allowed.}
+\item{fixed.crosses}{Integer or character data.frame or matrix (\eqn{F \times 2}) or \code{NULL}.
+Crosses that must be included in the final plan. Can have 0 rows. Must use
+the same indexing/identifiers as \code{crosses}. Selfings are not allowed.}
 
-\item{ncrosses}{integer. Total number of crosses in the final plan
-(variable + fixed). Must be \eqn{\ge} number of rows in \code{fixed.crosses}.}
+\item{ncrosses}{Integer. Total number of crosses in the final plan
+(variable + fixed). Must be \eqn{\ge} \code{nrow(fixed.crosses)}.}
 
-\item{target.angle}{numeric (radians). Target trade-off angle between the
-average criterion and the similarity objective. Smaller angles emphasize
-utility \code{u}; larger angles emphasize similarity control.}
+\item{target.angle}{Numeric, target trade-off angle between utility
+and similarity. Smaller angles emphasize \code{criterion}; larger angles
+emphasize similarity control, allowed values are in the range of 0 to 90.
+Use 0 to prioritize criterion only, and 90 to prioritize diversity (G.mat).
+Everything in between is a trade-off.}
 
-\item{u}{numeric vector (length = nrow(crosses)). Utility (average criterion)
-for each candidate cross in \code{crosses}.}
+\item{criterion}{Numeric vector (length = \code{nrow(crosses)}). Utility for
+each candidate cross in \code{crosses}.}
 
-\item{u.fixed}{numeric vector (length = nrow(fixed.crosses)) or \code{NULL}.
-Utility for each fixed cross; if \code{fixed.crosses} has 0 rows, this can
-be length-0.}
+\item{criterion.fixed}{Numeric vector (length = \code{nrow(fixed.crosses)}) or
+\code{NULL}. Utility for each fixed cross; if \code{fixed.crosses} has 0 rows,
+this can be length-0.}
 
-\item{G}{numeric square matrix (nInd x nInd). Genomic relationship matrix
-used to evaluate similarity/diversity among parents; indices in
-\code{crosses}/\code{fixed.crosses} must lie in \code{1..nrow(G)}.}
+\item{G.mat}{Numeric square matrix (\eqn{n \times n}). Genomic relationship matrix
+used to evaluate similarity/diversity among parents. If \code{crosses} or
+\code{fixed.crosses} are character, \code{rownames(G.mat)} must be present.}
 
-\item{return.params}{logical. If \code{TRUE}, return additional information from the GA.}
+\item{return.params}{Logical. If \code{TRUE}, return additional GA summary metrics.}
 
-\item{params}{A list of parameters for the Genetic Algorithm optimization:
+\item{params}{A list of GA parameters:
 \describe{
-\item{\code{propability.mutate}}{numeric in \eqn{[0,1]}. Probability that a candidate solution mutates in the GA.}
-\item{\code{n.mutate}}{integer \eqn{\ge 0}. Number of point mutations to apply when a mutation occurs.}
-\item{\code{n.select}}{integer \eqn{\ge 2}. Number of candidate solutions selected per generation (selection pool size).}
-\item{\code{n.pop}}{integer \eqn{\ge 2}. Population size (number of candidate solutions) per generation.}
-\item{\code{max.generation}}{integer \eqn{\ge 1}. Maximum number of GA generations.}
-\item{\code{max.iteration}}{integer \eqn{\ge 1}. Maximum number of iterations without improvement.}
-\item{\code{angle.penalty}}{numeric \eqn{\ge 0}. Penalty applied to solutions that deviate from \code{target.angle}.}
+\item{\code{propability.mutate}}{Numeric in \eqn{[0,1]}. Mutation probability.}
+\item{\code{n.mutate}}{Integer \eqn{\ge 0}. Mutation magnitude parameter.}
+\item{\code{n.select}}{Integer \eqn{\ge 2}. Number selected per generation.}
+\item{\code{n.pop}}{Integer \eqn{\ge 2}. Population size.}
+\item{\code{max.generation}}{Integer \eqn{\ge 1}. Maximum generations.}
+\item{\code{max.iteration}}{Integer \eqn{\ge 1}. Max iterations without improvement.}
+\item{\code{angle.penalty}}{Numeric \eqn{\ge 0}. Penalty for deviation from \code{target.angle}.}
 }}
 
-\item{n.Threads}{integer \eqn{\ge 1}. Number of OpenMP threads to use.}
+\item{nthreads}{Integer \eqn{\ge 1}. Number of threads to use.}
 }
 \value{
 \describe{
-\item{If \code{return.params = FALSE}:}{A data.frame with columns \code{parent1} and \code{parent2} describing the selected cross plan.}
+\item{If \code{return.params = FALSE}:}{A data.frame with columns
+\code{parent1} and \code{parent2} describing the selected cross plan,
+returned in the same representation (integer indices or character IDs)
+as supplied in \code{crosses}/\code{fixed.crosses}.}
 \item{If \code{return.params = TRUE}:}{A list with elements:
 \describe{
-\item{\code{crossPlan}}{A data.frame with columns \code{parent1} and \code{parent2} describing the selected cross plan.}
-\item{\code{uMax}}{Numeric scalar: maximum attainable average criterion when optimizing only \code{u}.}
-\item{\code{uMin}}{Numeric scalar: minimum attainable average criterion when optimizing only similarity.}
-\item{\code{simMax}}{Numeric scalar: similarity corresponding to \code{uMax}.}
-\item{\code{simMin}}{Numeric scalar: similarity corresponding to \code{uMin}.}
-\item{\code{uBest}}{Numeric scalar: average criterion achieved by the optimized cross plan.}
-\item{\code{simBest}}{Numeric scalar: similarity of the optimized cross plan.}
-\item{\code{angleBest}}{Numeric scalar (radians): angle of the optimized solution relative to the target trade-off.}
-\item{\code{lenBest}}{Numeric scalar: length (magnitude) of the optimized solution vector in the objective space.}
+\item{\code{crossPlan}}{A data.frame with columns \code{parent1} and
+\code{parent2} describing the selected cross plan (mapped back to the
+original input representation).}
+\item{\code{uMax}}{Maximum attainable average utility when optimizing only utility.}
+\item{\code{uMin}}{Minimum attainable average utility under similarity optimization.}
+\item{\code{simMax}}{Similarity corresponding to \code{uMax}.}
+\item{\code{simMin}}{Similarity corresponding to \code{uMin}.}
+\item{\code{uBest}}{Average utility achieved by the optimized cross plan.}
+\item{\code{simBest}}{Similarity of the optimized cross plan.}
+\item{\code{angleBest}}{Angle (radians) of the optimized solution.}
+\item{\code{lenBest}}{Objective-space length of the optimized solution vector.}
 }}
 }
 }
 \description{
-Uses a simple genetic algorithm (GA) to choose \code{ncrosses} parent pairs
-that balance an average criterion (utility \code{u}) and genomic similarity
-according to a target trade-off angle. Fixed crosses (if any) are forced
-into the final solution, and the GA fills the remaining slots from
-\code{crosses}.
+Uses a genetic algorithm (GA) to choose \code{ncrosses} parent pairs that
+balance an average criterion (utility, \code{criterion}) and genomic similarity
+(computed from \code{G.mat}) according to a target trade-off angle.
+If \code{fixed.crosses} is provided, those crosses are always included and the
+GA selects the remaining crosses from \code{crosses}.
+}
+\details{
+Both \code{crosses} and \code{fixed.crosses} may be provided either as
+integer indices (1-based, referring to rows/columns of \code{G.mat}) or as
+character identifiers matching \code{rownames(G.mat)}. I
+
+The returned cross plan is assembled from the selected rows of \code{crosses}
+and all rows of \code{fixed.crosses}. If fixed crosses also appear among the
+candidate crosses, duplicates may occur in the final plan (a warning is issued).
 }
