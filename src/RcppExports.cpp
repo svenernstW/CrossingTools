@@ -182,6 +182,56 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cpp_calculate_expectation_A
+SEXP cpp_calculate_expectation_A(const NumericMatrix& Crosses, const NumericMatrix& M, const NumericMatrix& U, const NumericVector& weights, bool calcindex, int nThreads);
+RcppExport SEXP _CrossingTools_cpp_calculate_expectation_A(SEXP CrossesSEXP, SEXP MSEXP, SEXP USEXP, SEXP weightsSEXP, SEXP calcindexSEXP, SEXP nThreadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const NumericMatrix& >::type Crosses(CrossesSEXP);
+    Rcpp::traits::input_parameter< const NumericMatrix& >::type M(MSEXP);
+    Rcpp::traits::input_parameter< const NumericMatrix& >::type U(USEXP);
+    Rcpp::traits::input_parameter< const NumericVector& >::type weights(weightsSEXP);
+    Rcpp::traits::input_parameter< bool >::type calcindex(calcindexSEXP);
+    Rcpp::traits::input_parameter< int >::type nThreads(nThreadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(cpp_calculate_expectation_A(Crosses, M, U, weights, calcindex, nThreads));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cpp_calculate_expectation_A4W
+SEXP cpp_calculate_expectation_A4W(const NumericMatrix& Crosses, const NumericMatrix& M, const NumericMatrix& U, const NumericVector& weights, bool calcindex, int nThreads);
+RcppExport SEXP _CrossingTools_cpp_calculate_expectation_A4W(SEXP CrossesSEXP, SEXP MSEXP, SEXP USEXP, SEXP weightsSEXP, SEXP calcindexSEXP, SEXP nThreadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const NumericMatrix& >::type Crosses(CrossesSEXP);
+    Rcpp::traits::input_parameter< const NumericMatrix& >::type M(MSEXP);
+    Rcpp::traits::input_parameter< const NumericMatrix& >::type U(USEXP);
+    Rcpp::traits::input_parameter< const NumericVector& >::type weights(weightsSEXP);
+    Rcpp::traits::input_parameter< bool >::type calcindex(calcindexSEXP);
+    Rcpp::traits::input_parameter< int >::type nThreads(nThreadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(cpp_calculate_expectation_A4W(Crosses, M, U, weights, calcindex, nThreads));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cpp_calculate_expectation_AD
+SEXP cpp_calculate_expectation_AD(const NumericMatrix& Crosses, const NumericMatrix& Hap1, const NumericMatrix& Hap2, const NumericMatrix& U, const NumericMatrix& D, const NumericVector& weights, bool calcindex, int nThreads);
+RcppExport SEXP _CrossingTools_cpp_calculate_expectation_AD(SEXP CrossesSEXP, SEXP Hap1SEXP, SEXP Hap2SEXP, SEXP USEXP, SEXP DSEXP, SEXP weightsSEXP, SEXP calcindexSEXP, SEXP nThreadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const NumericMatrix& >::type Crosses(CrossesSEXP);
+    Rcpp::traits::input_parameter< const NumericMatrix& >::type Hap1(Hap1SEXP);
+    Rcpp::traits::input_parameter< const NumericMatrix& >::type Hap2(Hap2SEXP);
+    Rcpp::traits::input_parameter< const NumericMatrix& >::type U(USEXP);
+    Rcpp::traits::input_parameter< const NumericMatrix& >::type D(DSEXP);
+    Rcpp::traits::input_parameter< const NumericVector& >::type weights(weightsSEXP);
+    Rcpp::traits::input_parameter< bool >::type calcindex(calcindexSEXP);
+    Rcpp::traits::input_parameter< int >::type nThreads(nThreadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(cpp_calculate_expectation_AD(Crosses, Hap1, Hap2, U, D, weights, calcindex, nThreads));
+    return rcpp_result_gen;
+END_RCPP
+}
 // cpp_calculate_desired_gains
 SEXP cpp_calculate_desired_gains(const NumericMatrix& A, const NumericMatrix& V, const NumericMatrix& approxV, const NumericVector& gains, bool useMargV, bool useV, bool useapproxV, int nThreads);
 RcppExport SEXP _CrossingTools_cpp_calculate_desired_gains(SEXP ASEXP, SEXP VSEXP, SEXP approxVSEXP, SEXP gainsSEXP, SEXP useMargVSEXP, SEXP useVSEXP, SEXP useapproxVSEXP, SEXP nThreadsSEXP) {
@@ -259,6 +309,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_CrossingTools_cpp_calculate_covariance_wolfe", (DL_FUNC) &_CrossingTools_cpp_calculate_covariance_wolfe, 11},
     {"_CrossingTools_cpp_calcOHV", (DL_FUNC) &_CrossingTools_cpp_calcOHV, 5},
     {"_CrossingTools_cpp_calcOHV4W", (DL_FUNC) &_CrossingTools_cpp_calcOHV4W, 5},
+    {"_CrossingTools_cpp_calculate_expectation_A", (DL_FUNC) &_CrossingTools_cpp_calculate_expectation_A, 6},
+    {"_CrossingTools_cpp_calculate_expectation_A4W", (DL_FUNC) &_CrossingTools_cpp_calculate_expectation_A4W, 6},
+    {"_CrossingTools_cpp_calculate_expectation_AD", (DL_FUNC) &_CrossingTools_cpp_calculate_expectation_AD, 8},
     {"_CrossingTools_cpp_calculate_desired_gains", (DL_FUNC) &_CrossingTools_cpp_calculate_desired_gains, 8},
     {"_CrossingTools_cpp_u_from_from_g", (DL_FUNC) &_CrossingTools_cpp_u_from_from_g, 13},
     {"_CrossingTools_cpp_optimal_cross_selection", (DL_FUNC) &_CrossingTools_cpp_optimal_cross_selection, 15},

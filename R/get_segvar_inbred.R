@@ -21,7 +21,7 @@
 #'   All markers in \code{marker.mat} must appear in \code{genetic.map$site}.
 #' @param effects Numeric matrix of marker effects (markers in rows, traits in columns).
 #'   Must have \code{nrow(effects) == ncol(marker.mat)}.
-#' @param t Integer. Number of random‐mating generations before DH creation.
+#' @param t Integer. Number of random‐mating generations before DH or RIL creation.
 #' @param intensity Double. Standardized selection differential, efaults to 1.
 #' @param covariance Logical. If \code{TRUE}, also compute the segregation
 #'   covariance matrix between all supplied traits.
@@ -98,7 +98,7 @@ get_segvar_inbred <- function(crosses, genetic.map, marker.mat, effects, t, inte
   crosses2 <- as.matrix(crosses2)
   calculate.index <- !is.null(weights)
 
-  if (ncol(effects) == 1 & is.null(weights)) { weights <- c(1) }
+  if (ncol(effects) == 1 | is.null(weights)) { weights <- rep(1,ncol(effects)) }
 
     # ---- Checks ----
   if (ncol(marker.mat) <= 0L) stop("marker.mat must have markers in columns.")
@@ -121,10 +121,7 @@ get_segvar_inbred <- function(crosses, genetic.map, marker.mat, effects, t, inte
     if (any(!is.finite(weights))) stop("`weights` must contain only finite values.")
   }
 
-  if (t <= 0) {
-    message("t needs to be >= 1, setting t = 1")
-    t <- 1
-  }
+
 
 
   req_cols <- c("site", "chr", "pos")
@@ -194,6 +191,10 @@ get_segvar_inbred <- function(crosses, genetic.map, marker.mat, effects, t, inte
 
   if(type=="DH"){
     if(cross.type=="2W"){
+      if (t < 0) {
+        message("For two way crosses t needs to be >= 0, setting t = 0")
+        t <- 0
+      }
       if (method == "lehermeier") {
         temp <- cpp_calculate_covariance_lehermeier(
           Crosses    = crosses2,
@@ -224,6 +225,10 @@ get_segvar_inbred <- function(crosses, genetic.map, marker.mat, effects, t, inte
     }
 
     if(cross.type=="4W"){
+      if (t < 1) {
+        message("For four way crosses t needs to be >= 1, setting t = 1")
+        t <- 1
+      }
       if (method == "lehermeier") {
         temp <- cpp_calculate_covariance_allier(
           Crosses    = crosses2,
@@ -257,6 +262,10 @@ get_segvar_inbred <- function(crosses, genetic.map, marker.mat, effects, t, inte
 
 
   if(type=="RIL"){
+    if (t < 0) {
+      message("t needs to be >= 0, setting t = 0")
+      t <- 0
+    }
     if(cross.type=="2W"){
       if (method == "lehermeier") {
         temp <- cpp_calculate_covariance_RIL_lehermeier(
@@ -288,6 +297,10 @@ get_segvar_inbred <- function(crosses, genetic.map, marker.mat, effects, t, inte
     }
 
     if(cross.type=="4W"){
+      if (t < 1) {
+        message("For four way crosses t needs to be >= 1, setting t = 1")
+        t <- 1
+      }
       if (method == "lehermeier") {
         temp <- cpp_calculate_covariance_RIL_allier(
           Crosses    = crosses2,

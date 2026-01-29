@@ -71,7 +71,7 @@ get_segvar_outcross <- function(crosses, genetic.map, hap.mat1, hap.mat2, effect
 
 
 
-  if (ncol(effects.A) == 1 & is.null(weights)) { weights <- c(1) }
+  if (ncol(effects) == 1 | is.null(weights)) { weights <- rep(1,ncol(effects)) }
 
   if (!is.logical(covariance) || length(covariance) != 1L) {
     stop("`covariance` must be a single logical (TRUE/FALSE).")

@@ -40,7 +40,7 @@ entries in \code{c(0, 2)} corresponding to \code{c("AA", "BB")}.}
 \item{effects}{Numeric matrix of marker effects (markers in rows, traits in columns).
 Must have \code{nrow(effects) == ncol(marker.mat)}.}
 
-\item{t}{Integer. Number of random‐mating generations before DH creation.}
+\item{t}{Integer. Number of random‐mating generations before DH or RIL creation.}
 
 \item{intensity}{Double. Standardized selection differential, efaults to 1.}
 

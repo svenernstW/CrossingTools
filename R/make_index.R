@@ -83,23 +83,32 @@ if(!is.null(gains) ){
     var.mat <- as.matrix(var.mat)
     if (!is.numeric(var.mat)) stop("`var.mat` must be numeric.")
     if (nrow(var.mat) != ncol(var.mat)) stop("`var.mat` must be square.")
-  }
 
+    if (nrow(var.mat) == nrow(effects)*ncol(effects) && ncol(var.mat) == nrow(effects)*ncol(effects)) {
+      use.marginal.V <- TRUE
+      use.V.approx   <- FALSE
+    }
 
-  if (is.null(var.mat)) {
+    if (nrow(var.mat) == ncol(effects) && ncol(var.mat) == ncol(effects)) {
+      use.marginal.V <- FALSE
+      use.V.approx   <- TRUE
+      V.approx <- var.mat
+    }
+
+    if(nrow(var.mat)  != nrow(effects)*ncol(effects) & nrow(var.mat) != ncol(effects)){
+      stop("`var.mat` must be either nTrait x nTrait or (nG*nT) x (nG*nT).")
+    }
+
+  } else {
     use.marginal.V <- FALSE
     use.V.approx   <- TRUE
     V.approx <- cov(effects)
-  } else if (nrow(var.mat) == nrow(effects)*ncol(effects) && ncol(var.mat) == nrow(effects)*ncol(effects)) {
-    use.marginal.V <- TRUE
-    use.V.approx   <- FALSE
-  } else if (nrow(var.mat) == ncol(effects) && ncol(var.mat) == ncol(effects)) {
-    use.marginal.V <- FALSE
-    use.V.approx   <- TRUE
-    V.approx <- var.mat
-  } else {
-    stop("`var.mat` must be either nTrait x nTrait or (nG*nT) x (nG*nT).")
   }
+
+
+
+
+
 
 
 
@@ -110,15 +119,7 @@ if(!is.null(gains) ){
     stop("`gains` must be a numeric vector of length ncol(effects) with finite values.")
   }
 
-  # V / V.approx checks depending on flag
-  if (use.marginal.V) {
-    if (missing(var.mat) || is.null(var.mat)) stop("`var.mat` is required when  use.marginal.V is TRUE.")
-    if (!is.matrix(var.mat)) V <- as.matrix(var.mat)
-    if (!is.numeric(var.mat)) stop("`var.mat` must be numeric.")
-    if (nrow(var.mat) != nG * nT || ncol(var.mat) != nG * nT) {
-      stop("`var.mat` must be a square matrix of dimension (nrow(effects)*ncol(effects)) x (nrow(effects)*ncol(effects)).")
-    }
-  }
+
 
 
 

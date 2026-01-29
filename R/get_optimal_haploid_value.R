@@ -184,7 +184,7 @@ get_optimal_haploid_value <- function(crosses, haplotype.blocks = NULL,
     }
 
     out <- as.data.frame(do.call(cbind, temp))
-    names(out) <- paste0("OHV.", seq_len(ncol(effects)))
+    names(out) <- paste0("OHV", seq_len(ncol(effects)))
 
   }
 
@@ -202,7 +202,7 @@ get_optimal_haploid_value <- function(crosses, haplotype.blocks = NULL,
     }
 
     out <- as.data.frame(do.call(cbind, temp))
-    names(out) <- paste0("OHV.", seq_len(ncol(effects)))
+    names(out) <- paste0("OHV", seq_len(ncol(effects)))
 
   }
 

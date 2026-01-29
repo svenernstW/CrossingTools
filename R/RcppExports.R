@@ -37,6 +37,18 @@ cpp_calcOHV4W <- function(Crosses, HBlocks, M, mu_vec, nThreads = 4L) {
     .Call(`_CrossingTools_cpp_calcOHV4W`, Crosses, HBlocks, M, mu_vec, nThreads)
 }
 
+cpp_calculate_expectation_A <- function(Crosses, M, U, weights, calcindex = FALSE, nThreads = 4L) {
+    .Call(`_CrossingTools_cpp_calculate_expectation_A`, Crosses, M, U, weights, calcindex, nThreads)
+}
+
+cpp_calculate_expectation_A4W <- function(Crosses, M, U, weights, calcindex = FALSE, nThreads = 4L) {
+    .Call(`_CrossingTools_cpp_calculate_expectation_A4W`, Crosses, M, U, weights, calcindex, nThreads)
+}
+
+cpp_calculate_expectation_AD <- function(Crosses, Hap1, Hap2, U, D, weights, calcindex = FALSE, nThreads = 4L) {
+    .Call(`_CrossingTools_cpp_calculate_expectation_AD`, Crosses, Hap1, Hap2, U, D, weights, calcindex, nThreads)
+}
+
 cpp_calculate_desired_gains <- function(A, V, approxV, gains, useMargV = FALSE, useV = FALSE, useapproxV = FALSE, nThreads = 4L) {
     .Call(`_CrossingTools_cpp_calculate_desired_gains`, A, V, approxV, gains, useMargV, useV, useapproxV, nThreads)
 }
