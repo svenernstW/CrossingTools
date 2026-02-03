@@ -440,29 +440,31 @@ optimal_cross_selection <- function(crosses,
         "<br>u: ", signif(df$u, 5)
       )
 
-      p <- ggplot(df, aes(x = sim, y = u)) +
-        geom_point(aes(text=label),
-                   size = 1.5, alpha = 0.9, shape = 4
+      p <- ggplot2::ggplot(df, ggplot2::aes(x = sim, y = u)) +
+        ggplot2::geom_point(
+          ggplot2::aes(text = label),
+          size = 1.5, alpha = 0.9, shape = 4
         ) +
-        geom_path(aes(group = 1), linewidth = 0.8) +
-        labs(
+        ggplot2::geom_path(ggplot2::aes(group = 1), linewidth = 0.8) +
+        ggplot2::labs(
           x = "'inbreeding' (lower = better)",
           y = "u (higher = better)"
         ) +
-        theme_grey(base_size = 10) +
-        theme(
+        ggplot2::theme_grey(base_size = 10) +
+        ggplot2::theme(
           legend.position   = "bottom",
-          legend.key        = element_rect(fill = "transparent", colour = NA),
-          legend.background = element_rect(fill = "transparent", colour = NA),
-          panel.background  = element_rect(colour = "black", fill = "grey93", linewidth = 1.1),
-          axis.title        = element_text(size = 11),
-          axis.title.x      = element_text(margin = margin(t = 6)),
-          axis.title.y      = element_text(margin = margin(r = 4)),
-          axis.ticks        = element_line(),
-          axis.text         = element_text(size = 10)
+          legend.key        = ggplot2::element_rect(fill = "transparent", colour = NA),
+          legend.background = ggplot2::element_rect(fill = "transparent", colour = NA),
+          panel.background  = ggplot2::element_rect(colour = "black", fill = "grey93", linewidth = 1.1),
+          axis.title        = ggplot2::element_text(size = 11),
+          axis.title.x      = ggplot2::element_text(margin = ggplot2::margin(t = 6)),
+          axis.title.y      = ggplot2::element_text(margin = ggplot2::margin(r = 4)),
+          axis.ticks        = ggplot2::element_line(),
+          axis.text         = ggplot2::element_text(size = 10)
         )
 
       plotly::ggplotly(p, tooltip = "label")
+
 
     }
 
