@@ -1,87 +1,95 @@
 #' Optimal cross selection via a genetic algorithm (with optional fixed crosses)
 #'
-#' Uses a genetic algorithm (GA) to choose \code{ncrosses} parent pairs that
-#' balance an average criterion (utility, \code{criterion}) and genomic similarity
-#' (computed from \code{G.mat}) according to a target trade-off angle.
-#' If \code{fixed.crosses} is provided, those crosses are always included and the
-#' GA selects the remaining crosses from \code{crosses}.
+#' Selects a mating plan consisting of \code{ncrosses} parent pairs by balancing
+#' a cross criterion (\code{criterion}) against a genomic similarity (or
+#' inbreeding proxy) taken from \code{G.mat}. The optimization can be run in
+#' one of two modes:
+#' \describe{
+#'   \item{\code{method = "angle"}}{Returns a single mating plan that targets a
+#'   user-specified trade-off between cross criterion and similarity, expressed as
+#'   \code{target.angle} (0--90 degrees). Smaller angles prioritize cross criterion,
+#'   larger angles prioritize lower similarity (more diversity).}
+#'   \item{\code{method = "pareto"}}{Returns an approximation of the Pareto frontier:
+#'   a set of nondominated mating plans where no plan has both (i) lower cross criterion
+#'   and (ii) higher similarity than another. This mode is more computationally
+#'   demanding but provides multiple optimal trade-offs.}
+#' }
 #'
-#' Both \code{crosses} and \code{fixed.crosses} may be provided either as
-#' integer indices (1-based, referring to rows/columns of \code{G.mat}) or as
-#' character identifiers matching \code{rownames(G.mat)}. I
+#' If \code{fixed.crosses} is supplied, these crosses are always included in every
+#' returned plan. The GA then selects the remaining \code{ncrosses - nrow(fixed.crosses)}
+#' crosses from \code{crosses}.
 #'
-#' @param crosses Integer or character data.frame or matrix (\eqn{K \times 2}). Candidate
-#'   \emph{variable} crosses. Must have exactly two columns; selfings
-#'   are not allowed.
-#' @param fixed.crosses Integer or character data.frame or matrix (\eqn{F \times 2}) or \code{NULL}.
-#'   Crosses that must be included in the final plan. Can have 0 rows. Must use
-#'   the same indexing/identifiers as \code{crosses}. Selfings are not allowed.
-#' @param ncrosses Integer. Total number of crosses in the final plan
-#'   (variable + fixed). Must be \eqn{\ge} \code{nrow(fixed.crosses)}.
-#' @param target.angle Numeric, target trade-off angle between utility
-#'   and similarity. Smaller angles emphasize \code{criterion}; larger angles
-#'   emphasize similarity control, allowed values are in the range of 0 to 90.
-#'   Use 0 to prioritize criterion only, and 90 to prioritize diversity (G.mat).
-#'   Everything in between is a trade-off.
-#' @param criterion Numeric vector (length = \code{nrow(crosses)}). Utility for
-#'   each candidate cross in \code{crosses}.
-#' @param criterion.fixed Numeric vector (length = \code{nrow(fixed.crosses)}) or
-#'   \code{NULL}. Utility for each fixed cross; if \code{fixed.crosses} has 0 rows,
-#'   this can be length-0.
-#' @param G.mat Numeric square matrix (\eqn{n \times n}). Genomic relationship matrix
-#'   used to evaluate similarity/diversity among parents. If \code{crosses} or
-#'   \code{fixed.crosses} are character, \code{rownames(G.mat)} must be present.
-#' @param params A list of GA parameters:
+#' Both \code{crosses} and \code{fixed.crosses} can be provided either as
+#' 1-based integer indices (referring to rows/columns of \code{G.mat}) or as
+#' character identifiers matching \code{rownames(G.mat)}.
+#'
+#' @param crosses Integer or character matrix/data.frame with two columns (\eqn{K \times 2}).
+#'   Candidate (variable) crosses. Must have exactly two columns; self-crosses are not allowed.
+#' @param fixed.crosses Integer or character matrix/data.frame with two columns (\eqn{F \times 2}) or \code{NULL}.
+#'   Crosses that are always included in the final plan. Can have 0 rows. Must use the
+#'   same indexing/identifiers as \code{crosses}. Self-crosses are not allowed.
+#' @param ncrosses Integer. Total number of crosses in the final plan (fixed + variable).
+#'   Must be \eqn{\ge} \code{nrow(fixed.crosses)}.
+#' @param target.angle Numeric. Target trade-off angle in degrees (0--90) used only when
+#'   \code{method = "angle"}. Use \code{0} to prioritize cross criterion only and \code{90} to prioritize
+#'   minimizing similarity (maximizing diversity).
+#' @param criterion Numeric vector of length \code{nrow(crosses)}. cross criterion for each candidate cross.
+#' @param criterion.fixed Numeric vector of length \code{nrow(fixed.crosses)} (or \code{NULL}).
+#'   cross criterion for each fixed cross. If \code{fixed.crosses} has 0 rows, this can be length 0.
+#' @param G.mat Numeric square matrix (\eqn{n \times n}). Genomic relationship matrix used to compute
+#'   similarity/inbreeding of parental contributions. If \code{crosses} or \code{fixed.crosses} are
+#'   character, \code{rownames(G.mat)} must be present.
+#' @param method Character string, either \code{"angle"} or \code{"pareto"}.
+#' @param plot Logical. If \code{TRUE} and \code{method = "pareto"}, plot the estimated Pareto frontier.
+#'   Ignored when \code{method = "angle"}.
+#' @param params List of GA parameters:
 #'   \describe{
-#'     \item{\code{propability.mutate}}{Numeric in \eqn{[0,1]}. Mutation probability.}
-#'     \item{\code{n.mutate}}{Integer \eqn{\ge 0}. Mutation magnitude parameter.}
-#'     \item{\code{n.select}}{Integer \eqn{\ge 2}. Number selected per generation.}
+#'     \item{\code{propability.mutate}}{Numeric in \eqn{[0,1]}. Mutation probability per offspring.}
+#'     \item{\code{n.mutate}}{Integer \eqn{\ge 0}. Number of positions to mutate when mutation occurs.}
+#'     \item{\code{n.select}}{Integer \eqn{\ge 2}. Number of parents selected each generation.}
 #'     \item{\code{n.pop}}{Integer \eqn{\ge 2}. Population size.}
-#'     \item{\code{max.generation}}{Integer \eqn{\ge 1}. Maximum generations.}
-#'     \item{\code{max.iteration}}{Integer \eqn{\ge 1}. Max iterations without improvement.}
-#'     \item{\code{angle.penalty}}{Numeric \eqn{\ge 0}. Penalty for deviation from \code{target.angle}.}
+#'     \item{\code{max.generation}}{Integer \eqn{\ge 1}. Maximum number of generations.}
+#'     \item{\code{max.iteration}}{Integer \eqn{\ge 1}. Stop after this many generations without improvement.}
+#'     \item{\code{angle.penalty}}{Numeric \eqn{\ge 0}. Penalty strength for deviating from \code{target.angle}
+#'       (used only when \code{method = "angle"}).}
 #'   }
-#' @param return.params Logical. If \code{TRUE}, return additional GA summary metrics.
+#' @param return.params Logical. If \code{TRUE}, return additional diagnostics (see below).
 #' @param nthreads Integer \eqn{\ge 1}. Number of threads to use.
 #'
 #' @return
-#' \describe{
-#'   \item{If \code{return.params = FALSE}:}{A data.frame with columns
-#'     \code{parent1} and \code{parent2} describing the selected cross plan,
-#'     returned in the same representation (integer indices or character IDs)
-#'     as supplied in \code{crosses}/\code{fixed.crosses}.}
-#'   \item{If \code{return.params = TRUE}:}{A list with elements:
-#'     \describe{
-#'       \item{\code{crossPlan}}{A data.frame with columns \code{parent1} and
-#'         \code{parent2} describing the selected cross plan (mapped back to the
-#'         original input representation).}
-#'       \item{\code{uMax}}{Maximum attainable average utility when optimizing only utility.}
-#'       \item{\code{uMin}}{Minimum attainable average utility under similarity optimization.}
-#'       \item{\code{simMax}}{Similarity corresponding to \code{uMax}.}
-#'       \item{\code{simMin}}{Similarity corresponding to \code{uMin}.}
-#'       \item{\code{uBest}}{Average utility achieved by the optimized cross plan.}
-#'       \item{\code{simBest}}{Similarity of the optimized cross plan.}
-#'       \item{\code{angleBest}}{Angle (radians) of the optimized solution.}
-#'       \item{\code{lenBest}}{Objective-space length of the optimized solution vector.}
-#'     }}
+#' If \code{return.params = FALSE}:
+#' \itemize{
+#'   \item A data.frame with columns \code{parent1}, \code{parent2} describing the selected mating plan.
 #' }
 #'
-#' @details
-#' The returned cross plan is assembled from the selected rows of \code{crosses}
-#' and all rows of \code{fixed.crosses}. If fixed crosses also appear among the
-#' candidate crosses, duplicates may occur in the final plan (a warning is issued).
+#' If \code{return.params = TRUE} and \code{method = "angle"}:
+#' \itemize{
+#'   \item \code{crossPlan}: selected plan (data.frame with \code{parent1}, \code{parent2})
+#'   \item \code{uMax}, \code{simMax}: cross criterion optimum and its similarity
+#'   \item \code{uBest}, \code{simBest}: achieved solution
+#'   \item \code{angleBest}, \code{lenBest}: objective-space angle/length diagnostics
+#' }
+#'
+#' If \code{return.params = TRUE} and \code{method = "pareto"}:
+#' \itemize{
+#'   \item \code{pareto.plans}: list of mating plans (each a data.frame with \code{parent1}, \code{parent2})
+#'   \item \code{pareto.frontier}: data.frame with columns \code{pareto.id}, \code{u}, \code{sim}
+#' }
 #'
 #' @export
+
 
 
 optimal_cross_selection <- function(crosses,
                                     fixed.crosses = NULL,
                                     ncrosses,
-                                    target.angle,
+                                    target.angle=0,
                                     criterion,
                                     criterion.fixed = NULL,
                                     G.mat,
+                                    method = "pareto",
                                     return.params=FALSE,
+                                    plot=TRUE,
                                     params = list(),
                                     nthreads = 4L) {
 
@@ -95,6 +103,12 @@ optimal_cross_selection <- function(crosses,
       max.iteration = 100,
       angle.penalty = 0.5
     )
+
+
+  if(!method %in% c("pareto","angle")){
+    stop("Method needs to be pareto or angle!")
+  }
+
   G <- G.mat
   n.Threads <- nthreads
   params <- modifyList(defaults, params)
@@ -173,6 +187,10 @@ optimal_cross_selection <- function(crosses,
     u.fixed <- u[0]                              # numeric(0)
   }
   fixed.crosses2 <- as.matrix(fixed.crosses2)
+  if (nrow(fixed.crosses2) > 0 && length(u.fixed) != nrow(fixed.crosses2)) {
+    stop("`criterion.fixed` must have length nrow(fixed.crosses).")
+  }
+
   u.fixed <- as.numeric(u.fixed)
 
   ##  Basic matrix checks
@@ -276,41 +294,43 @@ optimal_cross_selection <- function(crosses,
   }
   if (nselect > npop) stop("`nselect` must be <= `npop`.")
 
-  ##  Map names to C++
-  res <- cpp_optimal_cross_selection(
-    Crosses       = crosses2,
-    fixedCrosses  = fixed.crosses2,
-    nCross        = ncrosses,
-    targetAngle   = as.numeric(target.angle),
-    u             = u,
-    ufixed        = u.fixed,
-    G             = G,
-    probMut       = as.numeric(params$propability.mutate),
-    nMutate       = nmutate,
-    nSel          = nselect,
-    nPop          = npop,
-    maxGen        = max.generation,
-    maxRun        = max.iteration,
-    anglePenalty  = as.numeric(params$angle.penalty),
-    nThreads      = nThreads
-  )
-  if(return.params){
-    res$crossPlan <- as.data.frame(res$crossPlan)[,]
-    temp <- rbind(crosses2,fixed.crosses2)
-    if (is.null(fixed.crosses) || nrow(fixed.crosses)==0){
-      fixed.orig <- crosses[0,,drop=FALSE]
-    } else{
-        fixed.orig <- fixed.crosses
-    }
-    temp2 <- rbind(crosses, fixed.orig)
+  if(method=="angle"){
 
-
-    idx <- match(
-      paste(res$crossPlan[,1], res$crossPlan[,2]),
-      paste(temp[,1],     temp[,2])
+    ##  Map names to C++
+    res <- cpp_optimal_cross_selection(
+      Crosses       = crosses2,
+      fixedCrosses  = fixed.crosses2,
+      nCross        = ncrosses,
+      targetAngle   = as.numeric(target.angle),
+      u             = u,
+      ufixed        = u.fixed,
+      G             = G,
+      probMut       = as.numeric(params$propability.mutate),
+      nMutate       = nmutate,
+      nSel          = nselect,
+      nPop          = npop,
+      maxGen        = max.generation,
+      maxRun        = max.iteration,
+      anglePenalty  = as.numeric(params$angle.penalty),
+      nThreads      = nThreads
     )
-    res$crossPlan <- as.data.frame(temp2[idx,])
-    names(res$crossPlan) <-c("parent1","parent2")
+    if(return.params){
+      res$crossPlan <- as.data.frame(res$crossPlan)[,]
+      temp <- rbind(crosses2,fixed.crosses2)
+      if (is.null(fixed.crosses) || nrow(fixed.crosses)==0){
+        fixed.orig <- crosses[0,,drop=FALSE]
+      } else{
+        fixed.orig <- fixed.crosses
+      }
+      temp2 <- rbind(crosses, fixed.orig)
+
+
+      idx <- match(
+        paste(res$crossPlan[,1], res$crossPlan[,2]),
+        paste(temp[,1],     temp[,2])
+      )
+      res$crossPlan <- as.data.frame(temp2[idx,])
+      names(res$crossPlan) <-c("parent1","parent2")
     }else{
       temp <- rbind(crosses2,fixed.crosses2)
       if (is.null(fixed.crosses) || nrow(fixed.crosses)==0){
@@ -327,8 +347,128 @@ optimal_cross_selection <- function(crosses,
       )
 
       res <- as.data.frame(temp2[idx,])
-    names(res) <-c("parent1","parent2")
+      names(res) <-c("parent1","parent2")
     }
 
-  return(res)
+    return(res)
+  }
+  if(method=="pareto"){
+
+    ##  Map names to C++
+    res <- cpp_optimal_cross_pareto(
+      Crosses       = crosses2,
+      fixedCrosses  = fixed.crosses2,
+      nCross        = ncrosses,
+      u             = u,
+      ufixed        = u.fixed,
+      G             = G,
+      probMut       = as.numeric(params$propability.mutate),
+      nMutate       = nmutate,
+      nSel          = nselect,
+      nPop          = npop,
+      maxGen        = max.generation,
+      maxRun        = max.iteration,
+      nThreads      = nThreads
+    )
+    if(return.params){
+      paretoPlans  <- lapply (res$paretoPlans, function(x){temp <- as.data.frame(x)
+                                                           names(temp)<-c("parent1","parent2")
+
+                                                           return(temp)})
+
+      temp <- rbind(crosses2,fixed.crosses2)
+      if (is.null(fixed.crosses) || nrow(fixed.crosses)==0){
+        fixed.orig <- crosses[0,,drop=FALSE]
+      } else{
+        fixed.orig <- fixed.crosses
+      }
+      temp2 <- rbind(crosses, fixed.orig)
+
+      pareto <- as.data.frame(res$pareto)
+      names(pareto)[1] <- "pareto.id"
+
+
+      paretoPlans  <- lapply (res$paretoPlans, function(x){tempplan <- as.data.frame(x)
+                                                            idx <- match(
+                                                              paste(tempplan[,1], tempplan[,2]),
+                                                              paste(temp[,1],     temp[,2])
+                                                            )
+                                                            tempplan <- as.data.frame(temp2[idx,])
+                                                            names(tempplan) <-c("parent1","parent2")
+                                                            return(tempplan)})
+
+      res2 <- list(pareto.plans=paretoPlans, pareto.frontier= pareto)
+
+
+    }else{
+      paretoPlans  <- lapply (res$paretoPlans, function(x){temp <- as.data.frame(x)
+      names(temp)<-c("parent1","parent2")
+
+      return(temp)})
+
+      temp <- rbind(crosses2,fixed.crosses2)
+      if (is.null(fixed.crosses) || nrow(fixed.crosses)==0){
+        fixed.orig <- crosses[0,,drop=FALSE]
+      } else{
+        fixed.orig <- fixed.crosses
+      }
+      temp2 <- rbind(crosses, fixed.orig)
+
+      pareto <- as.data.frame(res$pareto)
+      names(pareto)[1] <- "pareto.id"
+
+
+      paretoPlans  <- lapply (res$paretoPlans, function(x){tempplan <- as.data.frame(x)
+      idx <- match(
+        paste(tempplan[,1], tempplan[,2]),
+        paste(temp[,1],     temp[,2])
+      )
+      tempplan <- as.data.frame(temp2[idx,])
+      names(tempplan) <-c("parent1","parent2")
+      return(tempplan)})
+
+      res2 <- list(pareto.plans=paretoPlans, pareto.frontier= pareto)
+    }
+
+    if(plot){
+      df <- res2$pareto.frontier
+      df <- df[order(df$sim, df$u), ]
+
+      df$label <- paste0(
+        "id: ", df$pareto.id,
+        "<br>sim: ", signif(df$sim, 5),
+        "<br>u: ", signif(df$u, 5)
+      )
+
+      p <- ggplot(df, aes(x = sim, y = u)) +
+        geom_point(aes(text=label),
+                   size = 1.5, alpha = 0.9, shape = 4
+        ) +
+        geom_path(aes(group = 1), linewidth = 0.8) +
+        labs(
+          x = "'inbreeding' (lower = better)",
+          y = "u (higher = better)"
+        ) +
+        theme_grey(base_size = 10) +
+        theme(
+          legend.position   = "bottom",
+          legend.key        = element_rect(fill = "transparent", colour = NA),
+          legend.background = element_rect(fill = "transparent", colour = NA),
+          panel.background  = element_rect(colour = "black", fill = "grey93", linewidth = 1.1),
+          axis.title        = element_text(size = 11),
+          axis.title.x      = element_text(margin = margin(t = 6)),
+          axis.title.y      = element_text(margin = margin(r = 4)),
+          axis.ticks        = element_line(),
+          axis.text         = element_text(size = 10)
+        )
+
+      plotly::ggplotly(p, tooltip = "label")
+
+    }
+
+    return(res2)
+
+
+  }
+
 }

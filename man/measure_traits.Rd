@@ -4,7 +4,13 @@
 \alias{measure_traits}
 \title{Summarize a multi-trait selection index}
 \usage{
-measure_traits(var.mat = NULL, gains = NULL, weights = NULL, intensity = 1)
+measure_traits(
+  var.mat = NULL,
+  gains = NULL,
+  weights = NULL,
+  intensity = 1,
+  plot = TRUE
+)
 }
 \arguments{
 \item{var.mat}{Numeric trait covariance matrix (\eqn{n_{trait} \times n_{trait}}).}
@@ -13,10 +19,14 @@ measure_traits(var.mat = NULL, gains = NULL, weights = NULL, intensity = 1)
 If supplied, index weights are computed as \code{solve(var.mat) \%*\% gains}.}
 
 \item{weights}{Optional numeric vector of index weights (length \eqn{n_{trait}}).
-Supply this to summarize an index with fixed weights.}
+Supply this to summarize an index with fixed weights.Using cov(EBVs) (i.e. cov(BLUPs))
+as var.mat provides an empirical implementation of the Henderson form of the Smith–Hazel index.}
 
 \item{intensity}{Numeric scalar. Standardized selection differential \eqn{i} used to scale expected responses
 (default 1).}
+
+\item{plot}{Logical. If \code{TRUE}, produce a bar plot of expected trait gains
+(default \code{TRUE}).}
 }
 \value{
 A list with:

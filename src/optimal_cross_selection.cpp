@@ -13,7 +13,7 @@ using namespace Rcpp;
 // Helpers
 // ------------------------------
 
-inline double calc_sim(const arma::vec& x, const arma::mat& G) {
+static inline double calc_sim(const arma::vec& x, const arma::mat& G) {
   arma::uvec idx = arma::find(arma::abs(x) > 0);
   const arma::uword k = idx.n_elem;
   double q = 0.0;
@@ -31,24 +31,24 @@ inline double calc_sim(const arma::vec& x, const arma::mat& G) {
 }
 
 // shuffle arma::uvec with given RNG
-arma::uvec shuffle_with_rng(const arma::uvec& vec, std::mt19937& gen) {
+static arma::uvec shuffle_with_rng(const arma::uvec& vec, std::mt19937& gen) {
   std::vector<arma::uword> temp(vec.begin(), vec.end());
   std::shuffle(temp.begin(), temp.end(), gen);
   return arma::uvec(temp);
 }
 
 // Map linear index -> row/col in upper triangle of n x n (row <= col)
-arma::uword mapRow(const arma::uword& k, const arma::uword& n) {
+static arma::uword mapRow(const arma::uword& k, const arma::uword& n) {
   return n - 2 - static_cast<arma::uword>(
       std::floor(std::sqrt(-8.0 * static_cast<double>(k)
                              + 4.0 * static_cast<double>(n) * (static_cast<double>(n) - 1.0) - 7.0) / 2.0 - 0.5));
 }
-arma::uword mapCol(const arma::uword& row, const arma::uword& k, const arma::uword& n) {
+static arma::uword mapCol(const arma::uword& row, const arma::uword& k, const arma::uword& n) {
   return k + row + 1 - n * (n - 1) / 2 + (n - row) * ((n - row) - 1) / 2;
 }
 
 // Thread-safe sampling without replacement: returns sorted unique indices in [0, N-1]
-arma::uvec sampleInt_std(arma::uword n, arma::uword N, std::mt19937& gen) {
+static arma::uvec sampleInt_std(arma::uword n, arma::uword N, std::mt19937& gen) {
   if (n > N) n = N;
   std::vector<arma::uword> pool(N);
   std::iota(pool.begin(), pool.end(), 0);
@@ -64,7 +64,7 @@ arma::uvec sampleInt_std(arma::uword n, arma::uword N, std::mt19937& gen) {
 }
 
 // Half-diallel sample (n pairs from all combinations, without replacement)
-arma::umat sampHalfDialComb_std(arma::uword nLevel, arma::uword n, std::mt19937& gen) {
+static arma::umat sampHalfDialComb_std(arma::uword nLevel, arma::uword n, std::mt19937& gen) {
   const arma::uword N = nLevel * (nLevel - 1) / 2; // total possible pairs
   arma::uvec samples = sampleInt_std(std::min(n, N), N, gen); // 0..N-1
   arma::umat out(2, samples.n_elem);
@@ -78,7 +78,7 @@ arma::umat sampHalfDialComb_std(arma::uword nLevel, arma::uword n, std::mt19937&
 }
 
 // Parental contributions for a crossing plan (indices are 0-based)
-arma::vec calcContr(const arma::umat& crosses, const arma::uword& nInd) {
+static arma::vec calcContr(const arma::umat& crosses, const arma::uword& nInd) {
   const arma::uword M = crosses.n_rows;
   double val = 1.0 / (2.0 * static_cast<double>(M));
   arma::vec x(nInd, arma::fill::zeros);
@@ -92,7 +92,7 @@ arma::vec calcContr(const arma::umat& crosses, const arma::uword& nInd) {
 }
 
 // Normalize to unit square, compute angle and length toward (gain high, similarity low)
-void calcVec(double& angle, double& length, double u, double sim,
+static void calcVec(double& angle, double& length, double u, double sim,
              const double& uMax, const double& simMax,
              const double& uMin, const double& simMin) {
   u   = (u   - uMin) / (uMax - uMin);
@@ -103,7 +103,7 @@ void calcVec(double& angle, double& length, double u, double sim,
 }
 
 // Uniform set-based crossover
-arma::uvec mate_uniform(const arma::uvec& parent1, const arma::uvec& parent2,
+static arma::uvec mate_uniform(const arma::uvec& parent1, const arma::uvec& parent2,
                         std::mt19937& gen, arma::uword potCross) {
   arma::uword n = parent1.n_elem;
   arma::uvec offspring(n, arma::fill::zeros);
@@ -140,7 +140,7 @@ arma::uvec mate_uniform(const arma::uvec& parent1, const arma::uvec& parent2,
 }
 
 // Mutation via mating with a random plan
-arma::uvec mutate(const arma::uvec& crosses, const arma::uword& nMutate,
+static arma::uvec mutate(const arma::uvec& crosses, const arma::uword& nMutate,
                   const arma::uword& potCross, std::mt19937& gen) {
   (void)nMutate; // not used in this operator; kept for API parity
   arma::uvec randomPlan = sampleInt_std(crosses.n_elem, potCross, gen);

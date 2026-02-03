@@ -49,6 +49,10 @@ cpp_calculate_expectation_AD <- function(Crosses, Hap1, Hap2, U, D, weights, cal
     .Call(`_CrossingTools_cpp_calculate_expectation_AD`, Crosses, Hap1, Hap2, U, D, weights, calcindex, nThreads)
 }
 
+cpp_optimal_cross_pareto <- function(Crosses, fixedCrosses, nCross, G, u, ufixed, probMut = 0.01, nMutate = 0L, nSel = 500L, nPop = 10000L, maxGen = 500L, maxRun = 100L, nThreads = 4L) {
+    .Call(`_CrossingTools_cpp_optimal_cross_pareto`, Crosses, fixedCrosses, nCross, G, u, ufixed, probMut, nMutate, nSel, nPop, maxGen, maxRun, nThreads)
+}
+
 cpp_calculate_desired_gains <- function(A, V, approxV, gains, useMargV = FALSE, useV = FALSE, useapproxV = FALSE, nThreads = 4L) {
     .Call(`_CrossingTools_cpp_calculate_desired_gains`, A, V, approxV, gains, useMargV, useV, useapproxV, nThreads)
 }

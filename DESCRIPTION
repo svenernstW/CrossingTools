@@ -1,6 +1,6 @@
 Package: CrossingTools
 Title: Tools for Cross Optimization in Plant Breeding Programs
-Version: 1.0.1
+Version: 1.0.2
 Authors@R: 
     c(
       person("Sven", "Weber", email = "sven.e.weber@agrar.uni-giessen.de", role = c("aut", "cre")),
@@ -36,6 +36,7 @@ Depends:
 Imports:
     ggplot2,
     ggridges,
+    plotly,
     Rcpp,
     RcppParallel
 LinkingTo:

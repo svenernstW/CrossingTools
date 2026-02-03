@@ -17,9 +17,12 @@
 #' @param gains Optional numeric vector of desired gains (length \eqn{n_{trait}}).
 #'   If supplied, index weights are computed as \code{solve(var.mat) \%*\% gains}.
 #' @param weights Optional numeric vector of index weights (length \eqn{n_{trait}}).
-#'   Supply this to summarize an index with fixed weights.
+#'   Supply this to summarize an index with fixed weights.Using cov(EBVs) (i.e. cov(BLUPs))
+#'   as var.mat provides an empirical implementation of the Henderson form of the Smith–Hazel index.
 #' @param intensity Numeric scalar. Standardized selection differential \eqn{i} used to scale expected responses
 #'   (default 1).
+#' @param plot Logical. If \code{TRUE}, produce a bar plot of expected trait gains
+#'   (default \code{TRUE}).
 #'
 #' @return A list with:
 #' \itemize{
@@ -31,7 +34,7 @@
 
 
 
-measure_traits <- function(var.mat=NULL, gains = NULL, weights = NULL, intensity=1) {
+measure_traits <- function(var.mat=NULL, gains = NULL, weights = NULL, intensity=1,plot=TRUE) {
   if(nrow(var.mat) != ncol(var.mat)){
     stop("`var.mat` must be square.")
   }
@@ -51,6 +54,7 @@ measure_traits <- function(var.mat=NULL, gains = NULL, weights = NULL, intensity
       stop("gains needs to have the same length as ncol(var.mat)")
     }
 
+    if(is.null(row.names(var.mat))) row.names(var.mat) <- 1: nrow(var.mat)
     dg_weights <- as.vector(solve(var.mat) %*% gains)
 
     var_index <- as.vector(t(dg_weights) %*% var.mat %*% dg_weights)
@@ -65,7 +69,7 @@ measure_traits <- function(var.mat=NULL, gains = NULL, weights = NULL, intensity
 
     cor_traits <- as.vector(var.mat %*% dg_weights)/(sqrt(var_index) * sqrt(var_traits))
 
-    trait.df <- data.frame(trait=factor(1:ncol(var.mat)),var = var_traits,cor.index=cor_traits,gain=gain_traits,weight=dg_weights)
+    trait.df <- data.frame(trait=factor(row.names(var.mat)),var = var_traits,cor.index=cor_traits,gain=gain_traits,weight=dg_weights)
 
   }
 
@@ -73,7 +77,7 @@ measure_traits <- function(var.mat=NULL, gains = NULL, weights = NULL, intensity
     if(ncol(var.mat)!= length(weights)){
       stop("weights needs to have the same length as ncol(var.mat)")
     }
-
+    if(is.null(row.names(var.mat))) row.names(var.mat) <- 1: nrow(var.mat)
     var_index <- as.vector(t(weights) %*% var.mat %*% weights)
 
     gain <- intensity * sqrt(var_index)
@@ -86,8 +90,27 @@ measure_traits <- function(var.mat=NULL, gains = NULL, weights = NULL, intensity
 
     cor_traits <- as.vector(var.mat %*% weights)/(sqrt(var_index) * sqrt(var_traits))
 
-    trait.df <- data.frame(trait=factor(1:ncol(var.mat)),var = var_traits,cor.index=cor_traits,gain=gain_traits,weight=weights)
+    trait.df <- data.frame(trait=factor(row.names(var.mat)),var = var_traits,cor.index=cor_traits,gain=gain_traits,weight=weights)
 
+  }
+  if(plot){
+
+    p <- ggplot(trait.df, aes(x = gain, y = trait)) +
+      geom_col(fill="white", color="black", linewidth = 0.6) +
+      labs(x = "Gain", y = "Trait") +
+      theme_grey(base_size = 10) +
+      theme(
+        legend.position   = "bottom",
+        legend.key        = element_rect(fill = "transparent", colour = NA),
+        legend.background = element_rect(fill = "transparent", colour = NA),
+        panel.background  = element_rect(colour = "black", fill = "grey93", linewidth = 1.1),
+        axis.title        = element_text(size = 11),
+        axis.title.x      = element_text(margin = margin(t = 6)),
+        axis.title.y      = element_text(margin = margin(r = 4)),
+        axis.ticks        = element_line(),
+        axis.text         = element_text(size = 10)
+      )
+    print(p)
   }
 
   return(list(overall.df = overall.df,trait.df=trait.df))
