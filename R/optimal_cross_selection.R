@@ -98,7 +98,7 @@ optimal_cross_selection <- function(crosses,
       propability.mutate = 0.01,
       n.mutate = 2,
       n.select = 500,
-      n.pop = 10000,
+      n.pop = 5000,
       max.generation = 100,
       max.iteration = 100,
       angle.penalty = 0.5
@@ -463,7 +463,7 @@ optimal_cross_selection <- function(crosses,
           axis.text         = ggplot2::element_text(size = 10)
         )
 
-      plotly::ggplotly(p, tooltip = "label")
+      print(plotly::ggplotly(p, tooltip = "label"))
 
 
     }
