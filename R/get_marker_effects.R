@@ -59,7 +59,7 @@ get_marker_effects <- function(marker.mat,
   # Return only the mu matrix
   res <- as.data.frame(res$mu_matrix)
 
-  names(res) <- row.names(marker.mat)
+  row.names(res) <- names(marker.mat)
 
   names(res) <- traits
 
