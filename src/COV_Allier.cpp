@@ -4,6 +4,7 @@
 #include <cmath>
 #include <atomic>
 #include "parallel_backend.h"
+#include <utility>
 
 using namespace Rcpp;
 using namespace arma;
@@ -53,6 +54,8 @@ SEXP cpp_calculate_covariance_allier(
   arma::mat U_mat = as<arma::mat>(U);   // (numMarkers × numTrait)
   const arma::uword nInd = M_mat.n_rows;
   arma::vec weights_vec = as<arma::vec>(weights); // length == numTrait
+  //Precompute GEBV
+  arma::mat GEBV = M_mat * U_mat;  // (nInd × numTrait)
 
   const arma::uword OFF_EG  = 0;
   const arma::uword OFF_VAR = numTrait;
@@ -148,10 +151,10 @@ SEXP cpp_calculate_covariance_allier(
 
     // (A) eG once per trait
     for (arma::uword ti = 0; ti < numTrait; ++ti) {
-      double G1 = arma::dot(M_mat.row(P1), U_mat.col(ti));
-      double G2 = arma::dot(M_mat.row(P2), U_mat.col(ti));
-      double G3 = arma::dot(M_mat.row(P3), U_mat.col(ti));
-      double G4 = arma::dot(M_mat.row(P4), U_mat.col(ti));
+      double G1 = GEBV(P1, ti);
+      double G2 = GEBV(P2, ti);
+      double G3 = GEBV(P3, ti);
+      double G4 = GEBV(P4, ti);
       results2(x, OFF_EG + ti) = 0.25 * (G1 + G2 + G3 + G4);
     }
 
@@ -215,72 +218,121 @@ SEXP cpp_calculate_covariance_allier(
       return;
     }
 
-    // (C) ... your existing trait-pair loops using `work` ...
-    for (arma::uword ti = 0; ti < numTrait; ++ti) {
-      for (arma::uword tj = ti; tj < numTrait; ++tj) {
-        if (!covariance && ti != tj) continue;
+    // (C)
+    if(!covariance){
+      for (std::size_t cidx = 0; cidx < chr.size(); ++cidx) {
+        const auto& cc = chr[cidx];
+        const arma::uword startC = cc.startC;
+        const arma::uword nc     = cc.nc;
 
-        double Sigma = 0.0;
+        const auto& w = work[cidx];
+        const std::size_t k = w.li.size();
+        if (k == 0) continue;
 
-        for (std::size_t cidx = 0; cidx < chr.size(); ++cidx) {
-          const auto& cc = chr[cidx];
-          const arma::uword startC = cc.startC;
-          const arma::uword nc     = cc.nc;
+        for (std::size_t ii = 0; ii < k; ++ii) {
+          const arma::uword li = w.li[ii];
+          const arma::uword gi = startC + li;
 
-          const auto& w = work[cidx];
-          const std::size_t k = w.li.size();
-          if (k == 0) continue;
+          const double a12_i = w.a12[ii];
+          const double a34_i = w.a34[ii];
+          const double a14_i = w.a14[ii];
+          const double a13_i = w.a13[ii];
+          const double a24_i = w.a24[ii];
+          const double a23_i = w.a23[ii];
 
-          double add_chr = 0.0;
+          for (std::size_t jj = ii; jj < k; ++jj) {
+            const arma::uword lj = w.li[jj];
+            const arma::uword gj = startC + lj;
 
-          for (std::size_t ii = 0; ii < k; ++ii) {
-            const arma::uword li = w.li[ii];
-            const arma::uword gi = startC + li;
+            const double D12  = 0.0625 * (a12_i * w.a12[jj]);
+            const double D34  = 0.0625 * (a34_i * w.a34[jj]);
+            const double phi1 = D12 + D34;
 
-            const double a12_i = w.a12[ii];
-            const double a34_i = w.a34[ii];
-            const double a14_i = w.a14[ii];
-            const double a13_i = w.a13[ii];
-            const double a24_i = w.a24[ii];
-            const double a23_i = w.a23[ii];
+            const double D14  = 0.0625 * (a14_i * w.a14[jj]);
+            const double D13  = 0.0625 * (a13_i * w.a13[jj]);
+            const double D24  = 0.0625 * (a24_i * w.a24[jj]);
+            const double D23  = 0.0625 * (a23_i * w.a23[jj]);
+            const double phi2 = D14 + D13 + D24 + D23;
 
-            for (std::size_t jj = ii; jj < k; ++jj) {
-              const arma::uword lj = w.li[jj];
-              const arma::uword gj = startC + lj;
+            const double ck  = tri_get(cc.CK,  (std::size_t)li, (std::size_t)lj, (std::size_t)nc);
+            const double ck1 = tri_get(cc.CK1, (std::size_t)li, (std::size_t)lj, (std::size_t)nc);
+            const double c1  = tri_get(cc.C1,  (std::size_t)li, (std::size_t)lj, (std::size_t)nc);
 
-              const double D12  = 0.0625 * (a12_i * w.a12[jj]);
-              const double D34  = 0.0625 * (a34_i * w.a34[jj]);
-              const double phi1 = D12 + D34;
+            const double Dcomb = (ck * phi2) + ((ck + ck1) * c1 * phi1);
 
-              const double D14  = 0.0625 * (a14_i * w.a14[jj]);
-              const double D13  = 0.0625 * (a13_i * w.a13[jj]);
-              const double D24  = 0.0625 * (a24_i * w.a24[jj]);
-              const double D23  = 0.0625 * (a23_i * w.a23[jj]);
-              const double phi2 = D14 + D13 + D24 + D23;
-
-              const double ck  = tri_get(cc.CK,  (std::size_t)li, (std::size_t)lj, (std::size_t)nc);
-              const double ck1 = tri_get(cc.CK1, (std::size_t)li, (std::size_t)lj, (std::size_t)nc);
-              const double c1  = tri_get(cc.C1,  (std::size_t)li, (std::size_t)lj, (std::size_t)nc);
-
-              const double Dcomb = (ck * phi2) + ((ck + ck1) * c1 * phi1);
-              const double contrib = U_mat(gi, ti) * Dcomb * U_mat(gj, tj);
-
-              add_chr += (ii == jj) ? contrib : 2.0 * contrib;
+            // reuse Dcomb for all traits (diagonal only)
+            for (arma::uword ti = 0; ti < numTrait; ++ti) {
+              const double contrib = U_mat(gi, ti) * Dcomb * U_mat(gj, ti);
+              const arma::uword kcol = tri_u_idx_incl(ti, ti);
+              results1(x, kcol) += (ii == jj) ? contrib : 2.0 * contrib;
             }
           }
-
-          Sigma += add_chr;
-        }
-
-        const arma::uword kcol = tri_u_idx_incl(ti, tj);
-        results1(x, kcol) = Sigma;
-
-        if (ti == tj) {
-          const double eG = results2(x, OFF_EG + ti);
-          results2(x, OFF_VAR + ti) = Sigma;
-          results2(x, OFF_SPV + ti) = eG + intensity * std::sqrt(Sigma);
         }
       }
+
+    } else {
+      for (std::size_t cidx = 0; cidx < chr.size(); ++cidx) {
+        const auto& cc = chr[cidx];
+        const arma::uword startC = cc.startC;
+        const arma::uword nc     = cc.nc;
+
+        const auto& w = work[cidx];
+        const std::size_t k = w.li.size();
+        if (k == 0) continue;
+
+        for (std::size_t ii = 0; ii < k; ++ii) {
+          const arma::uword li = w.li[ii];
+          const arma::uword gi = startC + li;
+
+          const double a12_i = w.a12[ii];
+          const double a34_i = w.a34[ii];
+          const double a14_i = w.a14[ii];
+          const double a13_i = w.a13[ii];
+          const double a24_i = w.a24[ii];
+          const double a23_i = w.a23[ii];
+
+          for (std::size_t jj = ii; jj < k; ++jj) {
+            const arma::uword lj = w.li[jj];
+            const arma::uword gj = startC + lj;
+
+            const double D12  = 0.0625 * (a12_i * w.a12[jj]);
+            const double D34  = 0.0625 * (a34_i * w.a34[jj]);
+            const double phi1 = D12 + D34;
+
+            const double D14  = 0.0625 * (a14_i * w.a14[jj]);
+            const double D13  = 0.0625 * (a13_i * w.a13[jj]);
+            const double D24  = 0.0625 * (a24_i * w.a24[jj]);
+            const double D23  = 0.0625 * (a23_i * w.a23[jj]);
+            const double phi2 = D14 + D13 + D24 + D23;
+
+            const double ck  = tri_get(cc.CK,  (std::size_t)li, (std::size_t)lj, (std::size_t)nc);
+            const double ck1 = tri_get(cc.CK1, (std::size_t)li, (std::size_t)lj, (std::size_t)nc);
+            const double c1  = tri_get(cc.C1,  (std::size_t)li, (std::size_t)lj, (std::size_t)nc);
+
+            const double Dcomb = (ck * phi2) + ((ck + ck1) * c1 * phi1);
+
+            for (arma::uword ti = 0; ti < numTrait; ++ti) {
+              const double Ui = U_mat(gi, ti);
+              for (arma::uword tj = ti; tj < numTrait; ++tj) {
+                const double contrib = Ui * Dcomb * U_mat(gj, tj);
+                const arma::uword kcol = tri_u_idx_incl(ti, tj);
+                results1(x, kcol) += (ii == jj) ? contrib : 2.0 * contrib;
+              }
+            }
+          }
+        }
+      }
+
+    }
+
+
+    for (arma::uword ti = 0; ti < numTrait; ++ti) {
+      const double eG  = results2(x, OFF_EG + ti);
+      const arma::uword kdiag = tri_u_idx_incl(ti, ti);
+      const double var = results1(x, kdiag);
+
+      results2(x, OFF_VAR + ti) = var;
+      results2(x, OFF_SPV + ti) = eG + intensity * std::sqrt(var);
     }
   });
 

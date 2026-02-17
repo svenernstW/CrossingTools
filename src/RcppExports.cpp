@@ -51,9 +51,9 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// cpp_calculate_covariance_lehermeier
-SEXP cpp_calculate_covariance_lehermeier(const NumericMatrix& Crosses, const List& genMap, const NumericMatrix& M, const NumericMatrix& U, double t, double intensity, const NumericVector& weights, bool covariance, bool calcindex, int nThreads);
-RcppExport SEXP _CrossingTools_cpp_calculate_covariance_lehermeier(SEXP CrossesSEXP, SEXP genMapSEXP, SEXP MSEXP, SEXP USEXP, SEXP tSEXP, SEXP intensitySEXP, SEXP weightsSEXP, SEXP covarianceSEXP, SEXP calcindexSEXP, SEXP nThreadsSEXP) {
+// cpp_calculate_covariance_lehermeier_test
+SEXP cpp_calculate_covariance_lehermeier_test(const NumericMatrix& Crosses, const List& genMap, const NumericMatrix& M, const NumericMatrix& U, double t, double intensity, const NumericVector& weights, bool covariance, bool calcindex, int nThreads);
+RcppExport SEXP _CrossingTools_cpp_calculate_covariance_lehermeier_test(SEXP CrossesSEXP, SEXP genMapSEXP, SEXP MSEXP, SEXP USEXP, SEXP tSEXP, SEXP intensitySEXP, SEXP weightsSEXP, SEXP covarianceSEXP, SEXP calcindexSEXP, SEXP nThreadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -67,7 +67,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< bool >::type covariance(covarianceSEXP);
     Rcpp::traits::input_parameter< bool >::type calcindex(calcindexSEXP);
     Rcpp::traits::input_parameter< int >::type nThreads(nThreadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(cpp_calculate_covariance_lehermeier(Crosses, genMap, M, U, t, intensity, weights, covariance, calcindex, nThreads));
+    rcpp_result_gen = Rcpp::wrap(cpp_calculate_covariance_lehermeier_test(Crosses, genMap, M, U, t, intensity, weights, covariance, calcindex, nThreads));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -255,6 +255,20 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cpp_u_from_from_g_simple
+SEXP cpp_u_from_from_g_simple(const NumericMatrix& M, const NumericMatrix& G, const NumericMatrix& g, double scalingFactor);
+RcppExport SEXP _CrossingTools_cpp_u_from_from_g_simple(SEXP MSEXP, SEXP GSEXP, SEXP gSEXP, SEXP scalingFactorSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const NumericMatrix& >::type M(MSEXP);
+    Rcpp::traits::input_parameter< const NumericMatrix& >::type G(GSEXP);
+    Rcpp::traits::input_parameter< const NumericMatrix& >::type g(gSEXP);
+    Rcpp::traits::input_parameter< double >::type scalingFactor(scalingFactorSEXP);
+    rcpp_result_gen = Rcpp::wrap(cpp_u_from_from_g_simple(M, G, g, scalingFactor));
+    return rcpp_result_gen;
+END_RCPP
+}
 // cpp_calculate_desired_gains
 SEXP cpp_calculate_desired_gains(const NumericMatrix& A, const NumericMatrix& V, const NumericMatrix& approxV, const NumericVector& gains, bool useMargV, bool useV, bool useapproxV, int nThreads);
 RcppExport SEXP _CrossingTools_cpp_calculate_desired_gains(SEXP ASEXP, SEXP VSEXP, SEXP approxVSEXP, SEXP gainsSEXP, SEXP useMargVSEXP, SEXP useVSEXP, SEXP useapproxVSEXP, SEXP nThreadsSEXP) {
@@ -325,7 +339,7 @@ END_RCPP
 static const R_CallMethodDef CallEntries[] = {
     {"_CrossingTools_cpp_calculate_covariance_allier", (DL_FUNC) &_CrossingTools_cpp_calculate_covariance_allier, 10},
     {"_CrossingTools_cpp_calculate_covariance_RIL_allier", (DL_FUNC) &_CrossingTools_cpp_calculate_covariance_RIL_allier, 10},
-    {"_CrossingTools_cpp_calculate_covariance_lehermeier", (DL_FUNC) &_CrossingTools_cpp_calculate_covariance_lehermeier, 10},
+    {"_CrossingTools_cpp_calculate_covariance_lehermeier_test", (DL_FUNC) &_CrossingTools_cpp_calculate_covariance_lehermeier_test, 10},
     {"_CrossingTools_cpp_calculate_covariance_RIL_lehermeier", (DL_FUNC) &_CrossingTools_cpp_calculate_covariance_RIL_lehermeier, 10},
     {"_CrossingTools_cpp_calculate_covariance_osthushenrich", (DL_FUNC) &_CrossingTools_cpp_calculate_covariance_osthushenrich, 10},
     {"_CrossingTools_cpp_calculate_covariance_RIL_osthushenrich", (DL_FUNC) &_CrossingTools_cpp_calculate_covariance_RIL_osthushenrich, 10},
@@ -336,6 +350,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_CrossingTools_cpp_calculate_expectation_A4W", (DL_FUNC) &_CrossingTools_cpp_calculate_expectation_A4W, 6},
     {"_CrossingTools_cpp_calculate_expectation_AD", (DL_FUNC) &_CrossingTools_cpp_calculate_expectation_AD, 8},
     {"_CrossingTools_cpp_optimal_cross_pareto", (DL_FUNC) &_CrossingTools_cpp_optimal_cross_pareto, 13},
+    {"_CrossingTools_cpp_u_from_from_g_simple", (DL_FUNC) &_CrossingTools_cpp_u_from_from_g_simple, 4},
     {"_CrossingTools_cpp_calculate_desired_gains", (DL_FUNC) &_CrossingTools_cpp_calculate_desired_gains, 8},
     {"_CrossingTools_cpp_u_from_from_g", (DL_FUNC) &_CrossingTools_cpp_u_from_from_g, 13},
     {"_CrossingTools_cpp_optimal_cross_selection", (DL_FUNC) &_CrossingTools_cpp_optimal_cross_selection, 15},

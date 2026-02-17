@@ -42,11 +42,13 @@ SEXP cpp_calculate_covariance_RIL_osthushenrich(const NumericMatrix& Crosses,
   // Convert inputs to Armadillo
   arma::mat M_mat = as<arma::mat>(M);   // (n_individuals × numMarkers)
   arma::mat U_mat = as<arma::mat>(U);   // (numMarkers × numTrait)
-  arma::vec weights_vec = as<arma::vec>(weights);  // length == numTrait
+  //Precompute GEBV
+  arma::mat GEBV = M_mat * U_mat;  // (nInd × numTrait)
 
   const arma::uword OFF_EG  = 0;
   const arma::uword OFF_VAR = numTrait;
   const arma::uword OFF_SPV = 2 * numTrait;
+  arma::vec weights_vec = as<arma::vec>(weights);  // length == numTrait
 
   // Precompute recombination fractions for each chromosome
   arma::mat QJK(numMarkers, numMarkers, fill::zeros);
@@ -103,8 +105,8 @@ SEXP cpp_calculate_covariance_RIL_osthushenrich(const NumericMatrix& Crosses,
     arma::uvec differing = find(abs(M_mat.row(P1) - M_mat.row(P2)) > 1e-12);
     if (differing.n_elem == 0) {
       for (arma::uword ti = 0; ti < numTrait; ++ti) {
-        double G1 = arma::dot(M_mat.row(P1), U_mat.col(ti));
-        double G2 = arma::dot(M_mat.row(P2), U_mat.col(ti));
+        double G1 = GEBV(P1, ti);
+        double G2 = GEBV(P2, ti);
         double eG = 0.5 * (G1 + G2);
 
         results2(x, OFF_EG  + ti) = eG;
@@ -113,7 +115,6 @@ SEXP cpp_calculate_covariance_RIL_osthushenrich(const NumericMatrix& Crosses,
       }
       return;
     }
-
     for (arma::uword ti = 0; ti < numTrait; ++ti) {
       for (arma::uword tj = ti; tj < numTrait; ++tj) {
         if (!covariance && ti != tj) continue;
@@ -148,8 +149,8 @@ SEXP cpp_calculate_covariance_RIL_osthushenrich(const NumericMatrix& Crosses,
         results1(x, k) = SigmaSqP1P2;
 
         if (ti == tj) {
-          double G1 = arma::dot(M_mat.row(P1), U_mat.col(ti));
-          double G2 = arma::dot(M_mat.row(P2), U_mat.col(ti));
+          double G1 = GEBV(P1, ti);
+          double G2 = GEBV(P2, ti);
           double eG = 0.5 * (G1 + G2);
 
           results2(x, OFF_EG  + ti) = eG;

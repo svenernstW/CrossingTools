@@ -39,6 +39,8 @@ SEXP cpp_calculate_covariance_osthushenrich(const NumericMatrix& Crosses,
   // Convert inputs to Armadillo
   arma::mat M_mat = as<arma::mat>(M);   // (n_individuals × numMarkers)
   arma::mat U_mat = as<arma::mat>(U);   // (numMarkers × numTrait)
+  //Precompute GEBV
+  arma::mat GEBV = M_mat * U_mat;  // (nInd × numTrait)
 
   const arma::uword OFF_EG  = 0;
   const arma::uword OFF_VAR = numTrait;
@@ -100,8 +102,8 @@ SEXP cpp_calculate_covariance_osthushenrich(const NumericMatrix& Crosses,
     arma::uvec differing = find(abs(M_mat.row(P1) - M_mat.row(P2)) > 1e-12);
     if (differing.n_elem == 0) {
       for (arma::uword ti = 0; ti < numTrait; ++ti) {
-        double G1 = arma::dot(M_mat.row(P1), U_mat.col(ti));
-        double G2 = arma::dot(M_mat.row(P2), U_mat.col(ti));
+        double G1 = GEBV(P1, ti);
+        double G2 = GEBV(P2, ti);
         double eG = 0.5 * (G1 + G2);
 
         results2(x, OFF_EG  + ti) = eG;
@@ -144,8 +146,8 @@ SEXP cpp_calculate_covariance_osthushenrich(const NumericMatrix& Crosses,
         results1(x, k) = SigmaSqP1P2;
 
         if (ti == tj) {
-          double G1 = arma::dot(M_mat.row(P1), U_mat.col(ti));
-          double G2 = arma::dot(M_mat.row(P2), U_mat.col(ti));
+          double G1 = GEBV(P1, ti);
+          double G2 = GEBV(P2, ti);
           double eG = 0.5 * (G1 + G2);
 
           results2(x, OFF_EG  + ti) = eG;

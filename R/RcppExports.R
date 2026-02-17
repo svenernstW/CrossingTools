@@ -9,8 +9,8 @@ cpp_calculate_covariance_RIL_allier <- function(Crosses, genMap, M, U, t, intens
     .Call(`_CrossingTools_cpp_calculate_covariance_RIL_allier`, Crosses, genMap, M, U, t, intensity, weights, covariance, calcindex, nThreads)
 }
 
-cpp_calculate_covariance_lehermeier <- function(Crosses, genMap, M, U, t, intensity, weights, covariance = FALSE, calcindex = FALSE, nThreads = 4L) {
-    .Call(`_CrossingTools_cpp_calculate_covariance_lehermeier`, Crosses, genMap, M, U, t, intensity, weights, covariance, calcindex, nThreads)
+cpp_calculate_covariance_lehermeier_test <- function(Crosses, genMap, M, U, t, intensity, weights, covariance = FALSE, calcindex = FALSE, nThreads = 4L) {
+    .Call(`_CrossingTools_cpp_calculate_covariance_lehermeier_test`, Crosses, genMap, M, U, t, intensity, weights, covariance, calcindex, nThreads)
 }
 
 cpp_calculate_covariance_RIL_lehermeier <- function(Crosses, genMap, M, U, t, intensity, weights, covariance = FALSE, calcindex = FALSE, nThreads = 4L) {
@@ -51,6 +51,10 @@ cpp_calculate_expectation_AD <- function(Crosses, Hap1, Hap2, U, D, weights, cal
 
 cpp_optimal_cross_pareto <- function(Crosses, fixedCrosses, nCross, G, u, ufixed, probMut = 0.01, nMutate = 0L, nSel = 500L, nPop = 10000L, maxGen = 500L, maxRun = 100L, nThreads = 4L) {
     .Call(`_CrossingTools_cpp_optimal_cross_pareto`, Crosses, fixedCrosses, nCross, G, u, ufixed, probMut, nMutate, nSel, nPop, maxGen, maxRun, nThreads)
+}
+
+cpp_u_from_from_g_simple <- function(M, G, g, scalingFactor) {
+    .Call(`_CrossingTools_cpp_u_from_from_g_simple`, M, G, g, scalingFactor)
 }
 
 cpp_calculate_desired_gains <- function(A, V, approxV, gains, useMargV = FALSE, useV = FALSE, useapproxV = FALSE, nThreads = 4L) {

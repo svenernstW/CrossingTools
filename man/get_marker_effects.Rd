@@ -4,7 +4,7 @@
 \alias{get_marker_effects}
 \title{Backsolve marker effects (mu) from individual effects (g)}
 \usage{
-get_marker_effects(marker.mat, G.mat, effects, scaling.factor, n.Threads = 4L)
+get_marker_effects(marker.mat, G.mat, effects, scaling.factor)
 }
 \arguments{
 \item{marker.mat}{Numeric matrix (n x p): marker/genotype matrix (individuals in rows, markers in columns).}
@@ -14,8 +14,6 @@ get_marker_effects(marker.mat, G.mat, effects, scaling.factor, n.Threads = 4L)
 \item{effects}{Numeric (n x k) or length-n vector: individual effects (one or more traits).}
 
 \item{scaling.factor}{Numeric scalar used to scale the GRM.}
-
-\item{n.Threads}{Integer >= 1; OpenMP threads (if enabled at compile time). Default: \code{4L}.}
 }
 \value{
 A numeric \code{p x k} matrix of marker effects (\code{mu_matrix}).

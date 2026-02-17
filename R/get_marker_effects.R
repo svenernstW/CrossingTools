@@ -6,18 +6,18 @@
 #' @param G.mat Numeric matrix (n x n): relationship matrix among individuals.
 #' @param effects Numeric (n x k) or length-n vector: individual effects (one or more traits).
 #' @param scaling.factor Numeric scalar used to scale the GRM.
-#' @param n.Threads Integer >= 1; OpenMP threads (if enabled at compile time). Default: \code{4L}.
 #' @return A numeric \code{p x k} matrix of marker effects (\code{mu_matrix}).
 #' @export
 get_marker_effects <- function(marker.mat,
                      G.mat,
                      effects,
-                     scaling.factor,
-
-                     n.Threads = 4L) {
+                     scaling.factor) {
   # Coerce base types
   G <- G.mat
   tol = 1e-10
+  n.Threads = 1
+  traits <- names(effects)
+
   if (!is.matrix(marker.mat)) marker.mat <- as.matrix(marker.mat)
   if (!is.matrix(G)) G <- as.matrix(G)
   if (is.vector(effects))  effects <- matrix(as.numeric(effects), ncol = 1)
@@ -30,7 +30,7 @@ get_marker_effects <- function(marker.mat,
   n <- nrow(marker.mat); p <- ncol(marker.mat)
   if (n < 1L || p < 1L) stop("`marker.mat` must have at least 1 row and 1 column.")
   if (nrow(G) != n || ncol(G) != n) stop("`G` must be n x n with n = nrow(marker.mat).")
-  if (nrow(marker.mat) != n) stop("`effects` must have nrow(effects) == nrow(marker.mat).")
+  if (nrow(effects) != n) stop("`effects` must have nrow(effects) == nrow(marker.mat).")
 
   k <- ncol(effects)
   if (k < 1L) stop("`effects` must have at least one column (trait).")
@@ -49,22 +49,19 @@ get_marker_effects <- function(marker.mat,
   nThreads <- as.integer(n.Threads)
 
   # Force all optional computations OFF inside the C++ call
-  res <- cpp_u_from_from_g(
+  res <- cpp_u_from_from_g_simple(
     M                 = marker.mat,
     G                 = G,
     g                 = effects,
-    scalingFactor     = scalingFactor,
-    tol               = tol,
-    LDvar             = FALSE,
-    Grouping          = NULL,
-    calcPriorVcov     = FALSE,
-    PriorVcov         = NULL,
-    sigmasq           = NULL,
-    calcPosteriorVcov = FALSE,
-    PEV               = NULL,
-    nThreads          = nThreads
+    scalingFactor     = scalingFactor
   )
 
   # Return only the mu matrix
-  res$mu_matrix
+  res <- as.data.frame(res$mu_matrix)
+
+  row.names(res) <- row.names(G.mat)
+
+  names(res) <- traits
+
+  res
 }

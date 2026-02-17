@@ -44,6 +44,7 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
   arma::mat U_mat    = as<arma::mat>(U);      // (numMarkers × numTrait)
   arma::mat D_mat    = as<arma::mat>(D);      // (numMarkers × numTrait)
   arma::vec weights_vec = as<arma::vec>(weights); // length == numTrait
+  arma::mat GEBV = M_mat * U_mat;  // (nInd × numTrait)
 
   const arma::uword OFF_EG    = 0;
   const arma::uword OFF_ETG   = numTrait;
@@ -101,97 +102,223 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
 
   // Parallel over crosses
   ct_parallel_for(0, static_cast<int>(numCrosses), [&](int xi) {
-    R_xlen_t x = static_cast<R_xlen_t>(xi);
+    const arma::uword x = static_cast<arma::uword>(xi);
     const int P1 = P1_idx[x];
     const int P2 = P2_idx[x];
     const arma::uword nInd = M_mat.n_rows;
     if (P1 < 0 || P2 < 0 || P1 >= (int)nInd || P2 >= (int)nInd) return;
 
-    // Markers that are heterozygous in exactly one parent (dosage == 1 in either parent)
-    arma::uvec differingMarkers = arma::find(
-      (M_mat.row(P1) == 1.0) + (M_mat.row(P2) == 1.0)
-    );
+    // -------------------------
+    // (0) Precompute eG + eTG once per trait (diagonal outputs only)
+    // -------------------------
+    // compute these ONCE per cross
+    const arma::rowvec pk  = M_mat.row(P1);
+    const arma::rowvec qk  = 2.0 - pk;
+    const arma::rowvec ykl = pk - M_mat.row(P2);
+    const arma::colvec v1  = (pk - qk - ykl).t();
+    const arma::colvec v2  = (2.0 * (pk % qk) + (ykl % (pk - qk))).t();
 
     for (arma::uword ti = 0; ti < numTrait; ++ti) {
-      for (arma::uword tj = ti; tj < numTrait; ++tj) {
-        if (!covariance && ti != tj) continue;
+      const double eG  = 0.5 * (GEBV(P1, ti) + GEBV(P2, ti));
+      results2(x, OFF_EG + ti) = eG;
 
-        double SigmaSqAP1P2 = 0.0;
-        double SigmaSqDP1P2 = 0.0;
+      const double eTG = arma::dot(U_mat.col(ti), v1) + arma::dot(D_mat.col(ti), v2);
+      results2(x, OFF_ETG + ti) = eTG;
+    }
 
-        for (const auto& chrRange : chromosomeRanges) {
-          int startC = chrRange.first;
-          int endC   = chrRange.second;
 
-          arma::uvec chrDiff = differingMarkers( arma::find(
-            (differingMarkers >= (arma::uword)startC) %
-              (differingMarkers <= (arma::uword)endC)
-          ));
-          if (chrDiff.n_elem == 0) continue;
+    // -------------------------
+    // (1) Build per-chromosome list of "eligible" markers
+    // -------------------------
+    struct ChrWork {
+      std::vector<arma::uword> g; // global marker index
+    };
+    std::vector<ChrWork> work(chromosomeRanges.size());
 
-          for (uword i = 0; i < chrDiff.n_elem; ++i) {
-            int marker_i = (int)chrDiff[i];
-            for (uword j = i; j < chrDiff.n_elem; ++j) {
-              int marker_j = (int)chrDiff[j];
+    bool any_diff = false;
 
-              // Recombination correlation
-              double rcf_ij = RC(marker_i, marker_j);
+    for (std::size_t cidx = 0; cidx < chromosomeRanges.size(); ++cidx) {
+      const int startC = chromosomeRanges[cidx].first;
+      const int endC   = chromosomeRanges[cidx].second;
 
-              // Build small 2×2 haplotype matrices per parent (markers i,j)
-              arma::uword row_idx_P1 = static_cast<arma::uword>(P1);
-              arma::uword row_idx_P2 = static_cast<arma::uword>(P2);
-              arma::uvec cols(2); cols(0) = (arma::uword)marker_i; cols(1) = (arma::uword)marker_j;
+      auto &w = work[cidx];
+      w.g.clear();
+      w.g.reserve(256);
 
-              arma::rowvec Hap1_P1 = Hap1_mat(arma::uvec{row_idx_P1}, cols);
-              arma::rowvec Hap2_P1 = Hap2_mat(arma::uvec{row_idx_P1}, cols);
-              arma::rowvec Hap1_P2 = Hap1_mat(arma::uvec{row_idx_P2}, cols);
-              arma::rowvec Hap2_P2 = Hap2_mat(arma::uvec{row_idx_P2}, cols);
+      for (int gi = startC; gi <= endC; ++gi) {
+        const double m1 = M_mat(P1, (arma::uword)gi);
+        const double m2 = M_mat(P2, (arma::uword)gi);
 
-              arma::rowvec P1_means = 0.5 * (Hap1_P1 + Hap2_P1);
-              arma::rowvec P2_means = 0.5 * (Hap1_P2 + Hap2_P2);
+        // Your original criterion was:
+        //   (M(P1)==1) OR (M(P2)==1)
+        // If you truly mean "exactly one parent het", use XOR:
+        //   ((m1==1.0) != (m2==1.0))
+        if (!(m1 == 1.0 || m2 == 1.0)) continue;
 
-              arma::mat Hap_P1 = join_cols(Hap1_P1, Hap2_P1);
-              arma::mat Hap_P2 = join_cols(Hap1_P2, Hap2_P2);
+        any_diff = true;
+        w.g.push_back((arma::uword)gi);
+      }
+    }
 
-              arma::mat D1 = 0.5 * Hap_P1.t() * Hap_P1 - P1_means.t() * P1_means;
-              arma::mat D2 = 0.5 * Hap_P2.t() * Hap_P2 - P2_means.t() * P2_means;
+    // If nothing contributes, fill diagonal outputs and return
+    if (!any_diff) {
+      for (arma::uword ti = 0; ti < numTrait; ++ti) {
+        const double eG  = results2(x, OFF_EG + ti);
+        const double eTG = results2(x, OFF_ETG + ti);
 
-              // DGen for the pair (i,j)
-              double DGen_ij = (rcf_ij * D1.at(0,1)) + (rcf_ij * D2.at(0,1));
+        results2(x, OFF_VAR_A + ti) = 0.0;
+        results2(x, OFF_VAR_D + ti) = 0.0;
+        results2(x, OFF_SPV   + ti) = eG;
+        results2(x, OFF_TSPV  + ti) = eTG;
+      }
+      return;
+    }
 
-              double contribA = U_mat(marker_j, tj) * DGen_ij * U_mat(marker_i, ti);
-              SigmaSqAP1P2 += (i == j) ? contribA : 2 * contribA;
+    // -------------------------
+    // (2) Accumulate variances/covariances:
+    //     compute DGen_ij ONCE per marker pair, reuse across traits
+    // -------------------------
+    if (!covariance) {
+      // diagonal only: fill (ti,ti)
+      for (std::size_t cidx = 0; cidx < work.size(); ++cidx) {
+        const auto &w = work[cidx];
+        const std::size_t k = w.g.size();
+        if (k == 0) continue;
 
-              double contribD = D_mat(marker_j, tj) * (DGen_ij * DGen_ij) * D_mat(marker_i, ti);
-              SigmaSqDP1P2 += (i == j) ? contribD : 2 * contribD;
+        for (std::size_t ii = 0; ii < k; ++ii) {
+          const arma::uword mi = w.g[ii];
+
+          // parent hap values at marker i
+          const double h1i_p1 = Hap1_mat(P1, mi);
+          const double h2i_p1 = Hap2_mat(P1, mi);
+          const double h1i_p2 = Hap1_mat(P2, mi);
+          const double h2i_p2 = Hap2_mat(P2, mi);
+
+          for (std::size_t jj = ii; jj < k; ++jj) {
+            const arma::uword mj = w.g[jj];
+
+            const double mult = (ii == jj) ? 1.0 : 2.0;
+
+            // recombination correlation
+            const double rcf = RC(mi, mj);
+
+            // parent hap values at marker j
+            const double h1j_p1 = Hap1_mat(P1, mj);
+            const double h2j_p1 = Hap2_mat(P1, mj);
+            const double h1j_p2 = Hap1_mat(P2, mj);
+            const double h2j_p2 = Hap2_mat(P2, mj);
+
+            // Off-diagonal element of:
+            //   D1 = 0.5 * H^T H - mean mean^T
+            // where H has rows hap1 and hap2, and mean = 0.5*(hap1+hap2)
+            auto offdiag_D = [](double a_i, double a_j, double b_i, double b_j) -> double {
+              const double mean_i = 0.5 * (a_i + b_i);
+              const double mean_j = 0.5 * (a_j + b_j);
+              return 0.5 * (a_i * a_j + b_i * b_j) - (mean_i * mean_j);
+            };
+
+            const double d1 = offdiag_D(h1i_p1, h1j_p1, h2i_p1, h2j_p1);
+            const double d2 = offdiag_D(h1i_p2, h1j_p2, h2i_p2, h2j_p2);
+
+            const double DGen = rcf * (d1 + d2);
+            const double DGen2 = DGen * DGen;
+
+            // reuse DGen for all traits (diagonal only)
+            for (arma::uword ti = 0; ti < numTrait; ++ti) {
+              const arma::uword kdiag = tri_u_idx_incl(ti, ti);
+
+              const double contribA = U_mat(mj, ti) * DGen  * U_mat(mi, ti);
+              const double contribD = D_mat(mj, ti) * DGen2 * D_mat(mi, ti);
+
+              results1A(x, kdiag) += mult * contribA;
+              results1D(x, kdiag) += mult * contribD;
             }
           }
         }
+      }
 
-        const arma::uword k = tri_u_idx_incl(ti, tj);
-        results1A(x, k) = SigmaSqAP1P2;
-        results1D(x, k) = SigmaSqDP1P2;
+      // write trait-wise outputs (diagonal)
+      for (arma::uword ti = 0; ti < numTrait; ++ti) {
+        const arma::uword kdiag = tri_u_idx_incl(ti, ti);
+        const double varA = results1A(x, kdiag);
+        const double varD = results1D(x, kdiag);
 
-        if (ti == tj) {
-          double G1 = arma::dot(M_mat.row(P1), U_mat.col(ti));
-          double G2 = arma::dot(M_mat.row(P2), U_mat.col(ti));
-          double eG = 0.5 * (G1 + G2);
+        const double eG  = results2(x, OFF_EG  + ti);
+        const double eTG = results2(x, OFF_ETG + ti);
 
-          arma::rowvec pk = M_mat.row(P1);
-          arma::rowvec qk = 2.0 - pk;
-          arma::rowvec ykl = pk - M_mat.row(P2);
-          const arma::colvec v1 = (pk - qk - ykl).t();
-          const arma::colvec v2 = (2.0 * (pk % qk) + (ykl % (pk - qk))).t();
+        results2(x, OFF_VAR_A + ti) = varA;
+        results2(x, OFF_VAR_D + ti) = varD;
+        results2(x, OFF_SPV   + ti) = eG  + intensity * std::sqrt(varA);
+        results2(x, OFF_TSPV  + ti) = eTG + (std::sqrt(varA) + std::sqrt(varD));
+      }
 
-          double eTG = arma::dot(U_mat.col(ti), v1) + arma::dot(D_mat.col(ti), v2);
+    } else {
+      // full covariance: fill all (ti,tj) upper triangle
+      for (std::size_t cidx = 0; cidx < work.size(); ++cidx) {
+        const auto &w = work[cidx];
+        const std::size_t k = w.g.size();
+        if (k == 0) continue;
 
-          results2(x, OFF_EG   + ti) = eG;
-          results2(x, OFF_VAR_A+ ti) = SigmaSqAP1P2;
-          results2(x, OFF_SPV  + ti) = eG + intensity * std::sqrt(SigmaSqAP1P2);
-          results2(x, OFF_VAR_D+ ti) = SigmaSqDP1P2;
-          results2(x, OFF_ETG  + ti) = eTG;
-          results2(x, OFF_TSPV + ti) = eTG + (std::sqrt(SigmaSqAP1P2) + std::sqrt(SigmaSqDP1P2));
+        for (std::size_t ii = 0; ii < k; ++ii) {
+          const arma::uword mi = w.g[ii];
+
+          const double h1i_p1 = Hap1_mat(P1, mi);
+          const double h2i_p1 = Hap2_mat(P1, mi);
+          const double h1i_p2 = Hap1_mat(P2, mi);
+          const double h2i_p2 = Hap2_mat(P2, mi);
+
+          for (std::size_t jj = ii; jj < k; ++jj) {
+            const arma::uword mj = w.g[jj];
+            const double mult = (ii == jj) ? 1.0 : 2.0;
+
+            const double rcf = RC(mi, mj);
+
+            const double h1j_p1 = Hap1_mat(P1, mj);
+            const double h2j_p1 = Hap2_mat(P1, mj);
+            const double h1j_p2 = Hap1_mat(P2, mj);
+            const double h2j_p2 = Hap2_mat(P2, mj);
+
+            auto offdiag_D = [](double a_i, double a_j, double b_i, double b_j) -> double {
+              const double mean_i = 0.5 * (a_i + b_i);
+              const double mean_j = 0.5 * (a_j + b_j);
+              return 0.5 * (a_i * a_j + b_i * b_j) - (mean_i * mean_j);
+            };
+
+            const double d1 = offdiag_D(h1i_p1, h1j_p1, h2i_p1, h2j_p1);
+            const double d2 = offdiag_D(h1i_p2, h1j_p2, h2i_p2, h2j_p2);
+
+            const double DGen  = rcf * (d1 + d2);
+            const double DGen2 = DGen * DGen;
+
+            for (arma::uword ti = 0; ti < numTrait; ++ti) {
+              const double UiA = U_mat(mi, ti);
+              const double UiD = D_mat(mi, ti);
+              for (arma::uword tj = ti; tj < numTrait; ++tj) {
+                const arma::uword kcol = tri_u_idx_incl(ti, tj);
+
+                // match your original orientation:
+                // U(mj,tj) * DGen * U(mi,ti)
+                results1A(x, kcol) += mult * (U_mat(mj, tj) * DGen  * UiA);
+                results1D(x, kcol) += mult * (D_mat(mj, tj) * DGen2 * UiD);
+              }
+            }
+          }
         }
+      }
+
+      // diagonal outputs
+      for (arma::uword ti = 0; ti < numTrait; ++ti) {
+        const arma::uword kdiag = tri_u_idx_incl(ti, ti);
+        const double varA = results1A(x, kdiag);
+        const double varD = results1D(x, kdiag);
+
+        const double eG  = results2(x, OFF_EG  + ti);
+        const double eTG = results2(x, OFF_ETG + ti);
+
+        results2(x, OFF_VAR_A + ti) = varA;
+        results2(x, OFF_VAR_D + ti) = varD;
+        results2(x, OFF_SPV   + ti) = eG  + intensity * std::sqrt(varA);
+        results2(x, OFF_TSPV  + ti) = eTG + (std::sqrt(varA) + std::sqrt(varD));
       }
     }
   });

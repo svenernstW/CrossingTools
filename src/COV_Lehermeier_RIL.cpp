@@ -41,6 +41,8 @@ SEXP cpp_calculate_covariance_RIL_lehermeier(const NumericMatrix& Crosses,
   arma::mat U_mat = as<arma::mat>(U);   // (numMarkers × numTrait)
   const arma::uword nInd = M_mat.n_rows;
   arma::vec weights_vec = as<arma::vec>(weights);  // length == numTrait
+  //Precompute GEBV
+  arma::mat GEBV = M_mat * U_mat;  // (nInd × numTrait)
 
   const arma::uword OFF_EG  = 0;
   const arma::uword OFF_VAR = numTrait;
@@ -87,74 +89,107 @@ SEXP cpp_calculate_covariance_RIL_lehermeier(const NumericMatrix& Crosses,
   // Parallel over crosses
   ct_parallel_for(0, static_cast<int>(numCrosses), [&](int xi) {
     R_xlen_t x = static_cast<R_xlen_t>(xi);
+
     const int P1 = P1_idx[x];
     const int P2 = P2_idx[x];
     if (P1 < 0 || P2 < 0 || P1 >= (int)nInd || P2 >= (int)nInd) return;
 
-    // Markers that differ between the two parents
+    // Markers that differ between the two parents (exact compare; use tolerance if needed)
     arma::uvec differing = find(abs(M_mat.row(P1) - M_mat.row(P2)) > 1e-12);
-    if (differing.n_elem == 0) {
-      for (arma::uword ti = 0; ti < numTrait; ++ti) {
-        double G1 = arma::dot(M_mat.row(P1), U_mat.col(ti));
-        double G2 = arma::dot(M_mat.row(P2), U_mat.col(ti));
-        double eG = 0.5 * (G1 + G2);
 
-        results2(x, OFF_EG  + ti) = eG;
-        results2(x, OFF_VAR + ti) = 0;
-        results2(x, OFF_SPV + ti) = eG;
-      }
-      return;
-    }
-    for (arma::uword ti = 0; ti < numTrait; ++ti) {
-      for (arma::uword tj = ti; tj < numTrait; ++tj) {
-        if (!covariance && ti != tj) continue;
+    if(!covariance){
+      // Iterate through each chromosome range
+      for (const auto& chrRange : chromosomeRanges) {
+        int startC = chrRange.first;
+        int endC   = chrRange.second;
 
-        double SigmaSqP1P2 = 0.0;
+        // differing markers within [startC, endC]
+        arma::uvec idx    = find( (differing >= startC) % (differing <= endC) );
+        if (idx.n_elem == 0) continue;
+        arma::uvec chrDiff = differing.elem(idx);
 
-        // Iterate through each chromosome range
-        for (const auto& chrRange : chromosomeRanges) {
-          int startC = chrRange.first;
-          int endC   = chrRange.second;
+        if (chrDiff.n_elem == 0) continue;
 
-          // differing markers within [startC, endC]
-          arma::uvec idx    = find( (differing >= startC) % (differing <= endC) );
-          if (idx.n_elem == 0) continue;
-          arma::uvec chrDiff = differing.elem(idx);
-          if (chrDiff.n_elem == 0) continue;
+        // Now only loop over these chromosome-specific markers
+        for (uword i = 0; i < chrDiff.n_elem; ++i) {
+          int marker_i = chrDiff[i];
+          for (uword j = i; j < chrDiff.n_elem; ++j) {
+            int marker_j = chrDiff[j];
+            double Dprime = 0.0625 *
+              ((M_mat(P1, marker_i)-M_mat(P2, marker_i))*
+              (M_mat(P1, marker_j)-M_mat(P2, marker_j)));
 
-          // Loop only over markers on this chromosome
-          for (uword i = 0; i < chrDiff.n_elem; ++i) {
-            int marker_i = chrDiff[i];
-            for (uword j = i; j < chrDiff.n_elem; ++j) {
-              int marker_j = chrDiff[j];
+            double D = (4 * Dprime) * (1 - 2 * QJK(marker_i, marker_j));
+            for (uword ti=0; ti<numTrait; ++ti) {
 
-              double Dprime = 0.0625 *
-                ((M_mat(P1, marker_i) - M_mat(P2, marker_i)) *
-                (M_mat(P1, marker_j) - M_mat(P2, marker_j)));
+              double contrib = U_mat(marker_i, ti) * D * U_mat(marker_j, ti);
+              const arma::uword k = tri_u_idx_incl(ti, ti);
+              results1(x, k) += (i == j) ? contrib : 2 * contrib;
 
-              // Note: for RILs, factor-of-2 is already in qjk→QJK construction.
-              double D = (4 * Dprime) * (1 - QJK(marker_i, marker_j));
 
-              double contrib = U_mat(marker_i, ti) * D * U_mat(marker_j, tj);
-              SigmaSqP1P2 += (i == j) ? contrib : 2 * contrib;
             }
           }
         }
+      }
 
-        const arma::uword k = tri_u_idx_incl(ti, tj);
-        results1(x, k) = SigmaSqP1P2;
+    } else {
+      // Iterate through each chromosome range
+      for (const auto& chrRange : chromosomeRanges) {
+        int startC = chrRange.first;
+        int endC   = chrRange.second;
 
-        if (ti == tj) {
-          double G1 = arma::dot(M_mat.row(P1), U_mat.col(ti));
-          double G2 = arma::dot(M_mat.row(P2), U_mat.col(ti));
-          double eG = 0.5 * (G1 + G2);
+        // differing markers within [startC, endC]
+        arma::uvec idx    = find( (differing >= startC) % (differing <= endC) );
+        if (idx.n_elem == 0) continue;
+        arma::uvec chrDiff = differing.elem(idx);
 
-          results2(x, OFF_EG  + ti) = eG;
-          results2(x, OFF_VAR + ti) = SigmaSqP1P2;
-          results2(x, OFF_SPV + ti) = eG + intensity * std::sqrt(SigmaSqP1P2);
+        if (chrDiff.n_elem == 0) continue;
+
+        // Now only loop over these chromosome-specific markers
+        for (uword i = 0; i < chrDiff.n_elem; ++i) {
+          int marker_i = chrDiff[i];
+          for (uword j = i; j < chrDiff.n_elem; ++j) {
+            int marker_j = chrDiff[j];
+            double Dprime = 0.0625 *
+              ((M_mat(P1, marker_i)-M_mat(P2, marker_i))*
+              (M_mat(P1, marker_j)-M_mat(P2, marker_j)));
+
+            double D = (4 * Dprime) * (1 - 2 * QJK(marker_i, marker_j));
+            for (arma::uword ti = 0; ti < numTrait; ++ti) {
+              for (arma::uword tj = ti; tj < numTrait; ++tj) {
+                double contrib = U_mat(marker_i, ti) * D * U_mat(marker_j, tj);
+                const arma::uword k = tri_u_idx_incl(ti, tj);
+                results1(x, k) += (i == j) ? contrib : 2 * contrib;
+
+              }
+            }
+          }
         }
       }
     }
+
+
+
+
+
+
+
+
+
+    for (arma::uword ti = 0; ti < numTrait; ++ti) {
+      double G1 = GEBV(P1, ti);
+      double G2 = GEBV(P2, ti);
+      double eG = 0.5 * (G1 + G2);
+      const arma::uword k = tri_u_idx_incl(ti, ti);
+      double SigmaSqP1P2 = results1(x, k);
+      results2(x, OFF_EG  + ti) = eG;
+      results2(x, OFF_VAR + ti) = SigmaSqP1P2;
+      results2(x, OFF_SPV + ti) = eG + intensity * std::sqrt(SigmaSqP1P2);
+
+    }
+
+
+
   });
 
   // If requested, convert each row to an nTrait×nTrait symmetric matrix
