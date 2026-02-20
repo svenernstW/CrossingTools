@@ -44,7 +44,9 @@ get_segvar_inbred <- function(crosses, genetic.map, marker.mat, effects, t, inte
   n.Threads <- nthreads
   if(!ncol(crosses) %in% c(2,4)){stop("ncol(crosses) needs to be 2 for two way crosses or 4 for three or four way crosses")}
   crosses_in <- crosses
-
+  if (!isTRUE(all.equal(t, as.integer(t)))) {
+    stop("t must be an integer.")
+  }
   crosses <- as.matrix(crosses)
 
   if (is.numeric(crosses) || is.integer(crosses)) {

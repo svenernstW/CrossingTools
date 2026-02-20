@@ -35,7 +35,7 @@ SEXP cpp_calculate_covariance_allier(
     const List& genMap,
     const NumericMatrix& M,
     const NumericMatrix& U,
-    double t,
+    int t,
     double intensity,
     const NumericVector& weights,
     bool covariance = false,
