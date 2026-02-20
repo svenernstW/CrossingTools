@@ -9,12 +9,11 @@
 using namespace Rcpp;
 using namespace arma;
 
-// Inline function to calculate recombination fraction
 inline double qjk(double x, double y, double t) {
   double d = std::abs(x - y);
-  double r = -0.5 * std::exp(-2.0 * d);
+  double r = 0.5 * (1.0 - std::exp(-2.0 * d));
   double oneMinusR = 1.0 - r;
-  return 0.5 + 0.5 * std::pow(oneMinusR, t);
+  return 0.5 + ((1.0 - 2.0 * r) / (2.0 * (1.0 + 2.0 * r))) * std::pow(oneMinusR, t);
 }
 
 
