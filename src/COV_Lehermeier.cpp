@@ -16,7 +16,7 @@ inline double qjk(double x, double y, double t) {
 }
 
 // [[Rcpp::export]]
-SEXP cpp_calculate_covariance_lehermeier_test(const NumericMatrix& Crosses,
+SEXP cpp_calculate_covariance_lehermeier(const NumericMatrix& Crosses,
                                               const List& genMap,
                                               const NumericMatrix& M,
                                               const NumericMatrix& U,
@@ -57,7 +57,7 @@ SEXP cpp_calculate_covariance_lehermeier_test(const NumericMatrix& Crosses,
 
     for (arma::uword j = 0; j < n; ++j) {
       for (arma::uword k = j; k < n; ++k) {  // upper triangle
-        double value = 0.5 * qjk(gm(j, 0), gm(k, 0), t) - 0.25;
+        double value = qjk(gm(j, 0), gm(k, 0), t);
         QJK(startIdx + j, startIdx + k) = value;
         QJK(startIdx + k, startIdx + j) = value;  // symmetry
       }

@@ -9,8 +9,8 @@ cpp_calculate_covariance_RIL_allier <- function(Crosses, genMap, M, U, t, intens
     .Call(`_CrossingTools_cpp_calculate_covariance_RIL_allier`, Crosses, genMap, M, U, t, intensity, weights, covariance, calcindex, nThreads)
 }
 
-cpp_calculate_covariance_lehermeier_test <- function(Crosses, genMap, M, U, t, intensity, weights, covariance = FALSE, calcindex = FALSE, nThreads = 4L) {
-    .Call(`_CrossingTools_cpp_calculate_covariance_lehermeier_test`, Crosses, genMap, M, U, t, intensity, weights, covariance, calcindex, nThreads)
+cpp_calculate_covariance_lehermeier <- function(Crosses, genMap, M, U, t, intensity, weights, covariance = FALSE, calcindex = FALSE, nThreads = 4L) {
+    .Call(`_CrossingTools_cpp_calculate_covariance_lehermeier`, Crosses, genMap, M, U, t, intensity, weights, covariance, calcindex, nThreads)
 }
 
 cpp_calculate_covariance_RIL_lehermeier <- function(Crosses, genMap, M, U, t, intensity, weights, covariance = FALSE, calcindex = FALSE, nThreads = 4L) {

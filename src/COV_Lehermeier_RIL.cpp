@@ -9,11 +9,14 @@ using namespace Rcpp;
 using namespace arma;
 
 // Inline function to calculate recombination fraction
-inline double qjk(double x, double y, double t) {
+inline double qjk(double x, double y, double k) {
   double diff = std::abs(x - y);
-  double rcf = 0.5 * (1 - std::exp(-2 * diff));
-  double ck  = ((2 * rcf)/(1 + 2 * rcf)) * ((1 - std::pow(0.5, t)) * std::pow(1 - rcf, t));
-  return 2 * ck - std::pow(0.5 * (1 - 2 * rcf), t);
+
+  double c1 = 0.5 * (1 - std::exp(-2 * diff));
+
+  double a = 0.5 * (1 - 2 * c1);
+
+  return a * (1 - std::pow(a, k)) / (1 - a);
 }
 
 // [[Rcpp::export]]
@@ -59,7 +62,7 @@ SEXP cpp_calculate_covariance_RIL_lehermeier(const NumericMatrix& Crosses,
 
     for (arma::uword j = 0; j < n; ++j) {
       for (arma::uword k = j; k < n; ++k) {  // upper triangle
-        double value = 0.5 * qjk(gm(j, 0), gm(k, 0), t) - 0.25;
+        double value = qjk(gm(j, 0), gm(k, 0), t);
         QJK(startIdx + j, startIdx + k) = value;
         QJK(startIdx + k, startIdx + j) = value;  // symmetry
       }
@@ -119,7 +122,8 @@ SEXP cpp_calculate_covariance_RIL_lehermeier(const NumericMatrix& Crosses,
               ((M_mat(P1, marker_i)-M_mat(P2, marker_i))*
               (M_mat(P1, marker_j)-M_mat(P2, marker_j)));
 
-            double D = (4 * Dprime) * (1 - 2 * QJK(marker_i, marker_j));
+            double D = (4 * Dprime) * QJK(marker_i, marker_j);
+
             for (uword ti=0; ti<numTrait; ++ti) {
 
               double contrib = U_mat(marker_i, ti) * D * U_mat(marker_j, ti);
@@ -154,7 +158,7 @@ SEXP cpp_calculate_covariance_RIL_lehermeier(const NumericMatrix& Crosses,
               ((M_mat(P1, marker_i)-M_mat(P2, marker_i))*
               (M_mat(P1, marker_j)-M_mat(P2, marker_j)));
 
-            double D = (4 * Dprime) * (1 - 2 * QJK(marker_i, marker_j));
+            double D = (4 * Dprime) * QJK(marker_i, marker_j);
             for (arma::uword ti = 0; ti < numTrait; ++ti) {
               for (arma::uword tj = ti; tj < numTrait; ++tj) {
                 double contrib = U_mat(marker_i, ti) * D * U_mat(marker_j, tj);

@@ -51,9 +51,9 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// cpp_calculate_covariance_lehermeier_test
-SEXP cpp_calculate_covariance_lehermeier_test(const NumericMatrix& Crosses, const List& genMap, const NumericMatrix& M, const NumericMatrix& U, double t, double intensity, const NumericVector& weights, bool covariance, bool calcindex, int nThreads);
-RcppExport SEXP _CrossingTools_cpp_calculate_covariance_lehermeier_test(SEXP CrossesSEXP, SEXP genMapSEXP, SEXP MSEXP, SEXP USEXP, SEXP tSEXP, SEXP intensitySEXP, SEXP weightsSEXP, SEXP covarianceSEXP, SEXP calcindexSEXP, SEXP nThreadsSEXP) {
+// cpp_calculate_covariance_lehermeier
+SEXP cpp_calculate_covariance_lehermeier(const NumericMatrix& Crosses, const List& genMap, const NumericMatrix& M, const NumericMatrix& U, double t, double intensity, const NumericVector& weights, bool covariance, bool calcindex, int nThreads);
+RcppExport SEXP _CrossingTools_cpp_calculate_covariance_lehermeier(SEXP CrossesSEXP, SEXP genMapSEXP, SEXP MSEXP, SEXP USEXP, SEXP tSEXP, SEXP intensitySEXP, SEXP weightsSEXP, SEXP covarianceSEXP, SEXP calcindexSEXP, SEXP nThreadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -67,7 +67,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< bool >::type covariance(covarianceSEXP);
     Rcpp::traits::input_parameter< bool >::type calcindex(calcindexSEXP);
     Rcpp::traits::input_parameter< int >::type nThreads(nThreadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(cpp_calculate_covariance_lehermeier_test(Crosses, genMap, M, U, t, intensity, weights, covariance, calcindex, nThreads));
+    rcpp_result_gen = Rcpp::wrap(cpp_calculate_covariance_lehermeier(Crosses, genMap, M, U, t, intensity, weights, covariance, calcindex, nThreads));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -339,7 +339,7 @@ END_RCPP
 static const R_CallMethodDef CallEntries[] = {
     {"_CrossingTools_cpp_calculate_covariance_allier", (DL_FUNC) &_CrossingTools_cpp_calculate_covariance_allier, 10},
     {"_CrossingTools_cpp_calculate_covariance_RIL_allier", (DL_FUNC) &_CrossingTools_cpp_calculate_covariance_RIL_allier, 10},
-    {"_CrossingTools_cpp_calculate_covariance_lehermeier_test", (DL_FUNC) &_CrossingTools_cpp_calculate_covariance_lehermeier_test, 10},
+    {"_CrossingTools_cpp_calculate_covariance_lehermeier", (DL_FUNC) &_CrossingTools_cpp_calculate_covariance_lehermeier, 10},
     {"_CrossingTools_cpp_calculate_covariance_RIL_lehermeier", (DL_FUNC) &_CrossingTools_cpp_calculate_covariance_RIL_lehermeier, 10},
     {"_CrossingTools_cpp_calculate_covariance_osthushenrich", (DL_FUNC) &_CrossingTools_cpp_calculate_covariance_osthushenrich, 10},
     {"_CrossingTools_cpp_calculate_covariance_RIL_osthushenrich", (DL_FUNC) &_CrossingTools_cpp_calculate_covariance_RIL_osthushenrich, 10},
