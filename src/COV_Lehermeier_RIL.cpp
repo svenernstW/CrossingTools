@@ -11,7 +11,7 @@ using namespace arma;
 // Inline function to calculate recombination fraction
 inline double qjk(double x, double y, double k) {
   double diff = std::abs(x - y);
-
+  if (diff == 0.0) return 1.0;
   double c1 = 0.5 * (1 - std::exp(-2 * diff));
 
   double a = 0.5 * (1 - 2 * c1);
