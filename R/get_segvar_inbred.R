@@ -361,9 +361,9 @@ get_segvar_inbred <- function(crosses, genetic.map, marker.mat, effects, t, inte
       return(list(cross.df = temp1, covariances = temp$covariances))
     }
   } else {
-    out <- as.data.frame(temp)
+    out <- as.data.frame(temp)[,1:(3*ncol(effects))]
     names(out) <- name_vec
-    out <- cbind(crosses_df, out)
+    out <- as.data.frame(cbind(crosses_df, out))
     return(out)
   }
 }
