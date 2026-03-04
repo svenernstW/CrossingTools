@@ -69,7 +69,7 @@ get_segvar_outcross <- function(crosses, genetic.map, hap.mat1, hap.mat2, effect
   storage.mode(crosses2) <- "integer"
   if (anyNA(crosses2)) stop("Internal error: `crosses2` contains NA after conversion.")
 
-
+  effects <- effects.A
 
   if (ncol(effects) == 1 | is.null(weights)) { weights <- rep(1,ncol(effects)) }
 
