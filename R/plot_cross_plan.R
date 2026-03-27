@@ -8,30 +8,30 @@
 #' Variance / mean handling (per trait):
 #' \itemize{
 #'   \item If \code{var.A#} is available, an \emph{additive} ridge is drawn using
-#'         \code{mean = EGEBV#} and \code{sd = sqrt(var.A#)}.
-#'   \item If \code{var.A#} and \code{var.D#} and \code{ETGV#} are available, an additional
+#'         \code{mean = GEBV#} and \code{sd = sqrt(var.A#)}.
+#'   \item If \code{var.A#} and \code{var.D#} and \code{TGV#} are available, an additional
 #'         \emph{additive+dominance} ridge is drawn using.
 #'   \item If only \code{var#} is available (and no \code{var.A#}), a single ridge is drawn using
-#'         \code{mean = EGEBV#} and \code{sd = sqrt(var#)}.
+#'         \code{mean = GEBV#} and \code{sd = sqrt(var#)}.
 #' }
 #'
 #' Point overlays are added when the corresponding columns are present:
 #' \itemize{
-#'   \item \code{EGEBV#} (always used when available) and \code{SPV#} are shown as points and
+#'   \item \code{GEBV#} (always used when available) and \code{SPV#} are shown as points and
 #'         share the additive colour family.
-#'   \item \code{ETGV#} and \code{TSPV#} are shown as points and share the additive+dominance
+#'   \item \code{TGV#} and \code{TSPV#} are shown as points and share the additive+dominance
 #'         colour family.
 #'   \item \code{OHV#} is shown as a black cross (\code{shape = 4}).
 #' }
 #'
-#' A dotted vertical line indicates the per-trait average gain (mean of \code{EGEBV#} across crosses).
+#' A dotted vertical line indicates the per-trait average gain (mean of \code{GEBV#} across crosses).
 #' The plot is faceted by trait (up to 3 columns).
 #'
 #' @param cross.plan  data.frame with 2 columns (2-way crosses) or 4 columns (4-way crosses),
 #'   defining the parents in each cross. Rows are used to label and order crosses in the plot.
 #' @param cross.df data.frame (or object coercible to a data.frame) as created from
 #'   the get_variance or get_optimal_haploid_value function containing per-cross
-#'   trait columns such as \code{EGEBV#}, \code{ETGV#}, \code{SPV#}, \code{TSPV#}, \code{OHV#},
+#'   trait columns such as \code{GEBV#}, \code{TGV#}, \code{SPV#}, \code{TSPV#}, \code{OHV#},
 #'   and variance components \code{var#}, \code{var.A#}, \code{var.D#}. If \code{cross.df}
 #'   contains parent columns (e.g., \code{parent1..parent4} or \code{male,female}), they are
 #'   used to align rows to \code{crosses}.
@@ -87,10 +87,10 @@ plot_cross_plan <- function(cross.plan , cross.df, traits = NULL,
   # --- trait discovery
   cn <- names(cross.df)
   cn2 <- cn[!grepl("^parent[1-4]$|^male$|^female$", cn, ignore.case = TRUE)]
-  rx <- "^(EGEBV|ETGV|SPV|TSPV|OHV|VAR|VAR\\.[A-Za-z]+|var|var\\.[A-Za-z]+|var[A-Za-z]+)([0-9]+)$"
+  rx <- "^(GEBV|TGV|SPV|TSPV|OHV|VAR|VAR\\.[A-Za-z]+|var|var\\.[A-Za-z]+|var[A-Za-z]+)([0-9]+)$"
   mm <- regmatches(cn2, regexec(rx, cn2, ignore.case = TRUE))
   mm <- mm[lengths(mm) > 0]
-  if (!length(mm)) .stopf("No trait-indexed columns found (e.g., EGEBV1, var.A1, SPV1, etc.).")
+  if (!length(mm)) .stopf("No trait-indexed columns found (e.g., GEBV1, var.A1, SPV1, etc.).")
 
   trait_chr <- vapply(mm, `[[`, character(1), 3)
   trait_ids_all <- sort(unique(as.integer(trait_chr)))
@@ -148,11 +148,11 @@ plot_cross_plan <- function(cross.plan , cross.df, traits = NULL,
   for (ti in trait_ids) {
     trait_lab <- paste0("Trait ", ti)
 
-    col_E <- .pick("EGEBV", ti)
+    col_E <- .pick("GEBV", ti)
     if (is.na(col_E)) next
     mu_E <- .as_num(cross.df[[col_E]])
 
-    col_ET <- .pick("ETGV", ti)
+    col_ET <- .pick("TGV", ti)
     mu_ET <- if (!is.na(col_ET)) .as_num(cross.df[[col_ET]]) else rep(NA_real_, n_cross)
 
     # variance columns
@@ -213,12 +213,12 @@ plot_cross_plan <- function(cross.plan , cross.df, traits = NULL,
     }
 
     # A family: EGEBV + SPV
-    add_point("EGEBV", col_E, "A")
+    add_point("GEBV", col_E, "A")
     col_SPV <- .pick("SPV", ti)
     if (!is.na(col_SPV)) add_point("SPV", col_SPV, "A")
 
     # AD family: ETGV + TSPV
-    if (!is.na(col_ET)) add_point("ETGV", col_ET, "AD")
+    if (!is.na(col_ET)) add_point("TGV", col_ET, "AD")
     col_TSPV <- .pick("TSPV", ti)
     if (!is.na(col_TSPV)) add_point("TSPV", col_TSPV, "AD")
 
@@ -248,7 +248,7 @@ plot_cross_plan <- function(cross.plan , cross.df, traits = NULL,
   if (is.null(sim_df) || !nrow(sim_df)) .stopf("No ridges could be generated for the requested traits.")
 
   # Shapes: OHV is a black cross
-  shape_vals <- c(EGEBV = 16, SPV = 18, ETGV = 17, TSPV = 15, OHV = 4)
+  shape_vals <- c(GEBV = 16, SPV = 18, TGV = 17, TSPV = 15, OHV = 4)
 
   p <- ggplot2::ggplot(sim_df, ggplot2::aes(x = value, y = cross)) +
     { if (!is.null(avg_df))
