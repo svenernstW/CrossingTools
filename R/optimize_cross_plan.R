@@ -389,14 +389,20 @@ optimize_cross_plan <- function(candidate.crosses,
       names(pareto)[1] <- "pareto.id"
 
 
-      paretoPlans  <- lapply (res$paretoPlans, function(x){tempplan <- as.data.frame(x)
-                                                            idx <- match(
-                                                              paste(tempplan[,1], tempplan[,2]),
-                                                              paste(temp[,1],     temp[,2])
-                                                            )
-                                                            tempplan <- as.data.frame(temp2[idx,])
-                                                            names(tempplan) <-c("parent1","parent2")
-                                                            return(tempplan)})
+      labs <- rownames(G.mat)
+
+      paretoPlans <- lapply(res$paretoPlans, function(x) {
+        df <- as.data.frame(x)
+        names(df) <- c("parent1", "parent2")
+
+        # Only if original input was character
+        if (!is.numeric(candidate.crosses) && !is.integer(candidate.crosses)) {
+          df$parent1 <- labs[df$parent1]
+          df$parent2 <- labs[df$parent2]
+        }
+
+        df
+      })
 
       res2 <- list(pareto.plans=paretoPlans, pareto.frontier= pareto)
 
@@ -419,14 +425,20 @@ optimize_cross_plan <- function(candidate.crosses,
       names(pareto)[1] <- "pareto.id"
 
 
-      paretoPlans  <- lapply (res$paretoPlans, function(x){tempplan <- as.data.frame(x)
-      idx <- match(
-        paste(tempplan[,1], tempplan[,2]),
-        paste(temp[,1],     temp[,2])
-      )
-      tempplan <- as.data.frame(temp2[idx,])
-      names(tempplan) <-c("parent1","parent2")
-      return(tempplan)})
+      labs <- rownames(G.mat)
+
+      paretoPlans <- lapply(res$paretoPlans, function(x) {
+        df <- as.data.frame(x)
+        names(df) <- c("parent1", "parent2")
+
+        # Only if original input was character
+        if (!is.numeric(candidate.crosses) && !is.integer(candidate.crosses)) {
+          df$parent1 <- labs[df$parent1]
+          df$parent2 <- labs[df$parent2]
+        }
+
+        df
+      })
 
       res2 <- list(pareto.plans=paretoPlans, pareto.frontier= pareto)
     }

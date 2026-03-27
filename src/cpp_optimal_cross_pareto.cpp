@@ -1072,6 +1072,7 @@ Rcpp::List cpp_optimal_cross_pareto(const NumericMatrix& Crosses,
     std::sort(ord.begin(), ord.end(), [&](size_t a, size_t b){
       return arch_sim[a] < arch_sim[b];
     });
+    Rcpp::Rcout << "optimization finished \n";
 
     pareto_crossplans = Rcpp::List((int)nPF);
     Rcpp::NumericVector pu((int)nPF), ps((int)nPF);
