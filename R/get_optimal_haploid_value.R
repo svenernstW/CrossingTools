@@ -18,6 +18,15 @@
 #'     \item character identifiers matching \code{rownames(marker.mat)}.
 #'   }
 #'
+#' @param marker.mat Numeric genotype or marker matrix with individuals in rows and
+#'   markers in columns.
+#'
+#' @param marker.effects Numeric matrix of marker effects with
+#'   \code{nrow(effects) == ncol(marker.mat)} with traits in columns.
+#'
+#' @param weights Optional numeric vector of length \code{ncol(effects)}. If supplied,
+#'   a weighted index is computed as a linear combination of the trait-specific OHVs.
+
 #' @param haplotype.blocks Optional data.frame defining haplotype blocks with columns:
 #'   \itemize{
 #'     \item \code{block}: block identifier (integer, character, or factor). Markers sharing
@@ -28,14 +37,6 @@
 #'   }
 #'   Each marker may appear in at most one block.
 #'
-#' @param marker.mat Numeric genotype or marker matrix with individuals in rows and
-#'   markers in columns.
-#'
-#' @param effects Numeric matrix of marker effects with
-#'   \code{nrow(effects) == ncol(marker.mat)} with traits in columns.
-#'
-#' @param weights Optional numeric vector of length \code{ncol(effects)}. If supplied,
-#'   a weighted index is computed as a linear combination of the trait-specific OHVs.
 #'
 #' @param nthreads Integer >= 1. Number of threads used for parallel computation.
 #'
@@ -50,9 +51,10 @@
 #'
 #' @export
 
-get_optimal_haploid_value <- function(crosses, haplotype.blocks = NULL,
-                                            marker.mat, effects, weights = NULL, nthreads = 4L) {
+calc_optimal_haploid_value <- function(crosses,
+                                            marker.mat, marker.effects, weights = NULL,haplotype.blocks = NULL, nthreads = 4L) {
   n.Threads  <- nthreads
+  effects <- marker.effects
   # ---- Normalize inputs ----
   if (!is.matrix(marker.mat)) marker.mat <- as.matrix(marker.mat)
   effects <- as.matrix(effects)

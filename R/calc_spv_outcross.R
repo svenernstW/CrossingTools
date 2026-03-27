@@ -17,36 +17,36 @@
 #'     \item \code{pos}: position on the chromosome in morgan
 #'   }
 #'   All markers in \code{hap.mat1}/\code{hap.mat2} must appear in \code{genetic.map$site}.
-#' @param effects.A Numeric matrix of additive marker effects (markers in rows, traits in columns).
-#'   Must have \code{nrow(effects.A) == ncol(hap.mat1)}.
-#' @param effects.D Numeric matrix of dominance marker effects (markers in rows, traits in columns).
-#'   Must have \code{nrow(effects.D) == ncol(hap.mat1)} and \code{ncol(effects.D) == ncol(effects.A)}.
+#' @param marker.effects.A Numeric matrix of additive marker effects (markers in rows, traits in columns).
+#'   Must have \code{nrow(marker.effects.A) == ncol(hap.mat1)}.
+#' @param marker.effects.D Numeric matrix of dominance marker effects (markers in rows, traits in columns).
+#'   Must have \code{nrow(effects.D) == ncol(hap.mat1)} and \code{ncol(marker.effects.D) == ncol(marker.effects.A)}.
 #' @param intensity Double. Standardized selection differential (used for SPV), defaults to 1.
+#' @param weights Numeric vector of length \code{ncol(marker.effects.A)} with fixed trait weights.
+#' If supplied the function calculates index values for each cross.
 #' @param covariance Logical. If \code{TRUE}, also compute the segregation
 #'   covariance matrix between all supplied traits.
-#' @param weights Numeric vector of length \code{ncol(effects.A)} with fixed trait weights.
-#' If supplied the function calculates index values for each cross. Only works if \code{covariance = TRUE}; otherwise ignored.
 #' @param nthreads Integer (default 4). Number of OpenMP threads (if enabled at compile time).
 #'
 #' @return If \code{covariance = TRUE}, a list with element \code{cross.df}
 #'   (a data.frame) whose columns are named
-#'   \code{EGEBV1, ETGV1, var.A1, SPV1, var.D1, TSPV1, EGEBV2, ...}
+#'   \code{GEBV1, TGV1, var.A1, SPV1, var.D1, TSPV1, EGEBV2, ...}
 #'   and covariance matrices per cross.
-#'   If \code{covariance = TRUE} and \code{calculate.index = TRUE}, additionally an element \code{index.df}
+#'   If weights are supplied, additionally an element \code{index.df}
 #'   (a data.frame) with \code{IDX.A, var.IDX.A, SPV.IDX, IDX.AD, var.IDX.AD, SPV.IDX.AD}.
-#'   If \code{covariance = FALSE}, a data.frame with the same columns.
+#'   If no weights are supplied, a data.frame with the same columns.
 #'
 #' @export
-get_segvar_outcross <- function(crosses, genetic.map, hap.mat1, hap.mat2, effects.A, effects.D,
-                                   intensity=NULL, covariance = FALSE,  weights = NULL,
+calc_spv_outcross <- function(crosses, genetic.map, hap.mat1, hap.mat2, marker.effects.A, marker.effects.D,
+                                   intensity=NULL, weights = NULL, covariance = FALSE,
                                    nthreads = 4L) {
   if(!ncol(crosses) %in% c(2)){stop("ncol(crosses) needs to be 2 ")}
   crosses_in <- crosses
 
   hap.mat1 <- as.matrix(hap.mat1); hap.mat2 <- as.matrix(hap.mat2)
-  effects.A <- as.matrix(effects.A); effects.D <- as.matrix(effects.D)
+  effects.A <- as.matrix(marker.effects.A); effects.D <- as.matrix(marker.effects.D)
   crosses <- as.matrix(crosses)
-  calculate.index <- !is.null(weights)
+
   n.Threads <- nthreads
 
   if (is.numeric(crosses) || is.integer(crosses)) {
@@ -69,15 +69,13 @@ get_segvar_outcross <- function(crosses, genetic.map, hap.mat1, hap.mat2, effect
   storage.mode(crosses2) <- "integer"
   if (anyNA(crosses2)) stop("Internal error: `crosses2` contains NA after conversion.")
 
-  effects <- effects.A
-
-  if (ncol(effects) == 1 | is.null(weights)) { weights <- rep(1,ncol(effects)) }
 
   if (!is.logical(covariance) || length(covariance) != 1L) {
     stop("`covariance` must be a single logical (TRUE/FALSE).")
   }
   if (!is.numeric(intensity) || length(intensity) != 1L) {
     warning("`intensity` must be a single numeric (standardized selection differential), setting it to 1.")
+    intensity <- 1
   }
 
   if (length(n.Threads) != 1L || !is.finite(n.Threads) || n.Threads < 1 || n.Threads != as.integer(n.Threads)) {
@@ -96,23 +94,35 @@ get_segvar_outcross <- function(crosses, genetic.map, hap.mat1, hap.mat2, effect
   if (ncol(effects.D) != ncol(effects.A)) stop("effects.A and effects.D must have the same number of trait columns.")
   if (ncol(crosses) != 2L) stop("`crosses` must have exactly 2 columns (P1, P2).")
 
-  if (calculate.index && is.null(weights)) {
-    stop("`weights` is required when calculate.index = TRUE.")
+  ntraits <- ncol(effects.A)
+
+  if (ntraits == 1L && !is.null(weights)) {
+    warning("Single trait: weights are ignored (index equals trait).", call. = FALSE)
+    weights <- NULL
   }
-  if (calculate.index && length(weights) != ncol(effects.A)) {
-    stop("`weights` must have length equal to ncol(effects.A) when calculate.index = TRUE.")
+  if (ntraits == 1L) {
+    covariance <- FALSE
   }
-  if (calculate.index) {
+
+  calculate.index <- !is.null(weights) && covariance
+  calculate.simple.index <- !is.null(weights) && !covariance
+
+  if (is.null(weights)) {
+    weights <- rep(1, ntraits)
+  } else {
     weights <- as.numeric(weights)
-    if (any(!is.finite(weights))) stop("`weights` must contain only finite values.")
+    if (length(weights) != ntraits) {
+      stop("`weights` must have length equal to ncol(effects.A).", call. = FALSE)
+    }
+    if (any(!is.finite(weights))) {
+      stop("`weights` must contain only finite values.", call. = FALSE)
+    }
   }
 
-  if (!covariance && calculate.index) {
-    message("covariance == FALSE: ignoring index related arguments")
-    calculate.index <- FALSE
-    weights <- rep(0, ncol(effects.A))
+  if (calculate.simple.index) {
+    effects.A <- cbind(effects.A, effects.A %*% weights)
+    effects.D <- cbind(effects.D, effects.D %*% weights)
   }
-
 
   req_cols <- c("site", "chr", "pos")
   if (!all(req_cols %in% names(genetic.map))){
@@ -184,23 +194,37 @@ get_segvar_outcross <- function(crosses, genetic.map, hap.mat1, hap.mat2, effect
     nThreads   = nThreads
   )
 
-  name_vec <- paste0(rep(c("EGEBV","ETGV","var.A","SPV","var.D","TSPV"), each = ncol(effects.A)), seq_len(ncol(effects.A)))
+
+  crosses_df <- as.data.frame(crosses_in, stringsAsFactors = FALSE)
+  names(crosses_df) <- c("parent1", "parent2")
+  name_vec <- c(
+    paste0("GEBV", seq_len(ntraits)),
+    paste0("TGV", seq_len(ntraits)),
+    paste0("var.A", seq_len(ntraits)),
+    paste0("SPV", seq_len(ntraits)),
+    paste0("var.D", seq_len(ntraits)),
+    paste0("TSPV", seq_len(ntraits))
+  )
 
   crosses_df <- as.data.frame(crosses_in, stringsAsFactors = FALSE)
   names(crosses_df) <- c("parent1", "parent2")
 
   if (covariance) {
-    if (calculate.index) {
-      temp1 <- as.data.frame(temp$cross_values)[, 1:(6 * ncol(effects.A)), drop = FALSE]
-      names(temp1) <- name_vec
-      temp1 <- cbind(crosses_df, temp1)
+    cv <- as.data.frame(temp$cross_values)
 
-      temp2 <- as.data.frame(temp$cross_values)[, (6 * ncol(effects.A) + 1):(6 * ncol(effects.A) + 6), drop = FALSE]
-      names(temp2) <- c("EGEBV.IDX","ETGV.IDX","var.A.IDX","SPV.IDX","var.D.IDX","TSPV.IDX")
+    temp1 <- cv[, 1:(6 * ntraits), drop = FALSE]
+    names(temp1) <- name_vec
+    temp1 <- cbind(crosses_df, temp1)
+
+    if (calculate.index) {
+      temp2 <- cv[, (6 * ntraits + 1):(6 * ntraits + 6), drop = FALSE]
+      names(temp2) <- c("GEBV.IDX","TGV.IDX","var.A.IDX","SPV.IDX","var.D.IDX","TSPV.IDX")
       temp2 <- cbind(crosses_df, temp2)
-      if (temp$check_psd) {
-        warning("Some segregation covariance matrices were not psd; for index calculation the nearest psd was used in these places")
+
+      if (isTRUE(temp$check_psd)) {
+        warning("Some segregation covariance matrices were not psd; for index calculation the nearest psd was used in these places.", call. = FALSE)
       }
+
       return(list(
         cross.df = temp1,
         index.df = temp2,
@@ -208,20 +232,47 @@ get_segvar_outcross <- function(crosses, genetic.map, hap.mat1, hap.mat2, effect
         dominance.covariances = temp$covD
       ))
     } else {
-      temp1 <- as.data.frame(temp$cross_values)[, 1:(6 * ncol(effects.A)), drop = FALSE]
-      names(temp1) <- name_vec
-      temp1 <- cbind(crosses_df, temp1)
-
       return(list(
         cross.df = temp1,
         additive.covariances = temp$covA,
         dominance.covariances = temp$covD
       ))
     }
-  } else {
-    out <- as.data.frame(temp)
-    names(out) <- name_vec
-    out <- cbind(crosses_df, out)
-    return(out)
   }
+
+  if (calculate.simple.index) {
+    cv <- as.data.frame(temp)
+
+    p <- ncol(effects.A)  # original traits + 1 appended index trait
+
+    trait_cols <- c(
+      seq_len(ntraits),
+      p + seq_len(ntraits),
+      2 * p + seq_len(ntraits),
+      3 * p + seq_len(ntraits),
+      4 * p + seq_len(ntraits),
+      5 * p + seq_len(ntraits)
+    )
+
+    idx_cols <- c(p, 2 * p, 3 * p, 4 * p, 5 * p, 6 * p)
+
+    temp1 <- cv[, trait_cols, drop = FALSE]
+    names(temp1) <- name_vec
+    temp1 <- cbind(crosses_df, temp1)
+
+    temp2 <- cv[, idx_cols, drop = FALSE]
+    names(temp2) <- c("GEBV.IDX","TGV.IDX","var.A.IDX","SPV.IDX","var.D.IDX","TSPV.IDX")
+    temp2 <- cbind(crosses_df, temp2)
+
+    return(list(
+      cross.df = temp1,
+      index.df = temp2
+    ))
+  }
+
+  out <- as.data.frame(temp)
+  out <- out[, 1:(6 * ntraits), drop = FALSE]
+  names(out) <- name_vec
+  out <- cbind(crosses_df, out)
+  return(out)
 }

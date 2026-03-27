@@ -11,7 +11,7 @@
 #'
 #' Exactly one of \code{gains} or \code{weights} must be provided.
 #'
-#' @param effects A numeric matrix (\eqn{n_{genotype} \times n_{trait}}) of multi-trait BLUPs.
+#' @param genotype.effects A numeric matrix (\eqn{n_{genotype} \times n_{trait}}) of multi-trait BLUPs.
 #'
 #' @param var.mat Optional variance or covariance matrix used for the desired gains index.
 #'   If provided, must be one of:
@@ -28,7 +28,7 @@
 #'   If \code{var.mat} is \code{NULL}, the trait covariance matrix is estimated
 #'   empirically as \code{cov(effects)}.
 #'
-#' @param gains Numeric vector of length \eqn{n_{trait}} specifying the desired gains
+#' @param desired.gains Numeric vector of length \eqn{n_{trait}} specifying the desired gains
 #'   for each trait. Used only for the desired gains index.
 #'
 #' @param weights Numeric vector of length \eqn{n_{trait}} specifying economic
@@ -45,12 +45,12 @@
 #' @export
 
 make_index <- function(
-    effects, var.mat=NULL, gains = NULL, weights = NULL,
-
+    genotype.effects, weights = NULL, var.mat=NULL, desiredgains = NULL,
     nthreads = 4L
 ) {
 n.Threads <- nthreads
-
+gains <- desired.gains
+effects <- genotype.effects
 if(!is.null(gains) & !is.null(weights) ){
   stop("Provide either weights or gains, function can only handle one at a time!")
 }

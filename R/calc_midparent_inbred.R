@@ -15,7 +15,7 @@
 #'   or character identifiers matching \code{rownames(marker.mat)}.
 #' @param marker.mat Numeric marker matrix with genotypes in rows and markers in columns.
 #'   The coding must be consistent with the marker effects in \code{effects} (e.g., dosage coding).
-#' @param effects Numeric matrix of marker effects with markers in rows and traits in columns.
+#' @param marker.effects Numeric matrix of marker effects with markers in rows and traits in columns.
 #'   Must have \code{nrow(effects) == ncol(marker.mat)}.
 #' @param weights Optional numeric vector of trait weights of length \code{ncol(effects)}.
 #'   If provided, an index value \code{IDX} is computed for each cross as a weighted sum of
@@ -35,9 +35,10 @@
 #'
 #' @export
 #'
-get_expectation_inbred <- function(crosses,  marker.mat, effects,  weights = NULL,
+calc_midparent_inbred <- function(crosses,  marker.mat, marker.effects,  weights = NULL,
                               nthreads = 4L) {
   n.Threads <- nthreads
+  effects <- marker.effects
   if(!ncol(crosses) %in% c(2,4)){stop("ncol(crosses) needs to be 2 for two way crosses or 4 for three or four way crosses")}
   crosses_in <- crosses
 
@@ -137,7 +138,7 @@ get_expectation_inbred <- function(crosses,  marker.mat, effects,  weights = NUL
   }
 
 
-  name_vec <- paste0(rep(c("EGEBV"), each = ncol(effects)), seq_len(ncol(effects)))
+  name_vec <- paste0(rep(c("GEBV"), each = ncol(effects)), seq_len(ncol(effects)))
   crosses_df <- as.data.frame(crosses_in, stringsAsFactors = FALSE)
   names(crosses_df) <- if (ncol(crosses) == 2) c("parent1","parent2") else c("parent1","parent2","parent3","parent4")
 
@@ -148,7 +149,7 @@ get_expectation_inbred <- function(crosses,  marker.mat, effects,  weights = NUL
     temp1 <- cbind(crosses_df, temp1)
 
     temp2 <- as.data.frame(temp)[, ((ncol(effects)) + 1):ncol(as.data.frame(temp)), drop = FALSE]
-    names(temp2) <- c("IDX")
+    names(temp2) <- c("GEBV.IDX")
     temp2 <- cbind(crosses_df, temp2)
     return(list(cross.df = temp1, index.df = temp2))
   } else {

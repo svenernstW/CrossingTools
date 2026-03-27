@@ -27,9 +27,9 @@
 #' A dotted vertical line indicates the per-trait average gain (mean of \code{EGEBV#} across crosses).
 #' The plot is faceted by trait (up to 3 columns).
 #'
-#' @param crosses data.frame with 2 columns (2-way crosses) or 4 columns (4-way crosses),
+#' @param cross.plan  data.frame with 2 columns (2-way crosses) or 4 columns (4-way crosses),
 #'   defining the parents in each cross. Rows are used to label and order crosses in the plot.
-#' @param cross.df data.frame (or object coercible to a data.frame) as created from 
+#' @param cross.df data.frame (or object coercible to a data.frame) as created from
 #'   the get_variance or get_optimal_haploid_value function containing per-cross
 #'   trait columns such as \code{EGEBV#}, \code{ETGV#}, \code{SPV#}, \code{TSPV#}, \code{OHV#},
 #'   and variance components \code{var#}, \code{var.A#}, \code{var.D#}. If \code{cross.df}
@@ -40,21 +40,21 @@
 #' @param nsamples integer. Number of Monte Carlo samples per cross and trait.
 #' @return A \code{ggplot} object.
 #' @export
-#' 
-plot_cross_plan <- function(crosses, cross.df, traits = NULL,
+#'
+plot_cross_plan <- function(cross.plan , cross.df, traits = NULL,
                             nsamples = 1000L) {
   .stopf <- function(...) stop(sprintf(...), call. = FALSE)
   `%||%` <- function(x, y) if (is.null(x) || length(x) == 0 || is.na(x)) y else x
-  
+  crosses <- cross.plan
   if (!is.data.frame(crosses)) crosses <- as.data.frame(crosses)
   if (!is.data.frame(cross.df)) cross.df <- as.data.frame(cross.df)
-  
+
   if (!requireNamespace("ggridges", quietly = TRUE) || !requireNamespace("ggplot2", quietly = TRUE)) {
     .stopf("Packages `ggridges` and `ggplot2` are required.")
   }
-  
+
   .make_cross_labels <- function(df) apply(df, 1, function(r) paste(r, collapse = "\u00D7"))
-  
+
   # --- reorder cross.df to match crosses
   if (ncol(crosses) == 2L) {
     key_crosses <- paste(crosses[[1]], crosses[[2]])
@@ -66,7 +66,7 @@ plot_cross_plan <- function(crosses, cross.df, traits = NULL,
       key_df <- paste(cross.df[[1]], cross.df[[2]])
     }
     idx <- match(key_crosses, key_df)
-    
+
   } else if (ncol(crosses) == 4L) {
     need <- c("parent1","parent2","parent3","parent4")
     if (!all(need %in% names(cross.df))) {
@@ -76,14 +76,14 @@ plot_cross_plan <- function(crosses, cross.df, traits = NULL,
     key_crosses <- paste(crosses[[1]], crosses[[2]], crosses[[3]], crosses[[4]])
     key_df      <- paste(cross.df$parent1, cross.df$parent2, cross.df$parent3, cross.df$parent4)
     idx <- match(key_crosses, key_df)
-    
+
   } else {
     .stopf("`crosses` must have 2 or 4 columns.")
   }
-  
+
   if (anyNA(idx)) .stopf("Some crosses in `crosses` were not found in `cross.df`.")
   cross.df <- cross.df[idx, , drop = FALSE]
-  
+
   # --- trait discovery
   cn <- names(cross.df)
   cn2 <- cn[!grepl("^parent[1-4]$|^male$|^female$", cn, ignore.case = TRUE)]
@@ -91,11 +91,11 @@ plot_cross_plan <- function(crosses, cross.df, traits = NULL,
   mm <- regmatches(cn2, regexec(rx, cn2, ignore.case = TRUE))
   mm <- mm[lengths(mm) > 0]
   if (!length(mm)) .stopf("No trait-indexed columns found (e.g., EGEBV1, var.A1, SPV1, etc.).")
-  
+
   trait_chr <- vapply(mm, `[[`, character(1), 3)
   trait_ids_all <- sort(unique(as.integer(trait_chr)))
   trait_ids_all <- trait_ids_all[is.finite(trait_ids_all)]
-  
+
   if (is.null(traits)) {
     trait_ids <- trait_ids_all
   } else {
@@ -109,7 +109,7 @@ plot_cross_plan <- function(crosses, cross.df, traits = NULL,
     }
     trait_ids <- traits
   }
-  
+
   # --- flexible column pickers
   .pick <- function(prefix, ti) {
     nm <- paste0(prefix, ti)
@@ -137,29 +137,29 @@ plot_cross_plan <- function(crosses, cross.df, traits = NULL,
     if (!is.finite(sd) || sd < 0) sd <- 0
     stats::rnorm(n, mean = mean, sd = sd)
   }
-  
+
   cross_labels <- .make_cross_labels(crosses)
   n_cross <- nrow(crosses)
-  
+
   ridge_list <- list()
   pts_list   <- list()
   vlines     <- list()
-  
+
   for (ti in trait_ids) {
     trait_lab <- paste0("Trait ", ti)
-    
+
     col_E <- .pick("EGEBV", ti)
     if (is.na(col_E)) next
     mu_E <- .as_num(cross.df[[col_E]])
-    
+
     col_ET <- .pick("ETGV", ti)
     mu_ET <- if (!is.na(col_ET)) .as_num(cross.df[[col_ET]]) else rep(NA_real_, n_cross)
-    
+
     # variance columns
     colA <- .pick_varA(ti)
     colD <- .pick_varD(ti)
     colV <- .pick_var(ti)
-    
+
     # --- Ridge: Additive (A) : mean EGEBV, sd sqrt(var.A)
     if (!is.na(colA)) {
       sdA <- .safe_sd(.as_num(cross.df[[colA]]))
@@ -172,7 +172,7 @@ plot_cross_plan <- function(crosses, cross.df, traits = NULL,
         value = unlist(valsA, use.names = FALSE)
       )
     }
-    
+
     # --- Ridge: A+D : mean ETGV, sd sqrt(var.A + var.D) (only if ETGV exists)
     if (!is.na(colA) && !is.na(colD) && !is.na(col_ET)) {
       vAD <- .as_num(cross.df[[colA]]) + .as_num(cross.df[[colD]])
@@ -186,7 +186,7 @@ plot_cross_plan <- function(crosses, cross.df, traits = NULL,
         value = unlist(valsAD, use.names = FALSE)
       )
     }
-    
+
     # --- Ridge: Total (var) : mean EGEBV, sd sqrt(var)
     # Use only if no var.A exists (or you still want it even if var.A exists — your call)
     if (is.na(colA) && !is.na(colV)) {
@@ -200,7 +200,7 @@ plot_cross_plan <- function(crosses, cross.df, traits = NULL,
         value = unlist(valsT, use.names = FALSE)
       )
     }
-    
+
     # --- Points (grouped colors)
     add_point <- function(series, colname, group) {
       pts_list[[paste(ti, series, sep = "_")]] <<- data.frame(
@@ -211,17 +211,17 @@ plot_cross_plan <- function(crosses, cross.df, traits = NULL,
         group = group
       )
     }
-    
+
     # A family: EGEBV + SPV
     add_point("EGEBV", col_E, "A")
     col_SPV <- .pick("SPV", ti)
     if (!is.na(col_SPV)) add_point("SPV", col_SPV, "A")
-    
+
     # AD family: ETGV + TSPV
     if (!is.na(col_ET)) add_point("ETGV", col_ET, "AD")
     col_TSPV <- .pick("TSPV", ti)
     if (!is.na(col_TSPV)) add_point("TSPV", col_TSPV, "AD")
-    
+
     # OHV: black cross, no group coloring
     col_OHV <- .pick("OHV", ti)
     if (!is.na(col_OHV)) {
@@ -233,7 +233,7 @@ plot_cross_plan <- function(crosses, cross.df, traits = NULL,
         group = NA_character_
       )
     }
-    
+
     # vertical line: average gain (based on EGEBV means)
     vlines[[as.character(ti)]] <- data.frame(
       trait = trait_lab,
@@ -241,15 +241,15 @@ plot_cross_plan <- function(crosses, cross.df, traits = NULL,
       llabel = "Average gain"
     )
   }
-  
+
   sim_df <- if (length(ridge_list)) do.call(rbind, ridge_list) else NULL
   pts_df <- if (length(pts_list))  do.call(rbind, pts_list)  else NULL
   avg_df <- if (length(vlines))    do.call(rbind, vlines)    else NULL
   if (is.null(sim_df) || !nrow(sim_df)) .stopf("No ridges could be generated for the requested traits.")
-  
+
   # Shapes: OHV is a black cross
   shape_vals <- c(EGEBV = 16, SPV = 18, ETGV = 17, TSPV = 15, OHV = 4)
-  
+
   p <- ggplot2::ggplot(sim_df, ggplot2::aes(x = value, y = cross)) +
     { if (!is.null(avg_df))
       ggplot2::geom_vline(
@@ -299,6 +299,6 @@ plot_cross_plan <- function(crosses, cross.df, traits = NULL,
       axis.ticks        = ggplot2::element_line(),
       axis.text         = ggplot2::element_text(size = 10)
     )
-  
+
   p
 }

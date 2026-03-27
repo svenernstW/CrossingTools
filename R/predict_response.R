@@ -14,7 +14,7 @@
 #' \eqn{d} is the desired gains vector.
 #'
 #' @param var.mat Numeric trait covariance matrix (\eqn{n_{trait} \times n_{trait}}).
-#' @param gains Optional numeric vector of desired gains (length \eqn{n_{trait}}).
+#' @param desired.gains Optional numeric vector of desired gains (length \eqn{n_{trait}}).
 #'   If supplied, index weights are computed as \code{solve(var.mat) \%*\% gains}.
 #' @param weights Optional numeric vector of index weights (length \eqn{n_{trait}}).
 #'   Supply this to summarize an index with fixed weights.Using cov(EBVs) (i.e. cov(BLUPs))
@@ -34,10 +34,12 @@
 
 
 
-measure_traits <- function(var.mat=NULL, gains = NULL, weights = NULL, intensity=1,plot=TRUE) {
+predict_response <- function(var.mat=NULL, desired.gains = NULL, weights = NULL, intensity=1,plot=TRUE) {
+  gains <- desired.gains
   if(nrow(var.mat) != ncol(var.mat)){
     stop("`var.mat` must be square.")
   }
+
 
 
   if(!is.null(gains) & !is.null(weights) ){
@@ -49,10 +51,26 @@ measure_traits <- function(var.mat=NULL, gains = NULL, weights = NULL, intensity
   }
 
 
+
+
   if(!is.null(gains)){
-    if(ncol(var.mat)!= length(gains)){
-      stop("gains needs to have the same length as ncol(var.mat)")
+    ntraits <- length(gains)
+    check <- ncol(var.mat)/ntraits
+
+    if(check!= round(check)){
+      stop("for desired.gains var.mat needs to be ntrait x ntrait or ntrait*nindividual x ntrait*nindividual")
     }
+
+    temp.var <- matrix(0,nrow = ntraits,ncol = ntraits)
+
+    for(i in 1:check){
+      idx <- ((i-1)*ntrait + 1):(i*ntrait)
+      temp.var <- temp.var + var.mat[idx, idx]
+    }
+
+    temp.var <- temp.var / check
+
+    var.mat <- temp.var
 
     if(is.null(row.names(var.mat))) row.names(var.mat) <- 1: nrow(var.mat)
     dg_weights <- as.vector(solve(var.mat) %*% gains)
@@ -74,9 +92,23 @@ measure_traits <- function(var.mat=NULL, gains = NULL, weights = NULL, intensity
   }
 
   if(!is.null(weights)){
-    if(ncol(var.mat)!= length(weights)){
-      stop("weights needs to have the same length as ncol(var.mat)")
+    ntraits <- length(weights)
+    check <- ncol(var.mat)/ntraits
+
+    if(check!= round(check)){
+      stop("for weights var.mat needs to be ntrait x ntrait or ntrait*nindividual x ntrait*nindividual")
     }
+
+    temp.var <- matrix(0,nrow = ntraits,ncol = ntraits)
+
+    for(i in 1:check){
+      idx <- ((i-1)*ntrait + 1):(i*ntrait)
+      temp.var <- temp.var + var.mat[idx, idx]
+    }
+
+    temp.var <- temp.var / check
+
+    var.mat <- temp.var
     if(is.null(row.names(var.mat))) row.names(var.mat) <- 1: nrow(var.mat)
     var_index <- as.vector(t(weights) %*% var.mat %*% weights)
 

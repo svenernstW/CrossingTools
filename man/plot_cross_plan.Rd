@@ -4,10 +4,10 @@
 \alias{plot_cross_plan}
 \title{Plot cross plan ridge distributions per trait}
 \usage{
-plot_cross_plan(crosses, cross.df, traits = NULL, nsamples = 1000L)
+plot_cross_plan(cross.plan, cross.df, traits = NULL, nsamples = 1000L)
 }
 \arguments{
-\item{crosses}{data.frame with 2 columns (2-way crosses) or 4 columns (4-way crosses),
+\item{cross.plan}{data.frame with 2 columns (2-way crosses) or 4 columns (4-way crosses),
 defining the parents in each cross. Rows are used to label and order crosses in the plot.}
 
 \item{cross.df}{data.frame (or object coercible to a data.frame) as created from

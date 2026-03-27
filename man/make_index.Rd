@@ -5,15 +5,18 @@
 \title{Calculation of a selection index}
 \usage{
 make_index(
-  effects,
-  var.mat = NULL,
-  gains = NULL,
+  genotype.effects,
   weights = NULL,
+  var.mat = NULL,
+  desiredgains = NULL,
   nthreads = 4L
 )
 }
 \arguments{
-\item{effects}{A numeric matrix (\eqn{n_{genotype} \times n_{trait}}) of multi-trait BLUPs.}
+\item{genotype.effects}{A numeric matrix (\eqn{n_{genotype} \times n_{trait}}) of multi-trait BLUPs.}
+
+\item{weights}{Numeric vector of length \eqn{n_{trait}} specifying economic
+weights for each trait. Used only for the Smith–Hazel index.}
 
 \item{var.mat}{Optional variance or covariance matrix used for the desired gains index.
 If provided, must be one of:
@@ -30,13 +33,10 @@ giving the trait covariance matrix directly.
 If \code{var.mat} is \code{NULL}, the trait covariance matrix is estimated
 empirically as \code{cov(effects)}.}
 
-\item{gains}{Numeric vector of length \eqn{n_{trait}} specifying the desired gains
-for each trait. Used only for the desired gains index.}
-
-\item{weights}{Numeric vector of length \eqn{n_{trait}} specifying economic
-weights for each trait. Used only for the Smith–Hazel index.}
-
 \item{nthreads}{Integer. Number of OpenMP threads to use.}
+
+\item{desired.gains}{Numeric vector of length \eqn{n_{trait}} specifying the desired gains
+for each trait. Used only for the desired gains index.}
 }
 \value{
 A list with components:

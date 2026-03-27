@@ -3,7 +3,7 @@
 #' Aligns \code{cross.df} to \code{crosses} (2-way or 4-way) and computes per-trait
 #' means across all crosses for available metrics (EGEBV, ETGV, SPV, TSPV).
 #'
-#' @param crosses data.frame with 2 columns (2-way) or 4 columns (4-way).
+#' @param cross.plan  data.frame with 2 columns (2-way) or 4 columns (4-way).
 #' @param cross.df data.frame (or coercible to data.frame) containing per-cross
 #'   trait columns such as EGEBV#, ETGV#, SPV#, TSPV#. If parent columns are present
 #'   (parent1..parent4 or male/female), they are used for alignment.
@@ -12,7 +12,8 @@
 #'   \code{trait}, \code{mean_EGEBV}, \code{mean_ETGV}, \code{mean_SPV},
 #'   \code{mean_TSPV}, \code{n_crosses}.
 #' @export
-measure_cross_plan <- function(crosses, cross.df) {
+summarize_cross_plan <- function(cross.plan , cross.df) {
+  crosses <- cross.plan
   .stopf <- function(...) stop(sprintf(...), call. = FALSE)
   `%||%` <- function(x, y) if (is.null(x) || length(x) == 0 || is.na(x)) y else x
 

@@ -1,22 +1,22 @@
-#' Backsolve marker effects (mu) from individual effects (g)
+#' Backsolve marker effects from individual effects
 #'
-#' Computes marker effects \eqn{\mu = (scalingFactor * M' * G^{-1}) * g}.
+#' Computes marker effects \eqn{\mu = (scalingFactor * M' * G^{-1}) * g}. The scaling factor is automatically determined from the data.
 #'
 #' @param marker.mat Numeric matrix (n x p): marker/genotype matrix (individuals in rows, markers in columns).
 #' @param G.mat Numeric matrix (n x n): relationship matrix among individuals.
-#' @param effects Numeric (n x k) or length-n vector: individual effects (one or more traits).
-#' @param scaling.factor Numeric scalar used to scale the GRM.
-#' @return A numeric \code{p x k} matrix of marker effects (\code{mu_matrix}).
+#' @param genotype.effects Numeric (n x k) or length-n vector: individual effects (one or more traits).
+#' @return A numeric \code{p x k} matrix of marker effects .
 #' @export
-get_marker_effects <- function(marker.mat,
+backsolve_marker_effects <- function(marker.mat,
                      G.mat,
-                     effects,
-                     scaling.factor) {
+                     genotype.effects) {
   # Coerce base types
+  effects <- genotype.effects
   G <- G.mat
   tol = 1e-10
   n.Threads = 1
   traits <- names(effects)
+  scaling.factor <- 1
 
   if (!is.matrix(marker.mat)) marker.mat <- as.matrix(marker.mat)
   if (!is.matrix(G)) G <- as.matrix(G)

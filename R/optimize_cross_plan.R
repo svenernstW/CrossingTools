@@ -23,21 +23,21 @@
 #' 1-based integer indices (referring to rows/columns of \code{G.mat}) or as
 #' character identifiers matching \code{rownames(G.mat)}.
 #'
-#' @param crosses Integer or character matrix/data.frame with two columns (\eqn{K \times 2}).
+#' @param candidate.crosses Integer or character matrix/data.frame with two columns (\eqn{K \times 2}).
 #'   Candidate (variable) crosses. Must have exactly two columns; self-crosses are not allowed.
 #' @param fixed.crosses Integer or character matrix/data.frame with two columns (\eqn{F \times 2}) or \code{NULL}.
 #'   Crosses that are always included in the final plan. Can have 0 rows. Must use the
-#'   same indexing/identifiers as \code{crosses}. Self-crosses are not allowed.
+#'   same indexing/identifiers as \code{candidate.crosses}. Self-crosses are not allowed.
 #' @param ncrosses Integer. Total number of crosses in the final plan (fixed + variable).
 #'   Must be \eqn{\ge} \code{nrow(fixed.crosses)}.
 #' @param target.angle Numeric. Target trade-off angle in degrees (0--90) used only when
 #'   \code{method = "angle"}. Use \code{0} to prioritize cross criterion only and \code{90} to prioritize
 #'   minimizing similarity (maximizing diversity).
-#' @param criterion Numeric vector of length \code{nrow(crosses)}. cross criterion for each candidate cross.
+#' @param criterion Numeric vector of length \code{nrow(candidate.crosses)}. cross criterion for each candidate cross.
 #' @param criterion.fixed Numeric vector of length \code{nrow(fixed.crosses)} (or \code{NULL}).
 #'   cross criterion for each fixed cross. If \code{fixed.crosses} has 0 rows, this can be length 0.
 #' @param G.mat Numeric square matrix (\eqn{n \times n}). Genomic relationship matrix used to compute
-#'   similarity/inbreeding of parental contributions. If \code{crosses} or \code{fixed.crosses} are
+#'   similarity/inbreeding of parental contributions. If \code{candidate.crosses} or \code{fixed.crosses} are
 #'   character, \code{rownames(G.mat)} must be present.
 #' @param method Character string, either \code{"angle"} or \code{"pareto"}.
 #' @param plot Logical. If \code{TRUE} and \code{method = "pareto"}, plot the estimated Pareto frontier.
@@ -80,7 +80,7 @@
 
 
 
-optimal_cross_selection <- function(crosses,
+optimize_cross_plan <- function(candidate.crosses,
                                     fixed.crosses = NULL,
                                     ncrosses,
                                     target.angle=0,
@@ -114,6 +114,7 @@ optimal_cross_selection <- function(crosses,
   params <- modifyList(defaults, params)
   u <- criterion
   u.fixed = criterion.fixed
+  crosses <- candidate.crosses
   ##  Coerce types
 
   # target.angle is supplied in DEGREES (0..90)
