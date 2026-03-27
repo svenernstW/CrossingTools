@@ -97,8 +97,8 @@ optimize_cross_plan <- function(candidate.crosses,
     list(
       propability.mutate = 0.01,
       n.mutate = 2,
-      n.select = 500,
-      n.pop = 5000,
+      n.select = 400,
+      n.pop = 2000,
       max.generation = 100,
       max.iteration = 100,
       angle.penalty = 0.5
