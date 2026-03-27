@@ -64,7 +64,7 @@ predict_response <- function(var.mat=NULL, desired.gains = NULL, weights = NULL,
     temp.var <- matrix(0,nrow = ntraits,ncol = ntraits)
 
     for(i in 1:check){
-      idx <- ((i-1)*ntrait + 1):(i*ntrait)
+      idx <- ((i-1)*ntraits + 1):(i*ntraits)
       temp.var <- temp.var + var.mat[idx, idx]
     }
 
@@ -102,7 +102,7 @@ predict_response <- function(var.mat=NULL, desired.gains = NULL, weights = NULL,
     temp.var <- matrix(0,nrow = ntraits,ncol = ntraits)
 
     for(i in 1:check){
-      idx <- ((i-1)*ntrait + 1):(i*ntrait)
+      idx <- ((i-1)*ntraits + 1):(i*ntraits)
       temp.var <- temp.var + var.mat[idx, idx]
     }
 

@@ -45,7 +45,7 @@
 #' @export
 
 make_index <- function(
-    genotype.effects, weights = NULL, var.mat=NULL, desiredgains = NULL,
+    genotype.effects, weights = NULL, var.mat=NULL, desired.gains = NULL,
     nthreads = 4L
 ) {
 n.Threads <- nthreads
