@@ -100,7 +100,7 @@ optimize_cross_plan <- function(candidate.crosses,
       n.select = 400,
       n.pop = 2000,
       max.generation = 100,
-      max.iteration = 100,
+      max.iteration = 20,
       angle.penalty = 0.5
     )
 
