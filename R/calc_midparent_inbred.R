@@ -38,7 +38,7 @@
 calc_midparent_inbred <- function(crosses,  marker.mat, marker.effects,  weights = NULL,
                               nthreads = 4L) {
   n.Threads <- nthreads
-  effects <- marker.effects
+  effects <- as.matrix(marker.effects)
   if(!ncol(crosses) %in% c(2,4)){stop("ncol(crosses) needs to be 2 for two way crosses or 4 for three or four way crosses")}
   crosses_in <- crosses
 

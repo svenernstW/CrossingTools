@@ -10,15 +10,15 @@ summarize_cross_plan(cross.plan, cross.df)
 \item{cross.plan}{data.frame with 2 columns (2-way) or 4 columns (4-way).}
 
 \item{cross.df}{data.frame (or coercible to data.frame) containing per-cross
-trait columns such as EGEBV#, ETGV#, SPV#, TSPV#. If parent columns are present
+trait columns such as GEBV#, TGV#, SPV#, TSPV#. If parent columns are present
 (parent1..parent4 or male/female), they are used for alignment.}
 }
 \value{
 A data.frame with one row per trait and columns:
-\code{trait}, \code{mean_EGEBV}, \code{mean_ETGV}, \code{mean_SPV},
-\code{mean_TSPV}, \code{n_crosses}.
+\code{trait}, \code{mean_GEBV}, \code{mean_TGV}, \code{mean_SPV},
+\code{mean_TSPV}, \code{mean_OHV} \code{n_crosses}.
 }
 \description{
 Aligns \code{cross.df} to \code{crosses} (2-way or 4-way) and computes per-trait
-means across all crosses for available metrics (EGEBV, ETGV, SPV, TSPV).
+means across all crosses for available metrics (GEBV, TGV, SPV, TSPV).
 }

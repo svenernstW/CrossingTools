@@ -8,7 +8,7 @@ make_index(
   genotype.effects,
   weights = NULL,
   var.mat = NULL,
-  desiredgains = NULL,
+  desired.gains = NULL,
   nthreads = 4L
 )
 }
@@ -33,10 +33,10 @@ giving the trait covariance matrix directly.
 If \code{var.mat} is \code{NULL}, the trait covariance matrix is estimated
 empirically as \code{cov(effects)}.}
 
-\item{nthreads}{Integer. Number of OpenMP threads to use.}
-
 \item{desired.gains}{Numeric vector of length \eqn{n_{trait}} specifying the desired gains
 for each trait. Used only for the desired gains index.}
+
+\item{nthreads}{Integer. Number of OpenMP threads to use.}
 }
 \value{
 A list with components:

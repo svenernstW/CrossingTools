@@ -41,7 +41,7 @@
 calc_spv_inbred <- function(crosses, genetic.map, marker.mat, marker.effects, t, intensity=NULL, type = "DH",
                             weights = NULL,covariance = FALSE,
                                    method = 1, nthreads = 4L) {
-  effects <- marker.effects
+  effects <- as.matrix(marker.effects)
   n.Threads <- nthreads
   if(!ncol(crosses) %in% c(2,4)){stop("ncol(crosses) needs to be 2 for two way crosses or 4 for three or four way crosses")}
   crosses_in <- crosses

@@ -12,7 +12,7 @@ defining the parents in each cross. Rows are used to label and order crosses in 
 
 \item{cross.df}{data.frame (or object coercible to a data.frame) as created from
 the get_variance or get_optimal_haploid_value function containing per-cross
-trait columns such as \code{EGEBV#}, \code{ETGV#}, \code{SPV#}, \code{TSPV#}, \code{OHV#},
+trait columns such as \code{GEBV#}, \code{TGV#}, \code{SPV#}, \code{TSPV#}, \code{OHV#},
 and variance components \code{var#}, \code{var.A#}, \code{var.D#}. If \code{cross.df}
 contains parent columns (e.g., \code{parent1..parent4} or \code{male,female}), they are
 used to align rows to \code{crosses}.}
@@ -35,22 +35,22 @@ from the available variance components.
 Variance / mean handling (per trait):
 \itemize{
 \item If \code{var.A#} is available, an \emph{additive} ridge is drawn using
-\code{mean = EGEBV#} and \code{sd = sqrt(var.A#)}.
-\item If \code{var.A#} and \code{var.D#} and \code{ETGV#} are available, an additional
+\code{mean = GEBV#} and \code{sd = sqrt(var.A#)}.
+\item If \code{var.A#} and \code{var.D#} and \code{TGV#} are available, an additional
 \emph{additive+dominance} ridge is drawn using.
 \item If only \code{var#} is available (and no \code{var.A#}), a single ridge is drawn using
-\code{mean = EGEBV#} and \code{sd = sqrt(var#)}.
+\code{mean = GEBV#} and \code{sd = sqrt(var#)}.
 }
 
 Point overlays are added when the corresponding columns are present:
 \itemize{
-\item \code{EGEBV#} (always used when available) and \code{SPV#} are shown as points and
+\item \code{GEBV#} (always used when available) and \code{SPV#} are shown as points and
 share the additive colour family.
-\item \code{ETGV#} and \code{TSPV#} are shown as points and share the additive+dominance
+\item \code{TGV#} and \code{TSPV#} are shown as points and share the additive+dominance
 colour family.
 \item \code{OHV#} is shown as a black cross (\code{shape = 4}).
 }
 
-A dotted vertical line indicates the per-trait average gain (mean of \code{EGEBV#} across crosses).
+A dotted vertical line indicates the per-trait average gain (mean of \code{GEBV#} across crosses).
 The plot is faceted by trait (up to 3 columns).
 }

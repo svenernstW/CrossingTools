@@ -11,7 +11,7 @@ backsolve_marker_effects <- function(marker.mat,
                      G.mat,
                      genotype.effects) {
   # Coerce base types
-  effects <- genotype.effects
+  effects <- as.matrix(genotype.effects)
   G <- G.mat
   tol = 1e-10
   n.Threads = 1

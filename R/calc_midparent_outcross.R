@@ -44,8 +44,8 @@ calc_midparent_outcross <- function(crosses,  marker.mat, marker.effects.A, mark
   nThreads = as.integer(nthreads)
   hap.mat1 <- NULL
   hap.mat2 <- NULL
-  effects.A <- marker.effects.A
-  effects.D <- marker.effects.D
+  effects.A <- as.matrix(marker.effects.A)
+  effects.D <- as.matrix(marker.effects.D)
 
   if (is.null(marker.mat)) {
     stop("marker.mat must be provided.")
