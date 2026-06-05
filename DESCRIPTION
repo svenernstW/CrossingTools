@@ -26,7 +26,7 @@ Description: Mate allocation is a critical component of plant breeding programs,
     The package combines R’s scripting flexibility with high-performance C++
     routines via 'Rcpp' and 'RcppArmadillo', ensuring scalability for large
     populations with dense marker data.
-License: MIT + file LICENSE
+License: GPL-3 | file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE, roclets = c("collate", "namespace", "rd"))
 ByteCompile: true
