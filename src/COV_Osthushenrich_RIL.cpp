@@ -9,7 +9,7 @@
 using namespace Rcpp;
 using namespace arma;
 
-inline double qjk(double x, double y, double t) {
+inline double qjk_ost_RIL(double x, double y, double t) {
   double d = std::abs(x - y);
   double r = 0.5 * (1.0 - std::exp(-2.0 * d));
   double oneMinusR = 1.0 - r;
@@ -60,7 +60,7 @@ SEXP cpp_calculate_covariance_RIL_osthushenrich(const NumericMatrix& Crosses,
 
     for (arma::uword j = 0; j < n; ++j) {
       for (arma::uword k = j; k < n; ++k) {  // upper triangle
-        double value = 0.5 * qjk(gm(j, 0), gm(k, 0), t) - 0.25;
+        double value = 0.5 * qjk_ost_RIL(gm(j, 0), gm(k, 0), t) - 0.25;
         QJK(startIdx + j, startIdx + k) = value;
         QJK(startIdx + k, startIdx + j) = value;  // symmetry
       }

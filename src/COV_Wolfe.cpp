@@ -10,7 +10,7 @@ using namespace Rcpp;
 using namespace arma;
 
 // Inline function to calculate recombination fraction
-inline double qjk(double x, double y) {
+inline double qjk_wolfe(double x, double y) {
   double diff = std::abs(x - y);
   double rcf  = 0.5 * (1 - std::exp(-2 * diff));
   return 1 - 2 * rcf;
@@ -74,7 +74,7 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
       int n = genMapMatrix.nrow();
       for (int j = 0; j < n; ++j) {
         for (int k = j; k < n; ++k) {
-          double value = qjk(genMapMatrix(j, 0), genMapMatrix(k, 0));
+          double value = qjk_wolfe(genMapMatrix(j, 0), genMapMatrix(k, 0));
           RC(startIdx + j, startIdx + k) = value;
           RC(startIdx + k, startIdx + j) = value;
         }

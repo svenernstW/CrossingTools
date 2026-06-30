@@ -9,7 +9,7 @@ using namespace Rcpp;
 using namespace arma;
 
 // Inline function to calculate recombination fraction
-inline double qjk(double x, double y, double k) {
+inline double qjk_leh_ril(double x, double y, double k) {
   double diff = std::abs(x - y);
   if (diff == 0.0) return 1.0;
   double c1 = 0.5 * (1 - std::exp(-2 * diff));
@@ -62,7 +62,7 @@ SEXP cpp_calculate_covariance_RIL_lehermeier(const NumericMatrix& Crosses,
 
     for (arma::uword j = 0; j < n; ++j) {
       for (arma::uword k = j; k < n; ++k) {  // upper triangle
-        double value = qjk(gm(j, 0), gm(k, 0), t);
+        double value = qjk_leh_ril(gm(j, 0), gm(k, 0), t);
         QJK(startIdx + j, startIdx + k) = value;
         QJK(startIdx + k, startIdx + j) = value;  // symmetry
       }

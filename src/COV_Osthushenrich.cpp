@@ -9,7 +9,7 @@ using namespace Rcpp;
 using namespace arma;
 
 // Inline function to calculate recombination fraction
-inline double qjk(double x, double y, double t) {
+inline double qjk_ost_dh(double x, double y, double t) {
   double diff = std::abs(x - y);
   double rcf  = 0.5 * (1.0 - std::exp(-2.0 * diff));
   double oneMinusRcf = 1.0 - rcf;
@@ -58,7 +58,7 @@ SEXP cpp_calculate_covariance_osthushenrich(const NumericMatrix& Crosses,
 
     for (arma::uword j = 0; j < n; ++j) {
       for (arma::uword k = j; k < n; ++k) {  // upper triangle
-        double value = 0.5 * qjk(gm(j, 0), gm(k, 0), t) - 0.25;
+        double value = 0.5 * qjk_ost_dh(gm(j, 0), gm(k, 0), t) - 0.25;
         QJK(startIdx + j, startIdx + k) = value;
         QJK(startIdx + k, startIdx + j) = value;  // symmetry
       }
