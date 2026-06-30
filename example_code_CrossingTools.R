@@ -82,7 +82,7 @@ GRM <- tcrossprod(Mtrain)/ncol(Mtrain)
 # Fit GBLUP model (ASReml) and predict breeding values
 ###############################################################################
 
-# Increase ASReml workspace 
+# Increase ASReml workspace
 asreml.options(pworkspace = 1e+9,workspace = 1e+9)
 
 GBLUP <- asreml(fixed = value ~ 1+trait,
@@ -153,7 +153,7 @@ DG <- make_index(
 
 # Inspect results
 head(DG$index)  # Desired Gains index for each genotype
-DG$weights  
+DG$weights
 
 ###############################################################################
 # Marker effects for the two traits
@@ -289,4 +289,3 @@ plot_cross_plan(
   cross.plan  = crosses,
   cross.df = cross.df
 )
-
