@@ -425,21 +425,29 @@ optimize_cross_plan <- function(candidate.crosses,
       names(pareto)[1] <- "pareto.id"
 
 
-      labs <- rownames(G.mat)
-
       paretoPlans <- lapply(res$paretoPlans, function(x) {
-        df <- as.data.frame(x)
-        names(df) <- c("parent1", "parent2")
 
-        # Only if original input was character
-        if (!is.numeric(candidate.crosses) && !is.integer(candidate.crosses)) {
-          df$parent1 <- labs[df$parent1]
-          df$parent2 <- labs[df$parent2]
+        x <- as.data.frame(x)
+        names(x) <- c("parent1", "parent2")
+
+        idx <- match(
+          paste(x$parent1, x$parent2),
+          paste(temp[,1], temp[,2])
+        )
+
+        if (anyNA(idx)) {
+          idx2 <- match(
+            paste(x$parent2, x$parent1),
+            paste(temp[,1], temp[,2])
+          )
+          idx[is.na(idx)] <- idx2[is.na(idx)]
         }
 
-        df
-      })
+        out <- as.data.frame(temp2[idx, , drop = FALSE])
+        names(out) <- c("parent1", "parent2")
 
+        out
+      })
       res2 <- list(pareto.plans=paretoPlans, pareto.frontier= pareto)
     }
 
