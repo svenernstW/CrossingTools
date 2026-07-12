@@ -287,29 +287,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// cpp_u_from_from_g
-SEXP cpp_u_from_from_g(const NumericMatrix& M, const NumericMatrix& G, const NumericMatrix& g, double scalingFactor, double tol, bool LDvar, const Nullable<DataFrame>& Grouping, bool calcPriorVcov, const Nullable<NumericMatrix> PriorVcov, const Nullable<NumericMatrix> sigmasq, bool calcPosteriorVcov, const Nullable<NumericMatrix> PEV, int nThreads);
-RcppExport SEXP _CrossingTools_cpp_u_from_from_g(SEXP MSEXP, SEXP GSEXP, SEXP gSEXP, SEXP scalingFactorSEXP, SEXP tolSEXP, SEXP LDvarSEXP, SEXP GroupingSEXP, SEXP calcPriorVcovSEXP, SEXP PriorVcovSEXP, SEXP sigmasqSEXP, SEXP calcPosteriorVcovSEXP, SEXP PEVSEXP, SEXP nThreadsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const NumericMatrix& >::type M(MSEXP);
-    Rcpp::traits::input_parameter< const NumericMatrix& >::type G(GSEXP);
-    Rcpp::traits::input_parameter< const NumericMatrix& >::type g(gSEXP);
-    Rcpp::traits::input_parameter< double >::type scalingFactor(scalingFactorSEXP);
-    Rcpp::traits::input_parameter< double >::type tol(tolSEXP);
-    Rcpp::traits::input_parameter< bool >::type LDvar(LDvarSEXP);
-    Rcpp::traits::input_parameter< const Nullable<DataFrame>& >::type Grouping(GroupingSEXP);
-    Rcpp::traits::input_parameter< bool >::type calcPriorVcov(calcPriorVcovSEXP);
-    Rcpp::traits::input_parameter< const Nullable<NumericMatrix> >::type PriorVcov(PriorVcovSEXP);
-    Rcpp::traits::input_parameter< const Nullable<NumericMatrix> >::type sigmasq(sigmasqSEXP);
-    Rcpp::traits::input_parameter< bool >::type calcPosteriorVcov(calcPosteriorVcovSEXP);
-    Rcpp::traits::input_parameter< const Nullable<NumericMatrix> >::type PEV(PEVSEXP);
-    Rcpp::traits::input_parameter< int >::type nThreads(nThreadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(cpp_u_from_from_g(M, G, g, scalingFactor, tol, LDvar, Grouping, calcPriorVcov, PriorVcov, sigmasq, calcPosteriorVcov, PEV, nThreads));
-    return rcpp_result_gen;
-END_RCPP
-}
 // cpp_optimal_cross_selection
 Rcpp::List cpp_optimal_cross_selection(const NumericMatrix& Crosses, const NumericMatrix& fixedCrosses, arma::uword nCross, double targetAngle, arma::vec& u, arma::vec& ufixed, arma::mat& G, double probMut, arma::uword nMutate, arma::uword nSel, arma::uword nPop, arma::uword maxGen, arma::uword maxRun, double anglePenalty, int nThreads);
 RcppExport SEXP _CrossingTools_cpp_optimal_cross_selection(SEXP CrossesSEXP, SEXP fixedCrossesSEXP, SEXP nCrossSEXP, SEXP targetAngleSEXP, SEXP uSEXP, SEXP ufixedSEXP, SEXP GSEXP, SEXP probMutSEXP, SEXP nMutateSEXP, SEXP nSelSEXP, SEXP nPopSEXP, SEXP maxGenSEXP, SEXP maxRunSEXP, SEXP anglePenaltySEXP, SEXP nThreadsSEXP) {
@@ -352,7 +329,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_CrossingTools_cpp_optimal_cross_pareto", (DL_FUNC) &_CrossingTools_cpp_optimal_cross_pareto, 13},
     {"_CrossingTools_cpp_u_from_from_g_simple", (DL_FUNC) &_CrossingTools_cpp_u_from_from_g_simple, 4},
     {"_CrossingTools_cpp_calculate_desired_gains", (DL_FUNC) &_CrossingTools_cpp_calculate_desired_gains, 8},
-    {"_CrossingTools_cpp_u_from_from_g", (DL_FUNC) &_CrossingTools_cpp_u_from_from_g, 13},
     {"_CrossingTools_cpp_optimal_cross_selection", (DL_FUNC) &_CrossingTools_cpp_optimal_cross_selection, 15},
     {NULL, NULL, 0}
 };

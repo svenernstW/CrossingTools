@@ -2,23 +2,51 @@
 % Please edit documentation in R/summarize_cross_plan.R
 \name{summarize_cross_plan}
 \alias{summarize_cross_plan}
-\title{Evaluate a cross plan by averaging value metrics across all crosses (per trait)}
+\title{Summarize the expected performance of a cross plan}
 \usage{
-summarize_cross_plan(cross.plan, cross.df)
+summarize_cross_plan(
+  cross.plan,
+  cross.df,
+  plot = T,
+  reference.pop = NA,
+  weights = NA
+)
 }
 \arguments{
-\item{cross.plan}{data.frame with 2 columns (2-way) or 4 columns (4-way).}
+\item{cross.plan}{A data.frame with 2 columns (2-way crosses) or 4 columns
+(4-way crosses).}
 
-\item{cross.df}{data.frame (or coercible to data.frame) containing per-cross
-trait columns such as GEBV#, TGV#, SPV#, TSPV#. If parent columns are present
-(parent1..parent4 or male/female), they are used for alignment.}
+\item{cross.df}{A data.frame (or coercible to one) containing per-cross
+predictions. Trait columns should be named as
+\code{<metric>.<trait>} (e.g. \code{GEBV.Yield},
+\code{SPV.Height}). If parent identifier columns are present
+(\code{parent1}--\code{parent4} or \code{male}/\code{female}),
+they are used to align crosses.}
+
+\item{plot}{Logical; if \code{TRUE}, plots the predicted mean GEBV response.}
+
+\item{reference.pop}{Optional reference population with individuals in rows
+and traits in columns. Used to express responses relative to the reference
+population mean.}
+
+\item{weights}{Optional vector of trait weights used to calculate and display
+the desired response.}
 }
 \value{
-A data.frame with one row per trait and columns:
-\code{trait}, \code{mean_GEBV}, \code{mean_TGV}, \code{mean_SPV},
-\code{mean_TSPV}, \code{mean_OHV} \code{n_crosses}.
+A data.frame with one row per trait containing the average value of
+each available metric (e.g. \code{mean.GEBV}, \code{mean.TGV},
+\code{mean.SPV}, \code{mean.TSPV}, \code{mean.OHV}) and the number of
+crosses (\code{ncrosses}).
 }
 \description{
-Aligns \code{cross.df} to \code{crosses} (2-way or 4-way) and computes per-trait
-means across all crosses for available metrics (GEBV, TGV, SPV, TSPV).
+Computes the average predicted performance of all crosses in a cross plan
+for each available trait and value metric (e.g. GEBV, TGV, SPV, TSPV, OHV).
+Crosses in \code{cross.plan} are matched to \code{cross.df} using their
+parental identities.
+}
+\details{
+Optionally, the predicted population response (mean GEBV) can be plotted.
+If a reference population is supplied, responses are shown relative to the
+reference mean. If trait weights are also provided, the plot additionally
+displays the response expected under the desired response.
 }

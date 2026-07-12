@@ -61,10 +61,6 @@ cpp_calculate_desired_gains <- function(A, V, approxV, gains, useMargV = FALSE, 
     .Call(`_CrossingTools_cpp_calculate_desired_gains`, A, V, approxV, gains, useMargV, useV, useapproxV, nThreads)
 }
 
-cpp_u_from_from_g <- function(M, G, g, scalingFactor, tol = 1e-10, LDvar = FALSE, Grouping = NULL, calcPriorVcov = FALSE, PriorVcov = NULL, sigmasq = NULL, calcPosteriorVcov = FALSE, PEV = NULL, nThreads = 4L) {
-    .Call(`_CrossingTools_cpp_u_from_from_g`, M, G, g, scalingFactor, tol, LDvar, Grouping, calcPriorVcov, PriorVcov, sigmasq, calcPosteriorVcov, PEV, nThreads)
-}
-
 cpp_optimal_cross_selection <- function(Crosses, fixedCrosses, nCross, targetAngle, u, ufixed, G, probMut = 0.01, nMutate = 2L, nSel = 500L, nPop = 10000L, maxGen = 1000L, maxRun = 100L, anglePenalty = 0.5, nThreads = 4L) {
     .Call(`_CrossingTools_cpp_optimal_cross_selection`, Crosses, fixedCrosses, nCross, targetAngle, u, ufixed, G, probMut, nMutate, nSel, nPop, maxGen, maxRun, anglePenalty, nThreads)
 }
