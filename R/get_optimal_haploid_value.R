@@ -53,6 +53,8 @@
 
 calc_optimal_haploid_value <- function(crosses,
                                             marker.mat, marker.effects, weights = NULL,haplotype.blocks = NULL, nthreads = 4L) {
+
+  traits <- names(marker.effects)
   n.Threads  <- nthreads
   effects <- marker.effects
   # ---- Normalize inputs ----
@@ -186,7 +188,7 @@ calc_optimal_haploid_value <- function(crosses,
     }
 
     out <- as.data.frame(do.call(cbind, temp))
-    names(out) <- paste0("OHV", seq_len(ncol(effects)))
+    names(out) <- paste0("OHV.", traits)
 
   }
 
@@ -204,7 +206,7 @@ calc_optimal_haploid_value <- function(crosses,
     }
 
     out <- as.data.frame(do.call(cbind, temp))
-    names(out) <- paste0("OHV", seq_len(ncol(effects)))
+    names(out) <- paste0("OHV.", traits)
 
   }
 
@@ -216,7 +218,7 @@ calc_optimal_haploid_value <- function(crosses,
     for (j in 2:length(weights)) {
       idx <- idx + out[[j]] * weights[j]
     }
-    idx <- data.frame(index = idx)
+    idx <- data.frame(OHV.IDX = idx)
 
     out <- list(cross.df=cbind(as.data.frame(crosses_in, stringsAsFactors = FALSE), out),index.df=cbind(crosses,idx))
     out

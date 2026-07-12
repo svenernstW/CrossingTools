@@ -38,6 +38,7 @@
 calc_midparent_inbred <- function(crosses,  marker.mat, marker.effects,  weights = NULL,
                               nthreads = 4L) {
   n.Threads <- nthreads
+  traits <- names(marker.effects)
   effects <- as.matrix(marker.effects)
   if(!ncol(crosses) %in% c(2,4)){stop("ncol(crosses) needs to be 2 for two way crosses or 4 for three or four way crosses")}
   crosses_in <- crosses
@@ -138,7 +139,7 @@ calc_midparent_inbred <- function(crosses,  marker.mat, marker.effects,  weights
   }
 
 
-  name_vec <- paste0(rep(c("GEBV"), each = ncol(effects)), seq_len(ncol(effects)))
+  name_vec <- paste0("GEBV.",traits)
   crosses_df <- as.data.frame(crosses_in, stringsAsFactors = FALSE)
   names(crosses_df) <- if (ncol(crosses) == 2) c("parent1","parent2") else c("parent1","parent2","parent3","parent4")
 

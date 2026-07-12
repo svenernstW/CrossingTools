@@ -86,47 +86,109 @@ plot_cross_plan <- function(cross.plan , cross.df, traits = NULL,
 
   # --- trait discovery
   cn <- names(cross.df)
-  cn2 <- cn[!grepl("^parent[1-4]$|^male$|^female$", cn, ignore.case = TRUE)]
-  rx <- "^(GEBV|TGV|SPV|TSPV|OHV|VAR|VAR\\.[A-Za-z]+|var|var\\.[A-Za-z]+|var[A-Za-z]+)([0-9]+)$"
-  mm <- regmatches(cn2, regexec(rx, cn2, ignore.case = TRUE))
-  mm <- mm[lengths(mm) > 0]
-  if (!length(mm)) .stopf("No trait-indexed columns found (e.g., GEBV1, var.A1, SPV1, etc.).")
+  cn2 <- cn[
+    !grepl(
+      "^parent[1-4]$|^male$|^female$",
+      cn,
+      ignore.case = TRUE
+    )
+  ]
 
+  # Matches, for example:
+  # GEBV.yield, SPV.height, var.A.yield, var.D.height
+  rx <- paste0(
+    "^(GEBV|TGV|SPV|TSPV|OHV|",
+    "var\\.A|var\\.D|varA|varD|var)",
+    "\\.(.+)$"
+  )
+
+  mm <- regmatches(
+    cn2,
+    regexec(rx, cn2, ignore.case = TRUE)
+  )
+  mm <- mm[lengths(mm) > 0]
+
+  if (!length(mm)) {
+    .stopf(
+      paste0(
+        "No trait-specific columns found. ",
+        "Expected names such as GEBV.name1, var.A.name1, or SPV.name1."
+      )
+    )
+  }
+
+  # Third element is the trait name after the metric prefix
   trait_chr <- vapply(mm, `[[`, character(1), 3)
-  trait_ids_all <- sort(unique(as.integer(trait_chr)))
-  trait_ids_all <- trait_ids_all[is.finite(trait_ids_all)]
+  trait_ids_all <- sort(unique(trait_chr))
 
   if (is.null(traits)) {
     trait_ids <- trait_ids_all
   } else {
-    traits <- as.integer(traits)
-    if (anyNA(traits) || any(traits < 1)) .stopf("`traits` must be positive integers.")
-    missing <- setdiff(traits, trait_ids_all)
-    if (length(missing)) {
-      .stopf("Requested traits not available: %s. Available: %s",
-             paste(missing, collapse = ", "),
-             paste(trait_ids_all, collapse = ", "))
+    traits <- as.character(traits)
+
+    if (
+      anyNA(traits) ||
+      any(!nzchar(traits))
+    ) {
+      .stopf("`traits` must contain non-empty trait names.")
     }
+
+    missing <- setdiff(traits, trait_ids_all)
+
+    if (length(missing)) {
+      .stopf(
+        "Requested traits not available: %s. Available: %s",
+        paste(missing, collapse = ", "),
+        paste(trait_ids_all, collapse = ", ")
+      )
+    }
+
     trait_ids <- traits
+  }
+
+  # --- case-insensitive column lookup
+  .find_col <- function(candidates) {
+    idx <- match(
+      tolower(candidates),
+      tolower(names(cross.df))
+    )
+
+    idx <- idx[!is.na(idx)]
+
+    if (length(idx)) {
+      names(cross.df)[idx[1]]
+    } else {
+      NA_character_
+    }
   }
 
   # --- flexible column pickers
   .pick <- function(prefix, ti) {
-    nm <- paste0(prefix, ti)
-    nm[nm %in% names(cross.df)][1] %||% NA_character_
+    .find_col(paste0(prefix, ".", ti))
   }
+
   .pick_varA <- function(ti) {
-    cands <- c(paste0("var.A", ti), paste0("varA", ti), paste0("VARA", ti), paste0("VAR.A", ti))
-    cands[cands %in% names(cross.df)][1] %||% NA_character_
+    .find_col(
+      c(
+        paste0("var.A.", ti),
+        paste0("varA.", ti)
+      )
+    )
   }
+
   .pick_varD <- function(ti) {
-    cands <- c(paste0("var.D", ti), paste0("varD", ti), paste0("VARD", ti), paste0("VAR.D", ti))
-    cands[cands %in% names(cross.df)][1] %||% NA_character_
+    .find_col(
+      c(
+        paste0("var.D.", ti),
+        paste0("varD.", ti)
+      )
+    )
   }
+
   .pick_var <- function(ti) {
-    cands <- c(paste0("var", ti), paste0("VAR", ti))
-    cands[cands %in% names(cross.df)][1] %||% NA_character_
+    .find_col(paste0("var.", ti))
   }
+
   .as_num <- function(x) suppressWarnings(as.numeric(x))
   .safe_sd <- function(v) {
     v[!is.finite(v) | v < 0] <- 0
@@ -146,111 +208,175 @@ plot_cross_plan <- function(cross.plan , cross.df, traits = NULL,
   vlines     <- list()
 
   for (ti in trait_ids) {
-    trait_lab <- paste0("Trait ", ti)
+    trait_lab <- ti
 
-    col_E <- .pick("GEBV", ti)
-    if (is.na(col_E)) next
-    mu_E <- .as_num(cross.df[[col_E]])
+    # --- available mean/value columns
+    col_E    <- .pick("GEBV", ti)
+    col_ET   <- .pick("TGV", ti)
+    col_SPV  <- .pick("SPV", ti)
+    col_TSPV <- .pick("TSPV", ti)
+    col_OHV  <- .pick("OHV", ti)
 
-    col_ET <- .pick("TGV", ti)
-    mu_ET <- if (!is.na(col_ET)) .as_num(cross.df[[col_ET]]) else rep(NA_real_, n_cross)
+    mu_E <- if (!is.na(col_E)) {
+      .as_num(cross.df[[col_E]])
+    } else {
+      rep(NA_real_, n_cross)
+    }
 
-    # variance columns
+    mu_ET <- if (!is.na(col_ET)) {
+      .as_num(cross.df[[col_ET]])
+    } else {
+      rep(NA_real_, n_cross)
+    }
+
+    # --- available variance columns
     colA <- .pick_varA(ti)
     colD <- .pick_varD(ti)
     colV <- .pick_var(ti)
 
-    # --- Ridge: Additive (A) : mean EGEBV, sd sqrt(var.A)
-    if (!is.na(colA)) {
+      # Additive ridge: GEBV + var.A
+    if (!is.na(col_E) && !is.na(colA)) {
       sdA <- .safe_sd(.as_num(cross.df[[colA]]))
-      valsA <- lapply(seq_len(n_cross), \(i) .rnorm_safe(nsamples, mu_E[i], sdA[i]))
+
+      valsA <- lapply(
+        seq_len(n_cross),
+        \(i) .rnorm_safe(nsamples, mu_E[i], sdA[i])
+      )
+
       ridge_list[[paste(ti, "A", sep = "_")]] <- data.frame(
         trait = trait_lab,
         group = "A",
         ridge_type = "Additive",
-        cross = factor(rep(cross_labels, each = nsamples), levels = rev(unique(cross_labels))),
+        cross = factor(
+          rep(cross_labels, each = nsamples),
+          levels = rev(unique(cross_labels))
+        ),
         value = unlist(valsA, use.names = FALSE)
       )
     }
 
-    # --- Ridge: A+D : mean ETGV, sd sqrt(var.A + var.D) (only if ETGV exists)
-    if (!is.na(colA) && !is.na(colD) && !is.na(col_ET)) {
-      vAD <- .as_num(cross.df[[colA]]) + .as_num(cross.df[[colD]])
+    # Additive + dominance ridge: TGV + var.A + var.D
+    if (!is.na(col_ET) && !is.na(colA) && !is.na(colD)) {
+      vAD <- .as_num(cross.df[[colA]]) +
+        .as_num(cross.df[[colD]])
+
       sdAD <- .safe_sd(vAD)
-      valsAD <- lapply(seq_len(n_cross), \(i) .rnorm_safe(nsamples, mu_ET[i], sdAD[i]))
+
+      valsAD <- lapply(
+        seq_len(n_cross),
+        \(i) .rnorm_safe(nsamples, mu_ET[i], sdAD[i])
+      )
+
       ridge_list[[paste(ti, "AD", sep = "_")]] <- data.frame(
         trait = trait_lab,
         group = "AD",
         ridge_type = "Additive+Dominance",
-        cross = factor(rep(cross_labels, each = nsamples), levels = rev(unique(cross_labels))),
+        cross = factor(
+          rep(cross_labels, each = nsamples),
+          levels = rev(unique(cross_labels))
+        ),
         value = unlist(valsAD, use.names = FALSE)
       )
     }
 
-    # --- Ridge: Total (var) : mean EGEBV, sd sqrt(var)
-    # Use only if no var.A exists (or you still want it even if var.A exists — your call)
-    if (is.na(colA) && !is.na(colV)) {
+    # Total-variance ridge: GEBV + var
+    # Used only when var.A is not available
+    if (!is.na(col_E) && is.na(colA) && !is.na(colV)) {
       sdT <- .safe_sd(.as_num(cross.df[[colV]]))
-      valsT <- lapply(seq_len(n_cross), \(i) .rnorm_safe(nsamples, mu_E[i], sdT[i]))
+
+      valsT <- lapply(
+        seq_len(n_cross),
+        \(i) .rnorm_safe(nsamples, mu_E[i], sdT[i])
+      )
+
       ridge_list[[paste(ti, "T", sep = "_")]] <- data.frame(
         trait = trait_lab,
-        group = "A",              # treat as "A" color family
+        group = "A",
         ridge_type = "Total",
-        cross = factor(rep(cross_labels, each = nsamples), levels = rev(unique(cross_labels))),
+        cross = factor(
+          rep(cross_labels, each = nsamples),
+          levels = rev(unique(cross_labels))
+        ),
         value = unlist(valsT, use.names = FALSE)
       )
     }
 
-    # --- Points (grouped colors)
-    add_point <- function(series, colname, group) {
+
+    add_point <- function(series, colname, group = NA_character_) {
+      if (is.na(colname)) return(invisible(NULL))
+
       pts_list[[paste(ti, series, sep = "_")]] <<- data.frame(
         trait = trait_lab,
-        cross = cross_labels,
+        cross = factor(
+          cross_labels,
+          levels = rev(unique(cross_labels))
+        ),
         value = .as_num(cross.df[[colname]]),
         series = series,
         group = group
       )
+
+      invisible(NULL)
     }
 
-    # A family: EGEBV + SPV
-    add_point("GEBV", col_E, "A")
-    col_SPV <- .pick("SPV", ti)
-    if (!is.na(col_SPV)) add_point("SPV", col_SPV, "A")
+    add_point("GEBV",  col_E,    "A")
+    add_point("SPV",   col_SPV,  "A")
+    add_point("TGV",   col_ET,   "AD")
+    add_point("TSPV",  col_TSPV, "AD")
+    add_point("OHV",   col_OHV)
 
-    # AD family: ETGV + TSPV
-    if (!is.na(col_ET)) add_point("TGV", col_ET, "AD")
-    col_TSPV <- .pick("TSPV", ti)
-    if (!is.na(col_TSPV)) add_point("TSPV", col_TSPV, "AD")
-
-    # OHV: black cross, no group coloring
-    col_OHV <- .pick("OHV", ti)
-    if (!is.na(col_OHV)) {
-      pts_list[[paste(ti, "OHV", sep = "_")]] <- data.frame(
+    # Average-gain line only when GEBV exists and has finite values
+    if (!is.na(col_E) && any(is.finite(mu_E))) {
+      vlines[[as.character(ti)]] <- data.frame(
         trait = trait_lab,
-        cross = cross_labels,
-        value = .as_num(cross.df[[col_OHV]]),
-        series = "OHV",
-        group = NA_character_
+        xint = mean(mu_E, na.rm = TRUE),
+        llabel = "Average gain"
       )
     }
+  }
 
-    # vertical line: average gain (based on EGEBV means)
-    vlines[[as.character(ti)]] <- data.frame(
-      trait = trait_lab,
-      xint = mean(mu_E, na.rm = TRUE),
-      llabel = "Average gain"
+  sim_df <- if (length(ridge_list)) {
+    do.call(rbind, ridge_list)
+  } else {
+    NULL
+  }
+
+  pts_df <- if (length(pts_list)) {
+    do.call(rbind, pts_list)
+  } else {
+    NULL
+  }
+
+  avg_df <- if (length(vlines)) {
+    do.call(rbind, vlines)
+  } else {
+    NULL
+  }
+
+  has_ridges <- !is.null(sim_df) && nrow(sim_df) > 0L
+  has_points <- !is.null(pts_df) && nrow(pts_df) > 0L
+
+  if (!has_ridges && !has_points) {
+    .stopf(
+      paste0(
+        "No plottable value columns were found. ",
+        "At least one of GEBV, TGV, SPV, TSPV, or OHV is required."
+      )
     )
   }
 
-  sim_df <- if (length(ridge_list)) do.call(rbind, ridge_list) else NULL
-  pts_df <- if (length(pts_list))  do.call(rbind, pts_list)  else NULL
-  avg_df <- if (length(vlines))    do.call(rbind, vlines)    else NULL
-  if (is.null(sim_df) || !nrow(sim_df)) .stopf("No ridges could be generated for the requested traits.")
+  if (has_ridges && !requireNamespace("ggridges", quietly = TRUE)) {
+    .stopf(
+      "Package `ggridges` is required when variance distributions are plotted."
+    )
+  }
 
+  # ggplot needs a main data frame, even when there are no ridges
+  plot_df <- if (has_ridges) sim_df else pts_df
   # Shapes: OHV is a black cross
   shape_vals <- c(GEBV = 16, SPV = 18, TGV = 17, TSPV = 15, OHV = 4)
 
-  p <- ggplot2::ggplot(sim_df, ggplot2::aes(x = value, y = cross)) +
+  p <- ggplot2::ggplot(plot_df, ggplot2::aes(x = value, y = cross)) +
     { if (!is.null(avg_df))
       ggplot2::geom_vline(
         data = avg_df,
@@ -258,11 +384,25 @@ plot_cross_plan <- function(cross.plan , cross.df, traits = NULL,
         colour = "grey40", linewidth = 0.8
       ) else ggplot2::geom_blank()
     } +
-    ggridges::geom_density_ridges(
-      ggplot2::aes(colour = group),
-      alpha = 0, scale = 0.8, rel_min_height = 1e-7, linewidth = 1.2,
-      show.legend = TRUE
-    ) +
+    {
+      if (has_ridges) {
+        ggridges::geom_density_ridges(
+          data = sim_df,
+          ggplot2::aes(
+            x = value,
+            y = cross,
+            colour = group
+          ),
+          alpha = 0,
+          scale = 0.8,
+          rel_min_height = 1e-7,
+          linewidth = 1.2,
+          show.legend = TRUE
+        )
+      } else {
+        ggplot2::geom_blank()
+      }
+    } +
     { if (!is.null(pts_df))
       ggplot2::geom_point(
         data = pts_df[pts_df$series != "OHV", , drop = FALSE],
@@ -277,7 +417,7 @@ plot_cross_plan <- function(cross.plan , cross.df, traits = NULL,
         colour = "black", size = 2.8, alpha = 0.95, show.legend = TRUE
       ) else ggplot2::geom_blank()
     } +
-    ggplot2::facet_wrap(~ trait, ncol = min(3, length(unique(sim_df$trait))), scales = "free_x") +
+    ggplot2::facet_wrap(~ trait, ncol = min(3, length(unique(plot_df$trait))), scales = "free_x") +
     ggplot2::xlab("Cross value") +
     ggplot2::ylab("Cross combination") +
     ggplot2::theme_grey(base_size = 10) +

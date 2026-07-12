@@ -11,11 +11,12 @@ backsolve_marker_effects <- function(marker.mat,
                      G.mat,
                      genotype.effects) {
   # Coerce base types
+  traits <- names(effects)
   effects <- as.matrix(genotype.effects)
   G <- G.mat
   tol = 1e-10
   n.Threads = 1
-  traits <- names(effects)
+
   scaling.factor <- 1
 
   if (!is.matrix(marker.mat)) marker.mat <- as.matrix(marker.mat)

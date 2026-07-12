@@ -1,6 +1,6 @@
 Package: CrossingTools
 Title: Tools for Cross Optimization in Plant Breeding Programs
-Version: 1.0.7
+Version: 1.0.8
 Authors@R: 
     c(
       person("Sven", "Weber", email = "sven.e.weber@agrar.uni-giessen.de", role = c("aut", "cre")),

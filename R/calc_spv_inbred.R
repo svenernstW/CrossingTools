@@ -41,6 +41,9 @@
 calc_spv_inbred <- function(crosses, genetic.map, marker.mat, marker.effects, t, intensity=NULL, type = "DH",
                             weights = NULL,covariance = FALSE,
                                    method = 1, nthreads = 4L) {
+
+  traits <- names(marker.effects)
+
   marker.effects <- as.matrix(marker.effects)
   effects <- as.matrix(marker.effects)
   n.Threads <- nthreads
@@ -339,9 +342,9 @@ calc_spv_inbred <- function(crosses, genetic.map, marker.mat, marker.effects, t,
   ntraits <- ncol(marker.effects)
 
   name_vec <- c(
-    paste0("GEBV", seq_len(ntraits)),
-    paste0("var",  seq_len(ntraits)),
-    paste0("SPV",  seq_len(ntraits))
+    paste0("GEBV.",traits),
+    paste0("var.",traits),
+    paste0("SPV.",traits)
   )
 
   crosses_df <- as.data.frame(crosses_in, stringsAsFactors = FALSE)

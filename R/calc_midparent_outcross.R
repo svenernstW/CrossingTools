@@ -41,6 +41,7 @@
 calc_midparent_outcross <- function(crosses,  marker.mat, marker.effects.A, marker.effects.D=NULL,  weights = NULL,
                                    nthreads = 4L) {
 
+  traits <- names(marker.effects.A)
   nThreads = as.integer(nthreads)
   hap.mat1 <- NULL
   hap.mat2 <- NULL
@@ -137,7 +138,7 @@ calc_midparent_outcross <- function(crosses,  marker.mat, marker.effects.A, mark
 )
 
 
-  name_vec <- paste0(rep(c("GEBV","TGV"), each = ncol(effects.A)), seq_len(ncol(effects.A)))
+  name_vec <- paste0(rep(c("GEBV.","TGV."), each = ncol(effects.A)),traits)
   crosses_df <- as.data.frame(crosses_in, stringsAsFactors = FALSE)
   names(crosses_df) <- if (ncol(crosses) == 2) c("parent1","parent2") else c("parent1","parent2","parent3","parent4")
 

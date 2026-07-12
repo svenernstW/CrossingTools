@@ -40,6 +40,9 @@
 calc_spv_outcross <- function(crosses, genetic.map, hap.mat1, hap.mat2, marker.effects.A, marker.effects.D,
                                    intensity=NULL, weights = NULL, covariance = FALSE,
                                    nthreads = 4L) {
+
+  traits <- names(marker.effects.A)
+
   if(!ncol(crosses) %in% c(2)){stop("ncol(crosses) needs to be 2 ")}
   crosses_in <- crosses
 
@@ -198,12 +201,12 @@ calc_spv_outcross <- function(crosses, genetic.map, hap.mat1, hap.mat2, marker.e
   crosses_df <- as.data.frame(crosses_in, stringsAsFactors = FALSE)
   names(crosses_df) <- c("parent1", "parent2")
   name_vec <- c(
-    paste0("GEBV", seq_len(ntraits)),
-    paste0("TGV", seq_len(ntraits)),
-    paste0("var.A", seq_len(ntraits)),
-    paste0("SPV", seq_len(ntraits)),
-    paste0("var.D", seq_len(ntraits)),
-    paste0("TSPV", seq_len(ntraits))
+    paste0("GEBV.", traits),
+    paste0("TGV.", traits),
+    paste0("var.A.", traits),
+    paste0("SPV.", traits),
+    paste0("var.D.", traits),
+    paste0("TSPV.", traits)
   )
 
   crosses_df <- as.data.frame(crosses_in, stringsAsFactors = FALSE)

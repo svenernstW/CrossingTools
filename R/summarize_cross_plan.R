@@ -49,53 +49,95 @@ summarize_cross_plan <- function(cross.plan , cross.df) {
 
   # --- metrics: include only those that exist anywhere in cross.df
   all_metrics <- c("GEBV", "TGV", "SPV", "TSPV", "OHV")
+
   metrics_present <- all_metrics[
     vapply(all_metrics, function(m) {
-      any(grepl(paste0("^", m, "[0-9]+$"), names(cross.df), ignore.case = TRUE))
+      any(
+        grepl(
+          paste0("^", m, "\\..+$"),
+          names(cross.df),
+          ignore.case = TRUE
+        )
+      )
     }, logical(1))
   ]
+
   if (!length(metrics_present)) {
-    .stopf("No value metrics found among %s.", paste(all_metrics, collapse = ", "))
+    .stopf(
+      "No value metrics found among %s.",
+      paste(all_metrics, collapse = ", ")
+    )
   }
 
-  # --- trait discovery from present metric columns
+  # --- trait discovery from columns such as GEBV.name1 or SPV.name2
   cn <- names(cross.df)
-  rx <- paste0("^(", paste(metrics_present, collapse = "|"), ")([0-9]+)$")
+
+  rx <- paste0(
+    "^(",
+    paste(metrics_present, collapse = "|"),
+    ")\\.(.+)$"
+  )
+
   mm <- regmatches(cn, regexec(rx, cn, ignore.case = TRUE))
   mm <- mm[lengths(mm) > 0]
-  if (!length(mm)) .stopf("No trait-indexed value columns found (expected %s#).",
-                          paste(metrics_present, collapse = "/"))
 
-  trait_ids <- sort(unique(as.integer(vapply(mm, `[[`, character(1), 3))))
-  trait_ids <- trait_ids[is.finite(trait_ids)]
-  if (!length(trait_ids)) .stopf("Could not parse any trait indices from value columns.")
+  if (!length(mm)) {
+    .stopf(
+      "No trait-specific value columns found; expected names such as %s.name1.",
+      paste(metrics_present, collapse = "/")
+    )
+  }
+
+  # The third regex element is the part following the metric and dot
+  trait_ids <- sort(unique(
+    vapply(mm, `[[`, character(1), 3)
+  ))
+
+  if (!length(trait_ids)) {
+    .stopf("Could not parse any trait names from value columns.")
+  }
 
   n_crosses <- nrow(crosses)
 
   # helper: case-insensitive column lookup
   .find_col <- function(name) {
-    names(cross.df)[tolower(names(cross.df)) == tolower(name)][1] %||% NA_character_
+    hit <- names(cross.df)[tolower(names(cross.df)) == tolower(name)]
+
+    if (length(hit)) hit[1] else NA_character_
   }
 
   res <- lapply(trait_ids, function(ti) {
-    row <- list(trait = ti, ncrosses = n_crosses)
+    row <- list(
+      trait = ti,
+      ncrosses = n_crosses
+    )
 
     for (m in metrics_present) {
-      want <- paste0(m, ti)
+      want <- paste0(m, ".", ti)
       hit  <- .find_col(want)
 
       row[[paste0("mean.", m)]] <- if (is.na(hit)) {
         NA_real_
       } else {
         v <- suppressWarnings(as.numeric(cross.df[[hit]]))
-        mean(v, na.rm = TRUE)
+
+        if (all(is.na(v))) {
+          NA_real_
+        } else {
+          mean(v, na.rm = TRUE)
+        }
       }
     }
 
-    as.data.frame(row, check.names = FALSE)
+    as.data.frame(
+      row,
+      check.names = FALSE,
+      stringsAsFactors = FALSE
+    )
   })
 
   out <- do.call(rbind, res)
   rownames(out) <- NULL
   out
+
 }
