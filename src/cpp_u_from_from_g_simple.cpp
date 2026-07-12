@@ -19,9 +19,9 @@ SEXP cpp_u_from_from_g_simple(const NumericMatrix& M,
   mat M_mat = as<mat>(M);        // n x p
   mat G_mat = as<mat>(G);        // n x n
   mat g_mat = as<mat>(g);        // n x k
-  int n = M_mat.n_rows;
-  int p = M_mat.n_cols;
-  int k = g_mat.n_cols;
+  //int n = M_mat.n_rows;
+  //int p = M_mat.n_cols;
+  //int k = g_mat.n_cols;
 
   // Check/regularize G, then invert
   arma::mat L;

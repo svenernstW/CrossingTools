@@ -31,11 +31,11 @@ static inline double calc_sim(const arma::vec& x, const arma::mat& G) {
 }
 
 // shuffle arma::uvec with given RNG
-static arma::uvec shuffle_with_rng(const arma::uvec& vec, std::mt19937& gen) {
-  std::vector<arma::uword> temp(vec.begin(), vec.end());
-  std::shuffle(temp.begin(), temp.end(), gen);
-  return arma::uvec(temp);
-}
+//static arma::uvec shuffle_with_rng(const arma::uvec& vec, std::mt19937& gen) {
+//  std::vector<arma::uword> temp(vec.begin(), vec.end());
+//  std::shuffle(temp.begin(), temp.end(), gen);
+//  return arma::uvec(temp);
+//}
 
 // Map linear index -> row/col in upper triangle of n x n (row <= col)
 static arma::uword mapRow(const arma::uword& k, const arma::uword& n) {
