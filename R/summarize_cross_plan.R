@@ -8,7 +8,7 @@
 #' Optionally, the predicted population response (mean GEBV) can be plotted.
 #' If a reference population is supplied, responses are shown relative to the
 #' reference mean. If trait weights are also provided, the plot additionally
-#' displays the response expected under the desired response ratio.
+#' displays the response expected under the desired response.
 #'
 #' @param cross.plan A data.frame with 2 columns (2-way crosses) or 4 columns
 #'   (4-way crosses).
@@ -23,7 +23,7 @@
 #'   and traits in columns. Used to express responses relative to the reference
 #'   population mean.
 #' @param weights Optional vector of trait weights used to calculate and display
-#'   the desired response ratio.
+#'   the desired response.
 #'
 #' @return A data.frame with one row per trait containing the average value of
 #'   each available metric (e.g. \code{mean.GEBV}, \code{mean.TGV},
@@ -364,7 +364,7 @@ summarize_cross_plan <- function(cross.plan , cross.df,plot=T, reference.pop=NA,
 
         objective <- predicted
         objective$mean.GEBV <- objective_response
-        objective$point_type <- "objective"
+        objective$point_type <- "Objective"
 
         plot_data <- rbind(predicted, objective)
 
@@ -392,14 +392,14 @@ summarize_cross_plan <- function(cross.plan , cross.df,plot=T, reference.pop=NA,
           ggplot2::scale_shape_manual(
             values = c(
               "Predicted" = 16,
-              "Ratio-consistent objective" = 1
+              "Objective" = 1
             )
           ) +
           ggplot2::theme_grey(base_size = 10) +
           ggplot2::labs(
             x = "Traits",
             y = "Predicted response",
-            title = "Predicted response versus desired response ratio",
+            title = "Predicted response versus desired response",
             shape = NULL
           )
       }
