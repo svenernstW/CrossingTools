@@ -7,8 +7,8 @@
   // ===== OpenMP path =====
   #include <omp.h>
   #include <atomic>
+  #include <algorithm>
 
-  // Store the number of threads requested for CrossingTools only.
   inline std::atomic<int>& ct_thread_cap() {
     static std::atomic<int> cap{1};
     return cap;
@@ -17,25 +17,34 @@
   inline void ct_set_threads(int n) {
     if (n < 1) n = 1;
 
-    // Do not call omp_set_num_threads() here because that can
-    // affect later OpenMP-based matrix algebra in the R session.
+    // CrossingTools-specific setting only.
     ct_thread_cap().store(n, std::memory_order_relaxed);
   }
 
   template <typename F>
   inline void ct_parallel_for(int begin, int end, F fn) {
-    const int n_threads =
+    int n_threads =
       ct_thread_cap().load(std::memory_order_relaxed);
 
-    // The requested thread count applies only to this loop.
+    // Never request more threads than loop iterations.
+    n_threads = std::min(n_threads, std::max(1, end - begin));
+
+    // Remember the user's existing OpenMP dynamic setting.
+    const int old_dynamic = omp_get_dynamic();
+
+    // Allow OpenMP to use fewer than n_threads when appropriate.
+    omp_set_dynamic(1);
+
     #pragma omp parallel for schedule(static) num_threads(n_threads)
     for (int i = begin; i < end; ++i) {
       fn(i);
     }
+
+    // Restore the previous setting immediately after this loop.
+    omp_set_dynamic(old_dynamic);
   }
 
 #else
-
   // ===== RcppParallel (oneTBB) path =====
   #include <RcppParallel.h>
 
