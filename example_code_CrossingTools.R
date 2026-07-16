@@ -83,10 +83,10 @@ GRM <- tcrossprod(Mtrain)/ncol(Mtrain)
 ###############################################################################
 
 # Increase ASReml workspace
-asreml.options(pworkspace = 1e+9,workspace = 1e+9)
+asreml.options(pworkspace = "5gb",workspace = "5gb")
 
 GBLUP <- asreml(fixed = value ~ 1+trait,
-                random = ~us(trait):vm(id,GRM),
+                random = ~vm(id,GRM):us(trait),
                 residual = ~ dsum(~ id(units) | trait),
                 na.action = na.method(y = "include"),
                 data = Pheno)
@@ -95,9 +95,11 @@ GBLUP <- asreml(fixed = value ~ 1+trait,
 
 
 # EBVs (BLUPs) for id x trait, plus vcov matrix of those predictions
+
 pred <- predict(
   GBLUP,
-  classify = "id:trait",   # or "id:trait", just be consistent
+  classify = "vm(id, GRM):trait",
+  only = "vm(id, GRM):trait",
   vcov = TRUE
 )
 
@@ -120,8 +122,8 @@ V <- GRM.G-PEV # this is your var(A_tilde)
 
 # Breeding values for Trait1 and Trait2 (stacked random coefficients)
 A <- as.data.frame(cbind(
-  GBLUP$coefficients$random[1:nInd(DH)],
-  GBLUP$coefficients$random[(nInd(DH)+1):(2*nInd(DH))]
+  GBLUP$coefficients$random[grepl("Trait1",row.names(GBLUP$coefficients$random))],
+  GBLUP$coefficients$random[grepl("Trait2",row.names(GBLUP$coefficients$random))]
 ))
 
 names(A) <- c("Trait1","Trait2")
