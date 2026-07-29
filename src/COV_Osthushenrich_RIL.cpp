@@ -131,15 +131,36 @@ SEXP cpp_calculate_covariance_RIL_osthushenrich(const NumericMatrix& Crosses,
           arma::uvec chrDiff = differing.elem(idx);
 
           const arma::uword mlen = chrDiff.n_elem;
+
           for (arma::uword a = 0; a < mlen; ++a) {
             const arma::uword mi = chrDiff[a];
-            const double di = P_mu(P1, mi, ti) - P_mu(P2, mi, ti);
+
+            const double di_ti =
+              P_mu(P1, mi, ti) - P_mu(P2, mi, ti);
+
+            const double di_tj =
+              P_mu(P1, mi, tj) - P_mu(P2, mi, tj);
 
             for (arma::uword b = a; b < mlen; ++b) {
               const arma::uword mj = chrDiff[b];
-              const double dj = P_mu(P1, mj, tj) - P_mu(P2, mj, tj);
-              const double contrib = di * QJK(mi, mj) * dj;
-              SigmaSqP1P2 += (a == b) ? contrib : 2.0 * contrib;
+
+              const double q = QJK(mi, mj);
+
+              const double dj_ti =
+                P_mu(P1, mj, ti) - P_mu(P2, mj, ti);
+
+              const double dj_tj =
+                P_mu(P1, mj, tj) - P_mu(P2, mj, tj);
+
+              if (a == b) {
+                SigmaSqP1P2 +=
+                  di_ti * q * di_tj;
+              } else {
+                SigmaSqP1P2 += q * (
+                  di_ti * dj_tj +
+                    dj_ti * di_tj
+                );
+              }
             }
           }
         }

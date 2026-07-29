@@ -153,11 +153,25 @@ SEXP cpp_calculate_covariance_lehermeier(const NumericMatrix& Crosses,
 
             double D = (4 * Dprime) * (1 - 2 * QJK(marker_i, marker_j));
             for (arma::uword ti = 0; ti < numTrait; ++ti) {
-              for (arma::uword tj = ti; tj < numTrait; ++tj) {
-                double contrib = U_mat(marker_i, ti) * D * U_mat(marker_j, tj);
-                const arma::uword k = tri_u_idx_incl(ti, tj);
-                results1(x, k) += (i == j) ? contrib : 2 * contrib;
+              const double Ui_ti = U_mat(marker_i, ti);
+              const double Uj_ti = U_mat(marker_j, ti);
 
+              for (arma::uword tj = ti; tj < numTrait; ++tj) {
+                const double Ui_tj = U_mat(marker_i, tj);
+                const double Uj_tj = U_mat(marker_j, tj);
+
+                const arma::uword k =
+                  tri_u_idx_incl(ti, tj);
+
+                if (i == j) {
+                  results1(x, k) +=
+                    Ui_ti * D * Ui_tj;
+                } else {
+                  results1(x, k) += D * (
+                    Ui_ti * Uj_tj +
+                      Uj_ti * Ui_tj
+                  );
+                }
               }
             }
           }

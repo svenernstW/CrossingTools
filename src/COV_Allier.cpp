@@ -312,11 +312,23 @@ SEXP cpp_calculate_covariance_allier(
             const double Dcomb = (ck * phi2) + ((ck + ck1) * c1 * phi1);
 
             for (arma::uword ti = 0; ti < numTrait; ++ti) {
-              const double Ui = U_mat(gi, ti);
+              const double Ui_ti = U_mat(gi, ti);
+              const double Uj_ti = U_mat(gj, ti);
+
               for (arma::uword tj = ti; tj < numTrait; ++tj) {
-                const double contrib = Ui * Dcomb * U_mat(gj, tj);
+                const double Ui_tj = U_mat(gi, tj);
+                const double Uj_tj = U_mat(gj, tj);
+
                 const arma::uword kcol = tri_u_idx_incl(ti, tj);
-                results1(x, kcol) += (ii == jj) ? contrib : 2.0 * contrib;
+
+                if (ii == jj) {
+                  results1(x, kcol) += Ui_ti * Dcomb * Ui_tj;
+                } else {
+                  results1(x, kcol) += Dcomb * (
+                    Ui_ti * Uj_tj +
+                      Uj_ti * Ui_tj
+                  );
+                }
               }
             }
           }

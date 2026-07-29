@@ -249,7 +249,7 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
         results2(x, OFF_VAR_A + ti) = varA;
         results2(x, OFF_VAR_D + ti) = varD;
         results2(x, OFF_SPV   + ti) = eG  + intensity * std::sqrt(varA);
-        results2(x, OFF_TSPV  + ti) = eTG + (std::sqrt(varA) + std::sqrt(varD));
+        results2(x, OFF_TSPV  + ti) = eTG + intensity *(std::sqrt(varA) + std::sqrt(varD));
       }
 
     } else {
@@ -291,15 +291,39 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
             const double DGen2 = DGen * DGen;
 
             for (arma::uword ti = 0; ti < numTrait; ++ti) {
-              const double UiA = U_mat(mi, ti);
-              const double UiD = D_mat(mi, ti);
-              for (arma::uword tj = ti; tj < numTrait; ++tj) {
-                const arma::uword kcol = tri_u_idx_incl(ti, tj);
+              const double UiA_ti = U_mat(mi, ti);
+              const double UjA_ti = U_mat(mj, ti);
 
-                // match your original orientation:
-                // U(mj,tj) * DGen * U(mi,ti)
-                results1A(x, kcol) += mult * (U_mat(mj, tj) * DGen  * UiA);
-                results1D(x, kcol) += mult * (D_mat(mj, tj) * DGen2 * UiD);
+              const double UiD_ti = D_mat(mi, ti);
+              const double UjD_ti = D_mat(mj, ti);
+
+              for (arma::uword tj = ti; tj < numTrait; ++tj) {
+                const double UiA_tj = U_mat(mi, tj);
+                const double UjA_tj = U_mat(mj, tj);
+
+                const double UiD_tj = D_mat(mi, tj);
+                const double UjD_tj = D_mat(mj, tj);
+
+                const arma::uword kcol =
+                  tri_u_idx_incl(ti, tj);
+
+                if (ii == jj) {
+                  results1A(x, kcol) +=
+                    UiA_ti * DGen * UiA_tj;
+
+                  results1D(x, kcol) +=
+                    UiD_ti * DGen2 * UiD_tj;
+                } else {
+                  results1A(x, kcol) += DGen * (
+                    UiA_ti * UjA_tj +
+                      UjA_ti * UiA_tj
+                  );
+
+                  results1D(x, kcol) += DGen2 * (
+                    UiD_ti * UjD_tj +
+                      UjD_ti * UiD_tj
+                  );
+                }
               }
             }
           }
@@ -318,7 +342,7 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
         results2(x, OFF_VAR_A + ti) = varA;
         results2(x, OFF_VAR_D + ti) = varD;
         results2(x, OFF_SPV   + ti) = eG  + intensity * std::sqrt(varA);
-        results2(x, OFF_TSPV  + ti) = eTG + (std::sqrt(varA) + std::sqrt(varD));
+        results2(x, OFF_TSPV  + ti) = eTG + intensity * (std::sqrt(varA) + std::sqrt(varD));
       }
     }
   });

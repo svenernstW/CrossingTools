@@ -318,14 +318,29 @@ SEXP cpp_calculate_covariance_RIL_allier(
             const double ck2 = tri_get(cc.CK2, (std::size_t)li, (std::size_t)lj, (std::size_t)nc);
 
             const double Dcomb = (ck1 * phi2) + (ck2 * phi1);
-            const double mult  = (ii == jj) ? 1.0 : 2.0;
-
-            // reuse Dcomb for all trait pairs
+            // Reuse Dcomb for all trait pairs.
+            // The upper marker triangle is retained, but for ii != jj
+            // both orientations of the marker pair must be included.
             for (arma::uword ti = 0; ti < numTrait; ++ti) {
-              const double Ui = U_mat(gi, ti);
+              const double Ui_ti = U_mat(gi, ti);
+              const double Uj_ti = U_mat(gj, ti);
+
               for (arma::uword tj = ti; tj < numTrait; ++tj) {
-                const arma::uword kcol = tri_u_idx_incl(ti, tj);
-                results1(x, kcol) += mult * (Ui * Dcomb * U_mat(gj, tj));
+                const double Ui_tj = U_mat(gi, tj);
+                const double Uj_tj = U_mat(gj, tj);
+
+                const arma::uword kcol =
+                  tri_u_idx_incl(ti, tj);
+
+                if (ii == jj) {
+                  results1(x, kcol) +=
+                    Ui_ti * Dcomb * Ui_tj;
+                } else {
+                  results1(x, kcol) += Dcomb * (
+                    Ui_ti * Uj_tj +
+                      Uj_ti * Ui_tj
+                  );
+                }
               }
             }
           }
