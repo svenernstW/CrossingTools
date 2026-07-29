@@ -233,8 +233,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // cpp_optimal_cross_pareto
-Rcpp::List cpp_optimal_cross_pareto(const NumericMatrix& Crosses, const NumericMatrix& fixedCrosses, arma::uword nCross, arma::mat& G, arma::vec& u, arma::vec& ufixed, double probMut, arma::uword nMutate, arma::uword nSel, arma::uword nPop, arma::uword maxGen, arma::uword maxRun, int nThreads);
-RcppExport SEXP _CrossingTools_cpp_optimal_cross_pareto(SEXP CrossesSEXP, SEXP fixedCrossesSEXP, SEXP nCrossSEXP, SEXP GSEXP, SEXP uSEXP, SEXP ufixedSEXP, SEXP probMutSEXP, SEXP nMutateSEXP, SEXP nSelSEXP, SEXP nPopSEXP, SEXP maxGenSEXP, SEXP maxRunSEXP, SEXP nThreadsSEXP) {
+Rcpp::List cpp_optimal_cross_pareto(const NumericMatrix& Crosses, const NumericMatrix& fixedCrosses, arma::uword nCross, arma::mat& G, arma::vec& u, arma::vec& ufixed, const arma::vec& minContr, const arma::vec& maxContr, double probMut, arma::uword nMutate, arma::uword nSel, arma::uword nPop, arma::uword maxGen, arma::uword maxRun, int nThreads);
+RcppExport SEXP _CrossingTools_cpp_optimal_cross_pareto(SEXP CrossesSEXP, SEXP fixedCrossesSEXP, SEXP nCrossSEXP, SEXP GSEXP, SEXP uSEXP, SEXP ufixedSEXP, SEXP minContrSEXP, SEXP maxContrSEXP, SEXP probMutSEXP, SEXP nMutateSEXP, SEXP nSelSEXP, SEXP nPopSEXP, SEXP maxGenSEXP, SEXP maxRunSEXP, SEXP nThreadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -244,6 +244,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< arma::mat& >::type G(GSEXP);
     Rcpp::traits::input_parameter< arma::vec& >::type u(uSEXP);
     Rcpp::traits::input_parameter< arma::vec& >::type ufixed(ufixedSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type minContr(minContrSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type maxContr(maxContrSEXP);
     Rcpp::traits::input_parameter< double >::type probMut(probMutSEXP);
     Rcpp::traits::input_parameter< arma::uword >::type nMutate(nMutateSEXP);
     Rcpp::traits::input_parameter< arma::uword >::type nSel(nSelSEXP);
@@ -251,7 +253,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< arma::uword >::type maxGen(maxGenSEXP);
     Rcpp::traits::input_parameter< arma::uword >::type maxRun(maxRunSEXP);
     Rcpp::traits::input_parameter< int >::type nThreads(nThreadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(cpp_optimal_cross_pareto(Crosses, fixedCrosses, nCross, G, u, ufixed, probMut, nMutate, nSel, nPop, maxGen, maxRun, nThreads));
+    rcpp_result_gen = Rcpp::wrap(cpp_optimal_cross_pareto(Crosses, fixedCrosses, nCross, G, u, ufixed, minContr, maxContr, probMut, nMutate, nSel, nPop, maxGen, maxRun, nThreads));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -288,8 +290,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // cpp_optimal_cross_selection
-Rcpp::List cpp_optimal_cross_selection(const NumericMatrix& Crosses, const NumericMatrix& fixedCrosses, arma::uword nCross, double targetAngle, arma::vec& u, arma::vec& ufixed, arma::mat& G, double probMut, arma::uword nMutate, arma::uword nSel, arma::uword nPop, arma::uword maxGen, arma::uword maxRun, double anglePenalty, int nThreads);
-RcppExport SEXP _CrossingTools_cpp_optimal_cross_selection(SEXP CrossesSEXP, SEXP fixedCrossesSEXP, SEXP nCrossSEXP, SEXP targetAngleSEXP, SEXP uSEXP, SEXP ufixedSEXP, SEXP GSEXP, SEXP probMutSEXP, SEXP nMutateSEXP, SEXP nSelSEXP, SEXP nPopSEXP, SEXP maxGenSEXP, SEXP maxRunSEXP, SEXP anglePenaltySEXP, SEXP nThreadsSEXP) {
+Rcpp::List cpp_optimal_cross_selection(const NumericMatrix& Crosses, const NumericMatrix& fixedCrosses, arma::uword nCross, double targetAngle, arma::vec& u, arma::vec& ufixed, arma::mat& G, const arma::vec& minContr, const arma::vec& maxContr, double probMut, arma::uword nMutate, arma::uword nSel, arma::uword nPop, arma::uword maxGen, arma::uword maxRun, double anglePenalty, int nThreads);
+RcppExport SEXP _CrossingTools_cpp_optimal_cross_selection(SEXP CrossesSEXP, SEXP fixedCrossesSEXP, SEXP nCrossSEXP, SEXP targetAngleSEXP, SEXP uSEXP, SEXP ufixedSEXP, SEXP GSEXP, SEXP minContrSEXP, SEXP maxContrSEXP, SEXP probMutSEXP, SEXP nMutateSEXP, SEXP nSelSEXP, SEXP nPopSEXP, SEXP maxGenSEXP, SEXP maxRunSEXP, SEXP anglePenaltySEXP, SEXP nThreadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -300,6 +302,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< arma::vec& >::type u(uSEXP);
     Rcpp::traits::input_parameter< arma::vec& >::type ufixed(ufixedSEXP);
     Rcpp::traits::input_parameter< arma::mat& >::type G(GSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type minContr(minContrSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type maxContr(maxContrSEXP);
     Rcpp::traits::input_parameter< double >::type probMut(probMutSEXP);
     Rcpp::traits::input_parameter< arma::uword >::type nMutate(nMutateSEXP);
     Rcpp::traits::input_parameter< arma::uword >::type nSel(nSelSEXP);
@@ -308,7 +312,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< arma::uword >::type maxRun(maxRunSEXP);
     Rcpp::traits::input_parameter< double >::type anglePenalty(anglePenaltySEXP);
     Rcpp::traits::input_parameter< int >::type nThreads(nThreadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(cpp_optimal_cross_selection(Crosses, fixedCrosses, nCross, targetAngle, u, ufixed, G, probMut, nMutate, nSel, nPop, maxGen, maxRun, anglePenalty, nThreads));
+    rcpp_result_gen = Rcpp::wrap(cpp_optimal_cross_selection(Crosses, fixedCrosses, nCross, targetAngle, u, ufixed, G, minContr, maxContr, probMut, nMutate, nSel, nPop, maxGen, maxRun, anglePenalty, nThreads));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -326,10 +330,10 @@ static const R_CallMethodDef CallEntries[] = {
     {"_CrossingTools_cpp_calculate_expectation_A", (DL_FUNC) &_CrossingTools_cpp_calculate_expectation_A, 6},
     {"_CrossingTools_cpp_calculate_expectation_A4W", (DL_FUNC) &_CrossingTools_cpp_calculate_expectation_A4W, 6},
     {"_CrossingTools_cpp_calculate_expectation_AD", (DL_FUNC) &_CrossingTools_cpp_calculate_expectation_AD, 8},
-    {"_CrossingTools_cpp_optimal_cross_pareto", (DL_FUNC) &_CrossingTools_cpp_optimal_cross_pareto, 13},
+    {"_CrossingTools_cpp_optimal_cross_pareto", (DL_FUNC) &_CrossingTools_cpp_optimal_cross_pareto, 15},
     {"_CrossingTools_cpp_u_from_from_g_simple", (DL_FUNC) &_CrossingTools_cpp_u_from_from_g_simple, 4},
     {"_CrossingTools_cpp_calculate_desired_gains", (DL_FUNC) &_CrossingTools_cpp_calculate_desired_gains, 8},
-    {"_CrossingTools_cpp_optimal_cross_selection", (DL_FUNC) &_CrossingTools_cpp_optimal_cross_selection, 15},
+    {"_CrossingTools_cpp_optimal_cross_selection", (DL_FUNC) &_CrossingTools_cpp_optimal_cross_selection, 17},
     {NULL, NULL, 0}
 };
 

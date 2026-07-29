@@ -49,8 +49,8 @@ cpp_calculate_expectation_AD <- function(Crosses, Hap1, Hap2, U, D, weights, cal
     .Call(`_CrossingTools_cpp_calculate_expectation_AD`, Crosses, Hap1, Hap2, U, D, weights, calcindex, nThreads)
 }
 
-cpp_optimal_cross_pareto <- function(Crosses, fixedCrosses, nCross, G, u, ufixed, probMut = 0.01, nMutate = 0L, nSel = 500L, nPop = 10000L, maxGen = 500L, maxRun = 100L, nThreads = 4L) {
-    .Call(`_CrossingTools_cpp_optimal_cross_pareto`, Crosses, fixedCrosses, nCross, G, u, ufixed, probMut, nMutate, nSel, nPop, maxGen, maxRun, nThreads)
+cpp_optimal_cross_pareto <- function(Crosses, fixedCrosses, nCross, G, u, ufixed, minContr, maxContr, probMut = 0.01, nMutate = 0L, nSel = 500L, nPop = 10000L, maxGen = 500L, maxRun = 100L, nThreads = 4L) {
+    .Call(`_CrossingTools_cpp_optimal_cross_pareto`, Crosses, fixedCrosses, nCross, G, u, ufixed, minContr, maxContr, probMut, nMutate, nSel, nPop, maxGen, maxRun, nThreads)
 }
 
 cpp_u_from_from_g_simple <- function(M, G, g, scalingFactor) {
@@ -61,7 +61,7 @@ cpp_calculate_desired_gains <- function(A, V, approxV, gains, useMargV = FALSE, 
     .Call(`_CrossingTools_cpp_calculate_desired_gains`, A, V, approxV, gains, useMargV, useV, useapproxV, nThreads)
 }
 
-cpp_optimal_cross_selection <- function(Crosses, fixedCrosses, nCross, targetAngle, u, ufixed, G, probMut = 0.01, nMutate = 2L, nSel = 500L, nPop = 10000L, maxGen = 1000L, maxRun = 100L, anglePenalty = 0.5, nThreads = 4L) {
-    .Call(`_CrossingTools_cpp_optimal_cross_selection`, Crosses, fixedCrosses, nCross, targetAngle, u, ufixed, G, probMut, nMutate, nSel, nPop, maxGen, maxRun, anglePenalty, nThreads)
+cpp_optimal_cross_selection <- function(Crosses, fixedCrosses, nCross, targetAngle, u, ufixed, G, minContr, maxContr, probMut = 0.01, nMutate = 2L, nSel = 500L, nPop = 10000L, maxGen = 1000L, maxRun = 100L, anglePenalty = 0.5, nThreads = 4L) {
+    .Call(`_CrossingTools_cpp_optimal_cross_selection`, Crosses, fixedCrosses, nCross, targetAngle, u, ufixed, G, minContr, maxContr, probMut, nMutate, nSel, nPop, maxGen, maxRun, anglePenalty, nThreads)
 }
 

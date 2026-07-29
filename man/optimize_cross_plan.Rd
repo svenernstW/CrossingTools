@@ -12,6 +12,8 @@ optimize_cross_plan(
   criterion,
   criterion.fixed = NULL,
   G.mat,
+  parents.upper = NA,
+  parents.lower = NA,
   method = "pareto",
   return.params = FALSE,
   plot = TRUE,
@@ -42,6 +44,22 @@ cross criterion for each fixed cross. If \code{fixed.crosses} has 0 rows, this c
 \item{G.mat}{Numeric square matrix (\eqn{n \times n}). Genomic relationship matrix used to compute
 similarity/inbreeding of parental contributions. If \code{candidate.crosses} or \code{fixed.crosses} are
 character, \code{rownames(G.mat)} must be present.}
+
+\item{parents.upper}{Numeric vector of length \code{nrow(G.mat)} specifying the
+maximum number of times each parent may occur in the complete mating plan,
+including both variable and fixed crosses. Each cross contributes one occurrence
+to each of its two parents. Values must be non-negative whole numbers or
+\code{Inf} for no constraint. The vector must follow the same parent order as the rows and columns
+of \code{G.mat}. The default is \code{Inf} for every parent, corresponding to no
+upper contribution constraint.}
+
+\item{parents.lower}{Numeric vector of length \code{nrow(G.mat)} specifying the
+minimum number of times each parent must occur in the complete mating plan,
+including both variable and fixed crosses. Each cross contributes one occurrence
+to each of its two parents. Values must be non-negative whole numbers and must not
+exceed the corresponding values in \code{parents.upper}. The vector must follow
+the same parent order as the rows and columns of \code{G.mat}. The default is
+\code{0} for every parent, corresponding to no lower contribution constraint.}
 
 \item{method}{Character string, either \code{"angle"} or \code{"pareto"}.}
 
