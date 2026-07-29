@@ -39,6 +39,20 @@
 #' @param G.mat Numeric square matrix (\eqn{n \times n}). Genomic relationship matrix used to compute
 #'   similarity/inbreeding of parental contributions. If \code{candidate.crosses} or \code{fixed.crosses} are
 #'   character, \code{rownames(G.mat)} must be present.
+#' @param parents.upper Numeric vector of length \code{nrow(G.mat)} specifying the
+#'   maximum number of times each parent may occur in the complete mating plan,
+#'   including both variable and fixed crosses. Each cross contributes one occurrence
+#'   to each of its two parents. Values must be non-negative whole numbers or
+#'   \code{Inf} for no constraint. The vector must follow the same parent order as the rows and columns
+#'   of \code{G.mat}. The default is \code{Inf} for every parent, corresponding to no
+#'   upper contribution constraint.
+#' @param parents.lower Numeric vector of length \code{nrow(G.mat)} specifying the
+#'   minimum number of times each parent must occur in the complete mating plan,
+#'   including both variable and fixed crosses. Each cross contributes one occurrence
+#'   to each of its two parents. Values must be non-negative whole numbers and must not
+#'   exceed the corresponding values in \code{parents.upper}. The vector must follow
+#'   the same parent order as the rows and columns of \code{G.mat}. The default is
+#'   \code{0} for every parent, corresponding to no lower contribution constraint.
 #' @param method Character string, either \code{"angle"} or \code{"pareto"}.
 #' @param plot Logical. If \code{TRUE} and \code{method = "pareto"}, plot the estimated Pareto frontier.
 #'   Ignored when \code{method = "angle"}.
@@ -81,17 +95,19 @@
 
 
 optimize_cross_plan <- function(candidate.crosses,
-                                    fixed.crosses = NULL,
-                                    ncrosses,
-                                    target.angle=0,
-                                    criterion,
-                                    criterion.fixed = NULL,
-                                    G.mat,
-                                    method = "pareto",
-                                    return.params=FALSE,
-                                    plot=TRUE,
-                                    params = list(),
-                                    nthreads = 4L) {
+                                 fixed.crosses = NULL,
+                                 ncrosses,
+                                 target.angle=0,
+                                 criterion,
+                                 criterion.fixed = NULL,
+                                 G.mat,
+                                 parents.upper=NA,
+                                 parents.lower=NA,
+                                 method = "pareto",
+                                 return.params=FALSE,
+                                 plot=TRUE,
+                                 params = list(),
+                                 nthreads = 4L) {
 
   defaults <-
     list(
@@ -116,6 +132,94 @@ optimize_cross_plan <- function(candidate.crosses,
   u.fixed = criterion.fixed
   crosses <- candidate.crosses
   ##  Coerce types
+
+  nInd <- nrow(G)
+
+  # Default: no lower or upper constraints
+  if (length(parents.upper) == 1L && is.na(parents.upper)) {
+    parents.upper <- rep(Inf, nInd)
+  }
+
+  if (length(parents.lower) == 1L && is.na(parents.lower)) {
+    parents.lower <- rep(0, nInd)
+  }
+
+  if (!is.numeric(parents.upper) || !is.numeric(parents.lower)) {
+    stop("`parents.upper` and `parents.lower` must be numeric.")
+  }
+
+  if (length(parents.upper) != nInd) {
+    stop(
+      "`parents.upper` must have exactly one value per parent in `G.mat`."
+    )
+  }
+
+  if (length(parents.lower) != nInd) {
+    stop(
+      "`parents.lower` must have exactly one value per parent in `G.mat`."
+    )
+  }
+
+  if (anyNA(parents.upper) || anyNA(parents.lower)) {
+    stop(
+      "`parents.upper` and `parents.lower` cannot contain NA or NaN."
+    )
+  }
+
+  if (any(!is.finite(parents.lower))) {
+    stop("All values in `parents.lower` must be finite.")
+  }
+
+  if (any(parents.lower < 0) || any(parents.upper < 0)) {
+    stop("Parent contribution bounds cannot be negative.")
+  }
+
+  if (any(parents.lower > parents.upper)) {
+    stop(
+      "Every value in `parents.lower` must be <= the corresponding ",
+      "value in `parents.upper`."
+    )
+  }
+
+  # The bounds represent numbers of parental appearances and must
+  # therefore be whole numbers, except that upper bounds may be Inf.
+  if (any(abs(parents.lower - round(parents.lower)) >
+          .Machine$double.eps^0.5)) {
+    stop("All values in `parents.lower` must be whole numbers.")
+  }
+
+  finiteUpper <- is.finite(parents.upper)
+
+  if (any(
+    abs(parents.upper[finiteUpper] -
+        round(parents.upper[finiteUpper])) >
+    .Machine$double.eps^0.5
+  )) {
+    stop(
+      "All finite values in `parents.upper` must be whole numbers."
+    )
+  }
+
+  parents.lower <- as.numeric(round(parents.lower))
+  parents.upper[finiteUpper] <-
+    round(parents.upper[finiteUpper])
+
+  # There are exactly 2 * ncrosses parental appearances.
+  if (sum(parents.lower) > 2 * ncrosses) {
+    stop(
+      "The specified `parents.lower` values require more parental ",
+      "appearances than are available in the requested mating plan."
+    )
+  }
+
+  if (sum(parents.upper) < 2 * ncrosses) {
+    stop(
+      "The specified `parents.upper` values permit fewer parental ",
+      "appearances than are required in the requested mating plan."
+    )
+  }
+
+
 
   # target.angle is supplied in DEGREES (0..90)
   if (length(target.angle) != 1L || !is.finite(target.angle)) {
@@ -295,6 +399,44 @@ optimize_cross_plan <- function(candidate.crosses,
   }
   if (nselect > npop) stop("`nselect` must be <= `npop`.")
 
+
+  fixedCount <- nrow(fixed.crosses2)
+  nVar <- ncrosses - fixedCount
+  fixedParentCount <- tabulate(
+    as.vector(fixed.crosses2),
+    nbins = nInd
+  )
+
+  names(fixedParentCount) <- rownames(G)
+
+
+  minContr <- parents.lower / (2 * ncrosses)
+  maxContr <- parents.upper / (2 * ncrosses)
+
+  # Fixed crosses alone must not exceed an upper bound.
+  fixedUpperViolation <-
+    fixedParentCount > parents.upper
+
+  if (any(fixedUpperViolation)) {
+    bad <- which(fixedUpperViolation)
+
+    badNames <- if (!is.null(rownames(G))) {
+      rownames(G)[bad]
+    } else {
+      bad
+    }
+
+    stop(
+      "The fixed crosses already exceed `parents.upper` for: ",
+      paste(badNames, collapse = ", "),
+      ". Fixed parental counts: ",
+      paste(fixedParentCount[bad], collapse = ", "),
+      "; upper bounds: ",
+      paste(parents.upper[bad], collapse = ", "),
+      "."
+    )
+  }
+
   if(method=="angle"){
 
     ##  Map names to C++
@@ -306,6 +448,8 @@ optimize_cross_plan <- function(candidate.crosses,
       u             = u,
       ufixed        = u.fixed,
       G             = G,
+      minContr      = minContr,
+      maxContr      = maxContr,
       probMut       = as.numeric(params$propability.mutate),
       nMutate       = nmutate,
       nSel          = nselect,
@@ -363,6 +507,8 @@ optimize_cross_plan <- function(candidate.crosses,
       u             = u,
       ufixed        = u.fixed,
       G             = G,
+      minContr      = minContr,
+      maxContr      = maxContr,
       probMut       = as.numeric(params$propability.mutate),
       nMutate       = nmutate,
       nSel          = nselect,
@@ -373,9 +519,9 @@ optimize_cross_plan <- function(candidate.crosses,
     )
     if(return.params){
       paretoPlans  <- lapply (res$paretoPlans, function(x){temp <- as.data.frame(x)
-                                                           names(temp)<-c("parent1","parent2")
+      names(temp)<-c("parent1","parent2")
 
-                                                           return(temp)})
+      return(temp)})
 
       temp <- rbind(crosses2,fixed.crosses2)
       if (is.null(fixed.crosses) || nrow(fixed.crosses)==0){
@@ -462,48 +608,22 @@ optimize_cross_plan <- function(candidate.crosses,
       p <- ggplot2::ggplot(df, ggplot2::aes(x = sim, y = u)) +
         ggplot2::geom_point(
           ggplot2::aes(text = label),
-          size = 1.5,
-          alpha = 0.9,
-          shape = 4
+          size = 1.5, alpha = 0.9, shape = 4
         ) +
-        ggplot2::geom_path(
-          ggplot2::aes(group = 1),
-          linewidth = 0.8
-        ) +
+        ggplot2::geom_path(ggplot2::aes(group = 1), linewidth = 0.8) +
         ggplot2::labs(
           x = "'inbreeding' (lower = better)",
           y = "u (higher = better)"
         ) +
         ggplot2::theme_grey(base_size = 10) +
         ggplot2::theme(
-          plot.margin = ggplot2::margin(
-            t = 5.5,
-            r = 5.5,
-            b = 5.5,
-            l = 5.5,
-            unit = "pt"
-          ),
           legend.position   = "bottom",
-          legend.key        = ggplot2::element_rect(
-            fill = "transparent",
-            colour = NA
-          ),
-          legend.background = ggplot2::element_rect(
-            fill = "transparent",
-            colour = NA
-          ),
-          panel.background  = ggplot2::element_rect(
-            colour = "black",
-            fill = "grey93",
-            linewidth = 1.1
-          ),
+          legend.key        = ggplot2::element_rect(fill = "transparent", colour = NA),
+          legend.background = ggplot2::element_rect(fill = "transparent", colour = NA),
+          panel.background  = ggplot2::element_rect(colour = "black", fill = "grey93", linewidth = 1.1),
           axis.title        = ggplot2::element_text(size = 11),
-          axis.title.x      = ggplot2::element_text(
-            margin = ggplot2::margin(t = 6)
-          ),
-          axis.title.y      = ggplot2::element_text(
-            margin = ggplot2::margin(r = 4)
-          ),
+          axis.title.x      = ggplot2::element_text(margin = ggplot2::margin(t = 6)),
+          axis.title.y      = ggplot2::element_text(margin = ggplot2::margin(r = 4)),
           axis.ticks        = ggplot2::element_line(),
           axis.text         = ggplot2::element_text(size = 10)
         )
