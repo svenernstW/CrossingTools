@@ -2,7 +2,7 @@
 % Please edit documentation in R/calc_midparent_inbred.R
 \name{calc_midparent_inbred}
 \alias{calc_midparent_inbred}
-\title{Predicted cross means (additive) from specified crosses}
+\title{Calculate predicted additive means for specified crosses}
 \usage{
 calc_midparent_inbred(
   crosses,
@@ -13,43 +13,41 @@ calc_midparent_inbred(
 )
 }
 \arguments{
-\item{crosses}{A matrix or data.frame specifying the parents for each proposed cross:
-\itemize{
-\item two-way crosses: \code{n_crosses x 2}
-\item four-way crosses: \code{n_crosses x 4}
-}
-Entries may be either integer indices referring to rows of \code{marker.mat} (1-based),
-or character identifiers matching \code{rownames(marker.mat)}.}
+\item{crosses}{Matrix or data frame with two columns for two-way crosses or
+four columns for four-way crosses. Parent identifiers may be row indices of
+\code{marker.mat} or character identifiers matching
+\code{rownames(marker.mat)}.}
 
-\item{marker.mat}{Numeric marker matrix with genotypes in rows and markers in columns.
-The coding must be consistent with the marker effects in \code{effects} (e.g., dosage coding).}
+\item{marker.mat}{Numeric marker matrix with individuals in rows and markers
+in columns.}
 
-\item{marker.effects}{Numeric matrix of marker effects with markers in rows and traits in columns.
-Must have \code{nrow(effects) == ncol(marker.mat)}.}
+\item{marker.effects}{Numeric matrix of marker effects with markers in rows
+and traits in columns. Its number of rows must equal
+\code{ncol(marker.mat)}.}
 
-\item{weights}{Optional numeric vector of trait weights of length \code{ncol(effects)}.
-If provided, an index value \code{IDX} is computed for each cross as a weighted sum of
-predicted EGEBVs across traits.}
+\item{weights}{Optional numeric vector with one weight per trait. When
+supplied, a weighted genomic breeding value index is calculated for each
+cross.}
 
-\item{nthreads}{Integer (default 4). Number of threads used by the C++ backend.}
+\item{nthreads}{Positive integer. Number of computational threads.}
 }
 \value{
-If \code{weights} is \code{NULL}, returns a data.frame with columns:
-\itemize{
-\item parent identifiers (\code{parent1}, \code{parent2}; optionally \code{parent3}, \code{parent4})
-\item predicted cross means per trait: \code{EGEBV1, EGEBV2, ...}
-}
-If \code{weights} is provided, returns a list with:
-\itemize{
-\item \code{cross.df}: the data.frame described above
-\item \code{index.df}: a data.frame with parent identifiers and a single column \code{IDX}
+If \code{weights = NULL}, a data frame containing the parental
+identifiers followed by one \code{GEBV.<trait>} column per trait.
+
+If \code{weights} is supplied, a list containing:
+\describe{
+\item{\code{cross.df}}{The parental identifiers and trait-specific
+genomic breeding values.}
+\item{\code{index.df}}{The parental identifiers and the weighted index
+\code{GEBV.IDX}.}
 }
 }
 \description{
-Compute the expected genomic estimated breeding value (EGEBV) for each proposed
-cross as the mean of the parental GEBVs (mid-parent value). Optionally, compute
-a selection index per cross as a weighted sum across traits.
+Calculates the expected genomic breeding value of proposed two-way or
+four-way crosses as the mean of the parental genomic breeding values.
 }
 \details{
-This function supports two-way crosses (2 parents) and four-way crosses (4 parents).
+Multiple traits can be evaluated simultaneously. Optional trait weights can
+be used to calculate a weighted genomic breeding value index for each cross.
 }

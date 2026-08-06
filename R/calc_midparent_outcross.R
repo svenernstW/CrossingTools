@@ -1,43 +1,49 @@
-#' Predicted outcross means from specified two-way crosses (EGEBV and ETGV)
+#' Calculate predicted means for two-way outcrosses
 #'
-#' Compute predicted cross means for two-way (bi-parental) crosses using marker effects.
-#' For each cross and each trait, the function returns:
-#' \itemize{
-#'   \item \code{GEBV}: the mid-parent mean of parental additive genomic values.
-#'   \item \code{TGV}: the predicted mean total genotypic value of the F1, combining additive
-#'         and (optional) dominance contributions (Werner et al).
-#' }
-#' If \code{weights} are provided, two index values are also returned: a weighted index based
-#' on the \code{EGEBV} trait means and a weighted index based on the \code{ETGV} trait means.
+#' Calculates the expected genomic breeding value and expected total genetic
+#' value of proposed two-way crosses from additive and dominance marker effects.
 #'
-#' @param crosses A matrix or data.frame (\code{n_crosses x 2}) specifying the parents for each
-#'   proposed cross. Entries may be either integer indices referring to rows of \code{marker.mat},
-#'   or character identifiers matching \code{rownames(marker.mat)}.
-#' @param marker.mat Numeric marker dosage matrix with genotypes in rows and markers in columns.
-#'   The coding must be consistent with the marker effects provided in \code{effects.A} and
-#'   \code{effects.D}.
-#' @param marker.effects.A Numeric matrix of additive marker effects (markers in rows, traits in columns).
-#'   Must satisfy \code{nrow(marker.effects.A) == ncol(marker.mat)}.
-#' @param marker.effects.D Optional numeric matrix of dominance marker effects (markers in rows, traits in columns).
-#'   Must have the same dimensions as \code{marker.effects.A}. If \code{NULL}, dominance is ignored (treated as zero).
-#' @param weights Optional numeric vector of trait weights of length \code{ncol(marker.effects.A)}. If provided,
-#'   index values \code{GEBV.IDX} and \code{TGV.IDX} are computed per cross as weighted sums across traits.
-#' @param nthreads Integer (default 4). Number of threads used by the C++ backend.
+#' The expected genomic breeding value is the mid-parent additive value. The
+#' expected total genetic value additionally includes the expected dominance
+#' contribution of the F1. If dominance effects are not supplied, they are
+#' assumed to be zero.
 #'
-#' @return If \code{weights} is \code{NULL}, a data.frame with columns:
-#'   \itemize{
-#'     \item \code{parent1}, \code{parent2}
-#'     \item predicted trait means: \code{EGEBV1..EGEBVt}, \code{ETGV1..ETGVt}
-#'   }
-#'   If \code{weights} is provided, a list with:
-#'   \itemize{
-#'     \item \code{cross.df}: the data.frame described above
-#'     \item \code{index.df}: a data.frame with \code{parent1}, \code{parent2}, \code{GEBV.IDX}, \code{TGV.IDX}
+#' Multiple traits can be evaluated simultaneously. Optional trait weights can
+#' be used to calculate additive and total-genetic-value indices.
+#'
+#' @param crosses Matrix or data frame with two columns specifying the parents
+#'   of each proposed cross. Parent identifiers may be row indices of
+#'   \code{marker.mat} or character identifiers matching
+#'   \code{rownames(marker.mat)}.
+#' @param marker.mat Numeric marker dosage matrix with individuals in rows and
+#'   markers in columns.
+#' @param marker.effects.A Numeric matrix of additive marker effects with markers
+#'   in rows and traits in columns. Its number of rows must equal
+#'   \code{ncol(marker.mat)}.
+#' @param marker.effects.D Optional numeric matrix of dominance marker effects
+#'   with markers in rows and traits in columns. It must have the same
+#'   dimensions as \code{marker.effects.A}. If \code{NULL}, dominance effects
+#'   are assumed to be zero.
+#' @param weights Optional numeric vector with one weight per trait. When
+#'   supplied, weighted indices are calculated from the trait-specific GEBVs
+#'   and TGVs.
+#' @param nthreads Positive integer. Number of computational threads.
+#'
+#' @return If \code{weights = NULL}, a data frame containing the parental
+#'   identifiers followed by \code{GEBV.<trait>} and \code{TGV.<trait>} for
+#'   each trait.
+#'
+#'   If \code{weights} is supplied, a list containing:
+#'   \describe{
+#'     \item{\code{cross.df}}{The parental identifiers and trait-specific GEBVs
+#'     and TGVs.}
+#'     \item{\code{index.df}}{The parental identifiers and the weighted indices
+#'     \code{GEBV.IDX} and \code{TGV.IDX}.}
 #'   }
 #'
 #' @export
 
-#'
+
 calc_midparent_outcross <- function(crosses,  marker.mat, marker.effects.A, marker.effects.D=NULL,  weights = NULL,
                                    nthreads = 4L) {
 

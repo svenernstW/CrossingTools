@@ -1,12 +1,28 @@
 #' Backsolve marker effects from individual effects
 #'
-#' Computes marker effects \eqn{\mu = (scalingFactor * M' * G^{-1}) * g}. The scaling factor is automatically determined from the data.
+#' Backsolves marker effects from individual genetic effects using
+#' \deqn{\boldsymbol{\mu} = s\mathbf{M}^{\mathsf{T}}\mathbf{G}^{-1}\mathbf{g},}
+#' where \eqn{\mathbf{M}} is the marker matrix, \eqn{\mathbf{G}} is the genomic
+#' relationship matrix, \eqn{\mathbf{g}} contains individual effects, and
+#' \eqn{s} is a scaling factor determined internally.
 #'
-#' @param marker.mat Numeric matrix (n x p): marker/genotype matrix (individuals in rows, markers in columns).
-#' @param G.mat Numeric matrix (n x n): relationship matrix among individuals.
-#' @param genotype.effects Numeric (n x k) or length-n vector: individual effects (one or more traits).
-#' @return A numeric \code{p x k} matrix of marker effects .
+#' Multiple traits can be processed simultaneously by supplying
+#' \code{genotype.effects} as a matrix or data frame with one column per trait.
+#'
+#' @param marker.mat Numeric matrix with individuals in rows and markers in
+#'   columns.
+#' @param G.mat Numeric square matrix containing genomic relationships among
+#'   the individuals in \code{marker.mat}.
+#' @param genotype.effects Numeric vector, matrix, or data frame containing
+#'   individual genetic effects. Rows must correspond to individuals in
+#'   \code{marker.mat}; columns represent traits.
+#'
+#' @return A data frame with markers in rows and traits in columns containing
+#'   the backsolved marker effects.
+#'
 #' @export
+
+
 backsolve_marker_effects <- function(marker.mat,
                      G.mat,
                      genotype.effects) {

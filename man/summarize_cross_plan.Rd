@@ -2,7 +2,7 @@
 % Please edit documentation in R/summarize_cross_plan.R
 \name{summarize_cross_plan}
 \alias{summarize_cross_plan}
-\title{Summarize the expected performance of a cross plan}
+\title{Summarize the expected performance of a crossing plan}
 \usage{
 summarize_cross_plan(
   cross.plan,
@@ -13,40 +13,51 @@ summarize_cross_plan(
 )
 }
 \arguments{
-\item{cross.plan}{A data.frame with 2 columns (2-way crosses) or 4 columns
-(4-way crosses).}
+\item{cross.plan}{Data frame, matrix, or object coercible to a data frame
+containing the crossing plan. It must have two columns for two-way crosses
+or four columns for four-way crosses.}
 
-\item{cross.df}{A data.frame (or coercible to one) containing per-cross
-predictions. Trait columns should be named as
-\code{<metric>.<trait>} (e.g. \code{GEBV.Yield},
-\code{SPV.Height}). If parent identifier columns are present
-(\code{parent1}--\code{parent4} or \code{male}/\code{female}),
-they are used to align crosses.}
+\item{cross.df}{Data frame, matrix, or object coercible to a data frame
+containing predictions for the candidate crosses. Trait-specific value
+columns must follow the naming convention \code{<metric>.<trait>}, for
+example \code{GEBV.Yield} or \code{SPV.Height}. Crosses are matched using
+columns \code{parent1} and \code{parent2}, \code{male} and \code{female},
+or the first two columns. Four-way crosses require columns
+\code{parent1} to \code{parent4}.}
 
-\item{plot}{Logical; if \code{TRUE}, plots the predicted mean GEBV response.}
+\item{plot}{Logical. If \code{TRUE}, plot the predicted mean GEBV response.}
 
-\item{reference.pop}{Optional reference population with individuals in rows
-and traits in columns. Used to express responses relative to the reference
-population mean.}
+\item{reference.pop}{Optional numeric matrix or data frame with individuals
+in rows and traits in columns. When supplied, predicted responses are
+expressed relative to the corresponding trait means. It must contain at
+least two individuals and all traits represented in \code{cross.df}.}
 
-\item{weights}{Optional vector of trait weights used to calculate and display
-the desired response.}
+\item{weights}{Optional numeric vector of trait weights, in the same order as
+the traits in the returned summary. When supplied together with
+\code{reference.pop}, it is used to calculate and display the desired
+response direction.}
 }
 \value{
-A data.frame with one row per trait containing the average value of
-each available metric (e.g. \code{mean.GEBV}, \code{mean.TGV},
-\code{mean.SPV}, \code{mean.TSPV}, \code{mean.OHV}) and the number of
-crosses (\code{ncrosses}).
+A data frame with one row per trait. The output contains:
+\describe{
+\item{\code{trait}}{Trait identifier parsed from the prediction-column
+names.}
+\item{\code{ncrosses}}{Number of crosses in \code{cross.plan}.}
+\item{\code{mean.GEBV}, \code{mean.TGV}, \code{mean.SPV},
+\code{mean.TSPV}, \code{mean.OHV}}{Mean value of each available metric
+across the selected crosses. Metrics not available for a particular trait
+are returned as \code{NA}.}
+}
 }
 \description{
-Computes the average predicted performance of all crosses in a cross plan
-for each available trait and value metric (e.g. GEBV, TGV, SPV, TSPV, OHV).
-Crosses in \code{cross.plan} are matched to \code{cross.df} using their
-parental identities.
+Calculates the mean predicted performance of the crosses in
+\code{cross.plan} for each available trait and value metric, including GEBV,
+TGV, SPV, TSPV, and OHV. Crosses are matched to \code{cross.df} using their
+parental identifiers.
 }
 \details{
-Optionally, the predicted population response (mean GEBV) can be plotted.
-If a reference population is supplied, responses are shown relative to the
-reference mean. If trait weights are also provided, the plot additionally
-displays the response expected under the desired response.
+Optionally, the mean GEBV response can be plotted. When
+\code{reference.pop} is supplied, responses are expressed relative to the
+reference-population means. When trait \code{weights} are also supplied, the
+corresponding desired-response direction is shown for comparison.
 }

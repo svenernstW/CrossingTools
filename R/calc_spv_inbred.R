@@ -1,43 +1,66 @@
-#' Segregation variance for inbred lines from specified crosses
+#' Calculate segregation variance and superior progeny values for inbred lines
 #'
-#' Calculate expected genomic estimated breeding values (EGEBV), segregation
-#' variance, and superior progeny value (SPV) for doubled haploid or recombinant inbred lines
-#' #' derived after \code{t} rounds of random mating. works for two way, three way and four way crosses
+#' Calculates expected genomic breeding values, segregation variances, and
+#' superior progeny values for doubled haploid or recombinant inbred line
+#' families derived from proposed two-way or four-way crosses.
 #'
-#' @param crosses A matrix or data.frame (n_crosses x 2 for two way crosses or n_crosses x 4 for four way crosses) specifying the parents for each
-#'   proposed cross. Entries may be either:
-#'   \itemize{
-#'     \item integer indices referring to rows of \code{marker.mat}, or
-#'     \item character identifiers matching \code{rownames(marker.mat)}.
+#' The calculation can account for additional generations of random mating
+#' before line development. Multiple traits and optional weighted trait indices
+#' are supported.
+#'
+#' @param crosses Matrix or data frame with two columns for two-way crosses or
+#'   four columns for four-way crosses. Parent identifiers may be row indices of
+#'   \code{marker.mat} or character identifiers matching
+#'   \code{rownames(marker.mat)}.
+#' @param genetic.map Data frame describing the genetic map. It must contain:
+#'   \describe{
+#'     \item{\code{site}}{Marker index or marker name matching
+#'     \code{colnames(marker.mat)}.}
+#'     \item{\code{chr}}{Chromosome identifier.}
+#'     \item{\code{pos}}{Marker position on the chromosome in Morgan.}
 #'   }
-#' @param marker.mat Numeric marker matrix (markers in columns, genotypes in rows) with
-#'   entries in \code{c(0, 2)} corresponding to \code{c("AA", "BB")}.
-#' @param genetic.map A data.frame with columns:
-#'   \itemize{
-#'     \item \code{site}: integer marker index (1..ncol(marker.mat))
-#'     \item \code{chr}: chromosome identifier (numeric)
-#'     \item \code{pos}: position on the chromosome in morgan
-#'   }
-#'   All markers in \code{marker.mat} must appear in \code{genetic.map$site}.
-#' @param marker.effects Numeric matrix of marker effects (markers in rows, traits in columns).
-#'   Must have \code{nrow(effects) == ncol(marker.mat)}.
-#' @param t Integer. Number of random‐mating generations before DH or RIL creation.
-#' @param intensity Double. Standardized selection differential, efaults to 1.
-#' @param weights Numeric vector of length \code{ncol(marker.effects)} with fixed trait weights.
-#' If supplied the function calculates index values for each cross.
-#' @param covariance Logical. If \code{TRUE}, also compute the segregation
-#'   covariance matrix between all supplied traits.
-#' @param method Character. Which method to use; one of \code{c(1, 2)} for
-#'   Lehermeier or Osthushenrich.
-#' @param type intended offspring typew can be "RIL" for recombinant inbred lines or "DH" for double haploid lines.
-#' @param nthreads Integer (default 4). Number of OpenMP threads (if enabled at compile time).
+#'   All markers in \code{marker.mat} must be represented.
+#' @param marker.mat Numeric marker matrix with individuals in rows and markers
+#'   in columns.
+#' @param marker.effects Numeric matrix of marker effects with markers in rows
+#'   and traits in columns. Its number of rows must equal
+#'   \code{ncol(marker.mat)}.
+#' @param t Integer. Number of random-mating generations before doubled haploid
+#'   or recombinant inbred line development.
+#' @param intensity Numeric scalar giving the standardized selection intensity
+#'   used to calculate superior progeny values. The default is 1.
+#' @param type Character. Offspring type, either \code{"DH"} for doubled
+#'   haploid lines or \code{"RIL"} for recombinant inbred lines.
+#' @param weights Optional numeric vector with one weight per trait. When
+#'   supplied, weighted index values are calculated for each cross.
+#' @param covariance Logical. If \code{TRUE}, also calculate segregation
+#'   covariance matrices among traits for each cross.
+#' @param method Method used to calculate segregation variance. Either
+#'   \code{1} or \code{"lehermeier"} for the Lehermeier method, or \code{2} or
+#'   \code{"osthushenrich"} for the Osthushenrich method. The latter is
+#'   currently available only for two-way crosses.
+#' @param nthreads Positive integer. Number of computational threads.
 #'
-#' @return If \code{covariance = TRUE}, a list with element \code{cross.df}
-#'   (a data.frame) whose columns are named \code{EGBEV1, var1, SPV1, EGEBV2, ...} and a list with element \code{covariances}.
-#'   If \code{covariance = TRUE} and \code{calculate.index = TRUE}, additionally an element \code{index.df}
-#'   (a data.frame) with \code{IDX, VAR.IDX, SPV.IDX}.
-#'   If \code{covariance = FALSE}, a data.frame with the same columns \code{EGEBV1, var1, SPV1, EGBEV2, ...}.
+#' @return If neither \code{weights} nor trait covariances are requested, a data
+#'   frame containing the parental identifiers and, for each trait,
+#'   \code{GEBV.<trait>}, \code{var.<trait>}, and \code{SPV.<trait>}.
+#'
+#'   If \code{weights} is supplied, a list additionally containing
+#'   \code{index.df}, with columns \code{GEBV.IDX}, \code{var.IDX}, and
+#'   \code{SPV.IDX}.
+#'
+#'   If \code{covariance = TRUE}, a list containing:
+#'   \describe{
+#'     \item{\code{cross.df}}{Cross-specific trait values and segregation
+#'     variances.}
+#'     \item{\code{index.df}}{Weighted index values, if \code{weights} is
+#'     supplied.}
+#'     \item{\code{covariances}}{Segregation covariance matrices for each
+#'     cross.}
+#'   }
+#'
 #' @export
+
 calc_spv_inbred <- function(crosses, genetic.map, marker.mat, marker.effects, t, intensity=NULL, type = "DH",
                             weights = NULL,covariance = FALSE,
                                    method = 1, nthreads = 4L) {

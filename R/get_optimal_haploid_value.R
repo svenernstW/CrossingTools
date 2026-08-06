@@ -1,52 +1,43 @@
-#' Optimal Haploid Value (OHV) for proposed crosses
+#' Calculates the Optimal Haploid Value (OHV) of proposed two-way or four-way
+#' crosses from marker effects. If haplotype blocks are provided, marker effects
+#' are first aggregated within blocks; otherwise, each marker is treated as an
+#' independent block. Trait-specific OHVs and an optional weighted OHV index are
+#' returned.
 #'
-#' Computes the Optimal Haploid Value (OHV; Daetwyler et al.) for each proposed cross
-#' using block-wise local genomic estimated breeding values (GEBVs).
-#'
-#' For each haplotype block, a local GEBV is calculated for every parent as the sum of
-#' marker genotypes within the block weighted by their corresponding marker effects.
-#' The OHV of a cross is then obtained by summing, across blocks, the maximum of the two
-#' parents’ local block GEBVs.
-#'
-#' If \code{haplotype.blocks} is not supplied , each marker column of
-#' \code{marker.mat} is treated as an independent block.
-#'
-#' @param crosses A matrix or data.frame (n_crosses x 2 for two way crosses or n_crosses x 4 for four way crosses) specifying the parents for each
-#'   proposed cross. Entries may be either:
-#'   \itemize{
-#'     \item integer indices referring to rows of \code{marker.mat}, or
-#'     \item character identifiers matching \code{rownames(marker.mat)}.
+#' @param crosses Matrix or data frame with two columns for two-way crosses or
+#'   four columns for four-way crosses. Parent identifiers may be
+#'   integer row indices of \code{marker.mat} or character identifiers matching
+#'   \code{rownames(marker.mat)}.
+#' @param marker.mat Numeric marker matrix with individuals in rows and markers
+#'   in columns.
+#' @param marker.effects Numeric matrix of marker effects with markers in rows
+#'   and traits in columns. Its number of rows must equal
+#'   \code{ncol(marker.mat)}.
+#' @param weights Optional numeric vector with one weight per trait. When
+#'   supplied, a weighted OHV index is calculated as the linear combination of
+#'   the trait-specific OHVs.
+#' @param haplotype.blocks Optional data frame defining the haplotype blocks. It
+#'   must contain:
+#'   \describe{
+#'     \item{\code{block}}{Block identifier. Markers with the same identifier
+#'     belong to the same haplotype block.}
+#'     \item{\code{site}}{Marker identifier given as a column index of
+#'     \code{marker.mat} or as a marker name matching
+#'     \code{colnames(marker.mat)}.}
 #'   }
+#'   Each marker may occur in at most one block. If \code{NULL}, each marker is
+#'   treated as an independent block.
+#' @param nthreads Positive integer. Number of computational threads.
 #'
-#' @param marker.mat Numeric genotype or marker matrix with individuals in rows and
-#'   markers in columns.
+#' @return If \code{weights = NULL}, a data frame containing the original cross
+#'   definitions followed by one \code{OHV.<trait>} column per trait.
 #'
-#' @param marker.effects Numeric matrix of marker effects with
-#'   \code{nrow(effects) == ncol(marker.mat)} with traits in columns.
-#'
-#' @param weights Optional numeric vector of length \code{ncol(effects)}. If supplied,
-#'   a weighted index is computed as a linear combination of the trait-specific OHVs.
-
-#' @param haplotype.blocks Optional data.frame defining haplotype blocks with columns:
-#'   \itemize{
-#'     \item \code{block}: block identifier (integer, character, or factor). Markers sharing
-#'       the same value belong to the same haplotype block.
-#'     \item \code{site}: marker identifier within \code{marker.mat}, given either as an
-#'       integer column index (1..ncol(marker.mat)) or as a marker name matching
-#'       \code{names(marker.mat)}.
-#'   }
-#'   Each marker may appear in at most one block.
-#'
-#'
-#' @param nthreads Integer >= 1. Number of threads used for parallel computation.
-#'
-#' @return If \code{weights} is \code{NULL}, a data.frame containing the cross definition
-#'   columns followed by \code{OHV.1, OHV.2, ...} for each trait.
-#'
-#'   If \code{weights} is supplied, a list with elements:
-#'   \itemize{
-#'     \item \code{cross.df}: data.frame of crosses and trait-specific OHVs
-#'     \item \code{index.df}: data.frame of crosses and the weighted OHV index
+#'   If \code{weights} is supplied, a list containing:
+#'   \describe{
+#'     \item{\code{cross.df}}{The original cross definitions and the
+#'     trait-specific OHVs.}
+#'     \item{\code{index.df}}{The cross definitions and the weighted OHV index
+#'     in column \code{OHV.IDX}.}
 #'   }
 #'
 #' @export

@@ -2,7 +2,7 @@
 % Please edit documentation in R/calc_spv_outcross.R
 \name{calc_spv_outcross}
 \alias{calc_spv_outcross}
-\title{Additive and dominance segregation variance of families from specified crosses (Wolfe)}
+\title{Calculate segregation variance and superior progeny values for outcrosses}
 \usage{
 calc_spv_outcross(
   crosses,
@@ -18,50 +18,76 @@ calc_spv_outcross(
 )
 }
 \arguments{
-\item{crosses}{A data.frame or matrix (n_crosses x 2) of parental indices
-(row indices into \code{hap.mat1}/\code{hap.mat2}) specifying the crosses.}
+\item{crosses}{Matrix or data frame with two columns specifying the parents
+of each proposed cross. Parent identifiers may be row indices of
+\code{hap.mat1} and \code{hap.mat2}, or character identifiers matching
+their row names.}
 
-\item{genetic.map}{A data.frame with columns:
-\itemize{
-\item \code{site}: integer marker index (1..ncol(hap.mat1))
-\item \code{chr}: chromosome identifier (numeric or factor)
-\item \code{pos}: position on the chromosome in morgan
+\item{genetic.map}{Data frame describing the genetic map. It must contain:
+\describe{
+\item{\code{site}}{Marker identifier given as a column index or
+as a marker name matching \code{colnames(hap.mat1)}.}
+\item{\code{chr}}{Chromosome identifier.}
+\item{\code{pos}}{Marker position on the chromosome in Morgan.}
 }
-All markers in \code{hap.mat1}/\code{hap.mat2} must appear in \code{genetic.map$site}.}
+All markers in the haplotype matrices must be represented.}
 
-\item{hap.mat1}{Numeric haplotype matrix (individuals x markers) for the first haplotype,
-entries in \code{c(0, 1)} for \code{c("A", "B")}.}
+\item{hap.mat1}{Numeric haplotype matrix with individuals in rows and markers
+in columns, containing the first haplotype of each individual.}
 
-\item{hap.mat2}{Numeric haplotype matrix (individuals x markers) for the second haplotype,
-entries in \code{c(0, 1)} for \code{c("A", "B")}.}
+\item{hap.mat2}{Numeric haplotype matrix with the same dimensions as
+\code{hap.mat1}, containing the second haplotype of each individual.}
 
-\item{marker.effects.A}{Numeric matrix of additive marker effects (markers in rows, traits in columns).
-Must have \code{nrow(marker.effects.A) == ncol(hap.mat1)}.}
+\item{marker.effects.A}{Numeric matrix of additive marker effects with markers
+in rows and traits in columns. Its number of rows must equal
+\code{ncol(hap.mat1)}.}
 
-\item{marker.effects.D}{Numeric matrix of dominance marker effects (markers in rows, traits in columns).
-Must have \code{nrow(effects.D) == ncol(hap.mat1)} and \code{ncol(marker.effects.D) == ncol(marker.effects.A)}.}
+\item{marker.effects.D}{Numeric matrix of dominance marker effects with markers
+in rows and traits in columns. It must have the same dimensions as
+\code{marker.effects.A}.}
 
-\item{intensity}{Double. Standardized selection differential (used for SPV), defaults to 1.}
+\item{intensity}{Numeric scalar giving the standardized selection intensity
+used to calculate SPV and TSPV. The default is 1.}
 
-\item{weights}{Numeric vector of length \code{ncol(marker.effects.A)} with fixed trait weights.
-If supplied the function calculates index values for each cross.}
+\item{weights}{Optional numeric vector with one weight per trait. When
+supplied, weighted index values are calculated for each cross.}
 
-\item{covariance}{Logical. If \code{TRUE}, also compute the segregation
-covariance matrix between all supplied traits.}
+\item{covariance}{Logical. If \code{TRUE}, also calculate additive and
+dominance segregation covariance matrices among traits for each cross.}
 
-\item{nthreads}{Integer (default 4). Number of OpenMP threads (if enabled at compile time).}
+\item{nthreads}{Positive integer. Number of computational threads.}
 }
 \value{
-If \code{covariance = TRUE}, a list with element \code{cross.df}
-(a data.frame) whose columns are named
-\code{GEBV1, TGV1, var.A1, SPV1, var.D1, TSPV1, EGEBV2, ...}
-and covariance matrices per cross.
-If weights are supplied, additionally an element \code{index.df}
-(a data.frame) with \code{IDX.A, var.IDX.A, SPV.IDX, IDX.AD, var.IDX.AD, SPV.IDX.AD}.
-If no weights are supplied, a data.frame with the same columns.
+If neither \code{weights} nor trait covariances are requested, a data
+frame containing the parental identifiers and, for each trait,
+\code{GEBV.<trait>}, \code{TGV.<trait>}, \code{var.A.<trait>},
+\code{SPV.<trait>}, \code{var.D.<trait>}, and \code{TSPV.<trait>}.
+
+If \code{weights} is supplied, a list additionally containing
+\code{index.df}, with columns \code{GEBV.IDX}, \code{TGV.IDX},
+\code{var.A.IDX}, \code{SPV.IDX}, \code{var.D.IDX}, and
+\code{TSPV.IDX}.
+
+If \code{covariance = TRUE}, a list containing:
+\describe{
+\item{\code{cross.df}}{Cross-specific trait values and segregation
+variances.}
+\item{\code{index.df}}{Weighted index values, if \code{weights} is
+supplied.}
+\item{\code{additive.covariances}}{Additive segregation covariance
+matrices for each cross.}
+\item{\code{dominance.covariances}}{Dominance segregation covariance
+matrices for each cross.}
+}
 }
 \description{
-Calculate expected genomic estimated breeding value (EGBV), expected total genetic value (ETGV),
-additive and dominance segregation variance, superior progeny value with additive variance (SPV),
-and superior progeny value including dominance variance (TSPV) for F1 families.
+Calculates expected genomic breeding values, expected total genetic values,
+additive and dominance segregation variances, and superior progeny values
+for proposed F1 crosses.
+}
+\details{
+Additive superior progeny values are calculated from the additive
+segregation variance, whereas total superior progeny values additionally
+account for dominance variance. Multiple traits and optional weighted trait
+indices are supported.
 }

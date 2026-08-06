@@ -1,48 +1,35 @@
-#' Calculation of a selection index
+#' Calculate a multi-trait selection index
 #'
-#' Calculates a multi-trait selection index from genomic or phenotypic BLUPs.
-#' The function supports two alternative index formulations:
+#' Calculates a selection index from multi-trait genomic predicted effects
+#' using either a desired-gains index or a Smith-Hazel index.
 #'
-#' \itemize{
-#'   \item \strong{Desired gains index} , based on user-specified
-#'   desired trait gains and a trait (co)variance matrix.
-#'   \item \strong{Smith–Hazel index}, based on user-specified economic weights.
-#' }
+#' For the desired-gains index, trait weights are derived from the specified
+#' desired gains and a trait covariance matrix. For the Smith-Hazel index, the
+#' supplied trait weights are used directly. Exactly one of
+#' \code{desired.gains} or \code{weights} must be provided.
 #'
-#' Exactly one of \code{gains} or \code{weights} must be provided.
+#' @param genotype.effects Numeric matrix or data frame containing genotype
+#'   effects, with genotypes in rows and traits in columns.
+#' @param weights Optional numeric vector with one weight per trait. When
+#'   supplied, a Smith-Hazel index is calculated as a weighted sum of the trait
+#'   effects.
+#' @param var.mat Optional covariance matrix used for the desired-gains index.
+#'   It may be either a trait covariance matrix or the posterior covariance
+#'   matrix of the stacked genotype effects. If \code{NULL}, the trait
+#'   covariance matrix is estimated from \code{genotype.effects}.
+#' @param desired.gains Optional numeric vector specifying the desired gain for
+#'   each trait.
+#' @param nthreads Positive integer. Number of computational threads.
 #'
-#' @param genotype.effects A numeric matrix (\eqn{n_{genotype} \times n_{trait}}) of multi-trait BLUPs.
-#'
-#' @param var.mat Optional variance or covariance matrix used for the desired gains index.
-#'   If provided, must be one of:
-#'   \itemize{
-#'     \item A numeric matrix of dimension
-#'       \eqn{(n_{genotype} \times n_{trait}) \times (n_{genotype} \times n_{trait})}
-#'       containing the posterior variance
-#'       \eqn{\mathrm{var}(\tilde{g})} of the stacked BLUPs. In this case, the
-#'       \emph{marginal} posterior trait covariance (obtained by averaging
-#'       per-genotype trait blocks; Werner et al.) is used for index calculation.
-#'     \item A numeric matrix of dimension \eqn{n_{trait} \times n_{trait}}
-#'       giving the trait covariance matrix directly.
+#' @return A list containing:
+#'   \describe{
+#'     \item{\code{index}}{A data frame containing the selection index value for
+#'     each genotype.}
+#'     \item{\code{weights}}{The trait weights used to construct the index.}
 #'   }
-#'   If \code{var.mat} is \code{NULL}, the trait covariance matrix is estimated
-#'   empirically as \code{cov(effects)}.
-#'
-#' @param desired.gains Numeric vector of length \eqn{n_{trait}} specifying the desired gains
-#'   for each trait. Used only for the desired gains index.
-#'
-#' @param weights Numeric vector of length \eqn{n_{trait}} specifying economic
-#'   weights for each trait. Used only for the Smith–Hazel index.
-#'
-#' @param nthreads Integer. Number of OpenMP threads to use.
-#'
-#' @return A list with components:
-#' \itemize{
-#'   \item \code{index}: A data.frame containing the selection index values for each genotype.
-#'   \item \code{weights}: The trait weights used to construct the index.
-#' }
 #'
 #' @export
+
 
 make_index <- function(
     genotype.effects, weights = NULL, var.mat=NULL, desired.gains = NULL,

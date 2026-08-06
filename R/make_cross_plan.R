@@ -1,43 +1,23 @@
-#' Creation of a plan of all potential crosses
+#' Create a crossing plan from candidate parents
 #'
-#' Generates a crossing plan containing all possible pairwise crosses among a set
-#' of candidate genotypes. The function supports both unsexed (symmetric) crossing
-#' designs and sexed designs with distinct male and female candidate sets.
+#' Generates all possible crosses among a set of candidate parents.
 #'
-#' If \code{parents} is supplied, all unique unordered pairs of parents are returned.
-#' Optionally, self-crosses can be included by setting \code{self = TRUE}.
+#' For an unsexed design, all unique pairwise crosses are returned, optionally
+#' including self-crosses. For a sexed design, all combinations between the
+#' supplied male and female parents are returned.
 #'
-#' Alternatively, if \code{male.parents} and \code{female.parents} are supplied, all possible
-#' male–female combinations are returned. In this case, the \code{self} argument
-#' is ignored.
+#' @param parents Optional vector of parent identifiers for an unsexed crossing
+#'   design. At least two unique identifiers must be supplied.
+#' @param self Logical. If \code{TRUE}, include self-crosses when \code{parents}
+#'   is supplied. Ignored for sexed crossing designs.
+#' @param male.parents Optional vector of male parent identifiers for a sexed
+#'   crossing design.
+#' @param female.parents Optional vector of female parent identifiers for a
+#'   sexed crossing design.
 #'
-#' @param parents A vector of genotype identifiers defining the candidate parents
-#'   for an unsexed crossing design. Identifiers may be integers or character strings
-#'   (for example, row names of a genotype matrix). Must contain at least two unique
-#'   entries.
-#'
-#' @param self Logical. If \code{TRUE} and \code{parents} is supplied, self-crosses
-#'   (parent × itself) are included in addition to all pairwise crosses. Ignored when
-#'   \code{male.parents} and \code{female.parents} are supplied.
-#'
-#' @param male.parents A vector of genotype identifiers defining male parents in a sexed
-#'   crossing design. Identifiers may be integers or character strings. Ignored if
-#'   \code{parents} is supplied.
-#'
-#' @param female.parents A vector of genotype identifiers defining female parents in a sexed
-#'   crossing design. Identifiers may be integers or character strings. Ignored if
-#'   \code{parents} is supplied.
-#'
-#' @return A two-column \code{data.frame} defining the crossing plan.
-#' \itemize{
-#'   \item If \code{parents} is supplied, the columns are named \code{parent1} and
-#'   \code{parent2} and contain all unique pairwise combinations (and optionally
-#'   self-crosses).
-#'   \item If \code{male.parents} and \code{female.parents} are supplied, the columns are named
-#'   \code{male} and \code{female} and contain all male–female combinations.
-#' }
-#' The output preserves the type of the supplied identifiers (integer or character),
-#' with factors automatically coerced to character.
+#' @return A data frame with one row per cross. For unsexed designs, the columns
+#'   are \code{parent1} and \code{parent2}. For sexed designs, the columns are
+#'   \code{male} and \code{female}.
 #'
 #' @export
 

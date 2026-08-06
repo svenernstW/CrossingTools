@@ -1,37 +1,39 @@
-#' Summarize a multi-trait selection index
+#' Predict the response to multi-trait index selection
 #'
-#' Computes summary statistics for a linear selection index given a trait covariance
-#' matrix and either (i) desired gains or (ii) fixed weights (Smith-Hazel).
+#' Summarizes a linear multi-trait selection index from a trait covariance
+#' matrix and either desired gains or fixed trait weights.
 #'
-#' For a trait covariance matrix \eqn{G} and index weights \eqn{b}, the index is
-#' \eqn{I = b^{\top} T}. The function returns the index variance
-#' \eqn{\sigma_I^2 = b^{\top} G b}, the expected standardized response in the index
-#' \eqn{i \sigma_I} (where \code{i} is the standardized selection differential),
-#' the expected response in each trait \eqn{i \, G b / \sigma_I}, and the correlation
-#' between each trait and the index.
+#' For a desired-gains index, trait weights are derived from the supplied
+#' desired gains. For an index with fixed weights, the supplied weights are
+#' used directly. Exactly one of \code{desired.gains} or \code{weights} must be
+#' provided.
 #'
-#' If \code{gains} are provided, weights are computed as \eqn{b = G^{-1} d}, where
-#' \eqn{d} is the desired gains vector.
+#' The function returns the index variance, the expected response in the index,
+#' and the expected response and correlation with the index for each trait.
 #'
-#' @param var.mat Numeric trait covariance matrix (\eqn{n_{trait} \times n_{trait}}).
-#' @param desired.gains Optional numeric vector of desired gains (length \eqn{n_{trait}}).
-#'   If supplied, index weights are computed as \code{solve(var.mat) \%*\% gains}.
-#' @param weights Optional numeric vector of index weights (length \eqn{n_{trait}}).
-#'   Supply this to summarize an index with fixed weights.Using cov(EBVs) (i.e. cov(BLUPs))
-#'   as var.mat provides an empirical implementation of the Henderson form of the Smith–Hazel index.
-#' @param intensity Numeric scalar. Standardized selection differential \eqn{i} used to scale expected responses
-#'   (default 1).
-#' @param plot Logical. If \code{TRUE}, produce a bar plot of expected trait gains
-#'   (default \code{TRUE}).
+#' @param var.mat Numeric covariance matrix. It may be either a trait covariance
+#'   matrix or a block-structured covariance matrix containing one trait
+#'   covariance block per genotype. In the latter case, the trait covariance
+#'   matrix is obtained by averaging the diagonal blocks.
+#' @param desired.gains Optional numeric vector specifying the desired gain for
+#'   each trait.
+#' @param weights Optional numeric vector specifying the index weight for each
+#'   trait.
+#' @param intensity Numeric scalar giving the standardized selection intensity
+#'   used to scale the expected responses. The default is 1.
+#' @param plot Logical. If \code{TRUE}, plot the expected response for each
+#'   trait. The default is \code{TRUE}.
 #'
-#' @return A list with:
-#' \itemize{
-#'   \item \code{overall.df}: data.frame with \code{index.var} (\eqn{\sigma_I^2}) and \code{gain.index} (\eqn{i\sigma_I})
-#'   \item \code{traits.df}: data.frame with per-trait variance, correlation with the index, expected gain, and weight
-#' }
+#' @return A list containing:
+#'   \describe{
+#'     \item{\code{overall.df}}{A data frame containing the index variance
+#'     \code{index.var} and expected index response \code{gain.index}.}
+#'     \item{\code{trait.df}}{A data frame containing, for each trait, its
+#'     variance, correlation with the index, expected response, and index
+#'     weight.}
+#'   }
 #'
 #' @export
-
 
 
 predict_response <- function(var.mat=NULL, desired.gains = NULL, weights = NULL, intensity=1,plot=TRUE) {

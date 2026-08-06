@@ -1,46 +1,36 @@
-#' Plot cross plan ridge distributions per trait
+#' Plot predicted cross distributions by trait
 #'
-#' Creates ridgeline density plots of simulated cross outcomes, separated by trait.
-#' For each cross and trait, values are sampled from a Normal distribution whose mean
-#' is taken from the corresponding predicted value column and whose variance is taken
-#' from the available variance components.
+#' Creates trait-specific ridgeline plots of the predicted distributions of
+#' crosses in a crossing plan. Distributions are generated from the available
+#' cross means and segregation variances.
 #'
-#' Variance / mean handling (per trait):
-#' \itemize{
-#'   \item If \code{var.A#} is available, an \emph{additive} ridge is drawn using
-#'         \code{mean = GEBV#} and \code{sd = sqrt(var.A#)}.
-#'   \item If \code{var.A#} and \code{var.D#} and \code{TGV#} are available, an additional
-#'         \emph{additive+dominance} ridge is drawn using.
-#'   \item If only \code{var#} is available (and no \code{var.A#}), a single ridge is drawn using
-#'         \code{mean = GEBV#} and \code{sd = sqrt(var#)}.
-#' }
+#' Additive and, when available, additive-plus-dominance distributions are
+#' shown separately. Available cross criteria, including GEBV, TGV, SPV, TSPV,
+#' and OHV, are added as points. A dotted vertical line indicates the mean GEBV
+#' across crosses for each trait.
 #'
-#' Point overlays are added when the corresponding columns are present:
-#' \itemize{
-#'   \item \code{GEBV#} (always used when available) and \code{SPV#} are shown as points and
-#'         share the additive colour family.
-#'   \item \code{TGV#} and \code{TSPV#} are shown as points and share the additive+dominance
-#'         colour family.
-#'   \item \code{OHV#} is shown as a black cross (\code{shape = 4}).
-#' }
+#' @param cross.plan Data frame, matrix, or object coercible to a data frame
+#'   containing the crossing plan. It must have two columns for two-way crosses
+#'   or four columns for four-way crosses. Rows determine the displayed cross
+#'   labels and order.
+#' @param cross.df Data frame, matrix, or object coercible to a data frame
+#'   containing cross-specific predictions, typically produced by a variance or
+#'   optimal-haploid-value function. Trait-specific columns must follow the
+#'   naming convention \code{<metric>.<trait>}, for example
+#'   \code{GEBV.Yield}, \code{SPV.Yield}, \code{var.A.Yield}, or
+#'   \code{var.D.Yield}. Crosses are matched using columns \code{parent1} and
+#'   \code{parent2}, \code{male} and \code{female}, or the first two columns.
+#'   Four-way crosses require columns \code{parent1} to \code{parent4}.
+#' @param traits Character vector specifying the trait names to plot, or
+#'   \code{NULL} to plot all traits detected in \code{cross.df}.
+#' @param nsamples Positive integer. Number of Monte Carlo samples generated
+#'   per cross, trait, and distribution type.
 #'
-#' A dotted vertical line indicates the per-trait average gain (mean of \code{GEBV#} across crosses).
-#' The plot is faceted by trait (up to 3 columns).
+#' @return A \code{ggplot} object containing trait-specific ridgeline
+#'   distributions and available point estimates.
 #'
-#' @param cross.plan  data.frame with 2 columns (2-way crosses) or 4 columns (4-way crosses),
-#'   defining the parents in each cross. Rows are used to label and order crosses in the plot.
-#' @param cross.df data.frame (or object coercible to a data.frame) as created from
-#'   the get_variance or get_optimal_haploid_value function containing per-cross
-#'   trait columns such as \code{GEBV#}, \code{TGV#}, \code{SPV#}, \code{TSPV#}, \code{OHV#},
-#'   and variance components \code{var#}, \code{var.A#}, \code{var.D#}. If \code{cross.df}
-#'   contains parent columns (e.g., \code{parent1..parent4} or \code{male,female}), they are
-#'   used to align rows to \code{crosses}.
-#' @param traits integer vector of trait indices to plot (e.g., \code{c(1,3)}), or \code{NULL}
-#'   to plot all traits found in \code{cross.df}.
-#' @param nsamples integer. Number of Monte Carlo samples per cross and trait.
-#' @return A \code{ggplot} object.
 #' @export
-#'
+
 plot_cross_plan <- function(cross.plan , cross.df, traits = NULL,
                             nsamples = 1000L) {
   .stopf <- function(...) stop(sprintf(...), call. = FALSE)
