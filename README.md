@@ -10,7 +10,7 @@ CrossingTools provides tools to:
 
 * calculate expected progeny performance for crosses;
 * predict within-family segregation variances and covariances for different parental and progeny types;
-* evaluate crosses using the expected cross mean, **Superior Progeny Value (SPV)**, and **Optimal Haploid Value (OHV)**;
+* evaluate crosses using the expected cross mean, Superior Progeny Value (SPV), and Optimal Haploid Value (OHV);
 * account for additive and, where applicable, dominance effects;
 * define multi-trait breeding objectives using **Smith–Hazel** economic-weight indices or **Desired Gains** indices;
 * optimise mating plans while balancing predicted cross performance and genomic diversity;
@@ -53,13 +53,13 @@ Email: [Sven.Weber@agrar.uni-giessen.de](mailto:Sven.Weber@agrar.uni-giessen.de)
 
 ## Acknowledgements
 
-I would particularly like to thank Matthias Frisch for his general guidance and insights on plant breeding and selection theroy and methods. I also gratefully acknowledge Carola Zenke-Philippi, Eva Herzog, Philipp Heilmann and Joshua Okoye for many fruitful discussions that contributed to the development of CrossingTools.
+I would particularly like to thank Matthias Frisch for his general guidance and insights on plant breeding, selection theory, and methodology. I also gratefully acknowledge Carola Zenke-Philippi, Eva Herzog, Philipp Heilmann, and Joshua Okoye for many fruitful discussions that contributed to the development of CrossingTools. I further thank Brian Kinghorn and Andrew Kinghorn at the University of New England for valuable discussions on gain–diversity trade-offs and their applications in animal breeding.
 
 ## Reference
 
 The theoretical framework and implementation of CrossingTools are described in:
 
-> Weber, S.E., Waters, D.L., Werner, C.R. & Tolhurst, D.J. *CrossingTools: Scalable multi-trait cross evaluation and mating-plan optimisation in plant breeding. (in prep)*
+> Weber, S.E., Waters, D.L., Werner, C.R. & Tolhurst, D.J. *CrossingTools: Scalable multi-trait cross evaluation and mating-plan optimisation in plant breeding.* In preparation.
 
 The full citation will be updated following publication.
 
