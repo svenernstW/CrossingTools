@@ -3,7 +3,7 @@ Title: Tools for Cross Optimization in Plant Breeding Programs
 Version: 1.0.9
 Authors@R: 
     c(
-      person("Sven", "Weber", email = "sven.e.weber@agrar.uni-giessen.de", role = c("aut", "cre")),
+      person("Sven", "Weber", email = "sven.e.weber@agrar.uni-giessen.de", role = c("aut", "cre", "cph")),
       person("Daniel", "Tolhurst", role = "aut"),
       person("Dom", "Waters", role = "aut"),
       person("Christian", "Werner", role = "aut")
