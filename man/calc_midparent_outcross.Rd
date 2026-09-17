@@ -22,14 +22,16 @@ of each proposed cross. Parent identifiers may be row indices of
 \item{marker.mat}{Numeric marker dosage matrix with individuals in rows and
 markers in columns.}
 
-\item{marker.effects.A}{Numeric matrix of additive marker effects with markers
-in rows and traits in columns. Its number of rows must equal
-\code{ncol(marker.mat)}.}
+\item{marker.effects.A}{Numeric matrix of average allele-substitution effects
+(\eqn{\alpha}) with markers in rows and traits in columns. Effects must be
+parameterised relative to the reference population represented by
+\code{hap.mat1} and \code{hap.mat2}. Its number of rows must equal
+\code{ncol(hap.mat1)}.}
 
-\item{marker.effects.D}{Optional numeric matrix of dominance marker effects
-with markers in rows and traits in columns. It must have the same
-dimensions as \code{marker.effects.A}. If \code{NULL}, dominance effects
-are assumed to be zero.}
+\item{marker.effects.D}{Numeric matrix of dominance effects with markers
+in rows and traits in columns, used with the statistical dominance-deviation
+parameterisation. It must have the same dimensions as
+\code{marker.effects.A}.}
 
 \item{weights}{Optional numeric vector with one weight per trait. When
 supplied, weighted indices are calculated from the trait-specific GEBVs

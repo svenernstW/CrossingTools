@@ -44,14 +44,22 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
   arma::mat U_mat    = as<arma::mat>(U);      // (numMarkers × numTrait)
   arma::mat D_mat    = as<arma::mat>(D);      // (numMarkers × numTrait)
   arma::vec weights_vec = as<arma::vec>(weights); // length == numTrait
-  arma::mat GEBV = M_mat * U_mat;  // (nInd × numTrait)
 
-  const arma::uword OFF_EG    = 0;
-  const arma::uword OFF_ETG   = numTrait;
-  const arma::uword OFF_VAR_A = 2 * numTrait;
-  const arma::uword OFF_SPV   = 3 * numTrait;
-  const arma::uword OFF_VAR_D = 4 * numTrait;
-  const arma::uword OFF_TSPV  = 5 * numTrait;
+  arma::rowvec p_vec = 0.5 * arma::mean(M_mat, 0);
+
+  arma::mat W_mat = M_mat;
+  W_mat.each_row() -= 2.0 * p_vec;
+
+  // true breeding values under this reference population
+  arma::mat GEBV = W_mat * U_mat;
+
+  const arma::uword OFF_EG     = 0;
+  const arma::uword OFF_ETG    = numTrait;
+  const arma::uword OFF_VAR_A  = 2 * numTrait;
+  const arma::uword OFF_SPV    = 3 * numTrait;
+  const arma::uword OFF_VAR_D  = 4 * numTrait;
+  const arma::uword OFF_VAR_T  = 5 * numTrait;
+  const arma::uword OFF_TSPV   = 6 * numTrait;
 
   // Precompute chromosome ranges
   std::vector<std::pair<int, int>> chromosomeRanges;
@@ -93,7 +101,12 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
   // Results
   arma::mat results1A(numCrosses, numTraitComb, arma::fill::zeros);
   arma::mat results1D(numCrosses, numTraitComb, arma::fill::zeros);
-  arma::mat results2(numCrosses, numTrait * 6 + 6, arma::fill::zeros);
+
+  // Stores Cov(A,D) + Cov(D,A).
+  // On the diagonal this is 2*Cov(A,D).
+  arma::mat results1AD(numCrosses, numTraitComb, arma::fill::zeros);
+
+  arma::mat results2(numCrosses, numTrait * 7 + 7, arma::fill::zeros);
 
   // Helper to map (ti, tj) with 0 ≤ ti ≤ tj < numTrait to column index
   auto tri_u_idx_incl = [numTrait](arma::uword ti, arma::uword tj) -> arma::uword {
@@ -112,17 +125,26 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
     // (0) Precompute eG + eTG once per trait (diagonal outputs only)
     // -------------------------
     // compute these ONCE per cross
-    const arma::rowvec pk  = M_mat.row(P1);
-    const arma::rowvec qk  = 2.0 - pk;
-    const arma::rowvec ykl = pk - M_mat.row(P2);
-    const arma::colvec v1  = (pk - qk - ykl).t();
-    const arma::colvec v2  = (2.0 * (pk % qk) + (ykl % (pk - qk))).t();
+    const arma::rowvec W1 = W_mat.row(P1);
+    const arma::rowvec W2 = W_mat.row(P2);
+
+    // E[dominance-deviation code] = -0.5 * W1 * W2
+    const arma::colvec meanD =
+      (-0.5 * (W1 % W2)).t();
 
     for (arma::uword ti = 0; ti < numTrait; ++ti) {
-      const double eG  = 0.5 * (GEBV(P1, ti) + GEBV(P2, ti));
-      results2(x, OFF_EG + ti) = eG;
 
-      const double eTG = arma::dot(U_mat.col(ti), v1) + arma::dot(D_mat.col(ti), v2);
+      // Expected F1 breeding value = mid-parent breeding value
+      const double eG =
+        0.5 * (GEBV(P1, ti) + GEBV(P2, ti));
+
+      // Expected statistical dominance deviation
+      const double eD =
+        arma::dot(D_mat.col(ti), meanD);
+
+      const double eTG = eG + eD;
+
+      results2(x, OFF_EG  + ti) = eG;
       results2(x, OFF_ETG + ti) = eTG;
     }
 
@@ -168,8 +190,10 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
 
         results2(x, OFF_VAR_A + ti) = 0.0;
         results2(x, OFF_VAR_D + ti) = 0.0;
-        results2(x, OFF_SPV   + ti) = eG;
-        results2(x, OFF_TSPV  + ti) = eTG;
+        results2(x, OFF_VAR_T + ti) = 0.0;
+
+        results2(x, OFF_SPV  + ti) = eG;
+        results2(x, OFF_TSPV + ti) = eTG;
       }
       return;
     }
@@ -197,7 +221,8 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
           for (std::size_t jj = ii; jj < k; ++jj) {
             const arma::uword mj = w.g[jj];
 
-            const double mult = (ii == jj) ? 1.0 : 2.0;
+            const double mult =
+              (ii == jj) ? 1.0 : 2.0;
 
             // recombination correlation
             const double rcf = RC(mi, mj);
@@ -220,18 +245,94 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
             const double d1 = offdiag_D(h1i_p1, h1j_p1, h2i_p1, h2j_p1);
             const double d2 = offdiag_D(h1i_p2, h1j_p2, h2i_p2, h2j_p2);
 
-            const double DGen = rcf * (d1 + d2);
-            const double DGen2 = DGen * DGen;
+            // ----------------------------------------------------
+            // Gametic covariance contributed by each parent
+            // ----------------------------------------------------
+            const double C1 = rcf * d1;
+            const double C2 = rcf * d2;
+
+            // Cov(W_k, W_l) = additive-code covariance
+            const double CWW = C1 + C2;
+
+
+            // ----------------------------------------------------
+            // Parental dosages at markers k=mi and l=mj
+            // ----------------------------------------------------
+            const double m1k = M_mat(P1, mi);
+            const double m1l = M_mat(P1, mj);
+
+            const double m2k = M_mat(P2, mi);
+            const double m2l = M_mat(P2, mj);
+
+
+            // ----------------------------------------------------
+            // Cov(H_k, H_l)
+            // ----------------------------------------------------
+            const double CHH =
+              C1 * (1.0 - m2k) * (1.0 - m2l)
+              + C2 * (1.0 - m1k) * (1.0 - m1l)
+              + 4.0 * C1 * C2;
+
+
+              // ----------------------------------------------------
+              // Cov(W_k, H_l) and Cov(H_k, W_l)
+              // ----------------------------------------------------
+              const double CWH =
+              C1 * (1.0 - m2l)
+                + C2 * (1.0 - m1l);
+
+              const double CHW =
+              C1 * (1.0 - m2k)
+                + C2 * (1.0 - m1k);
+
+
+              // ----------------------------------------------------
+              // c_k = q_k - p_k = 1 - 2p_k
+              // ----------------------------------------------------
+              const double ck = 1.0 - 2.0 * p_vec(mi);
+              const double cl = 1.0 - 2.0 * p_vec(mj);
+
+
+              // ----------------------------------------------------
+              // Cov(Z_k, Z_l), where Z is statistical dominance code
+              // ----------------------------------------------------
+              const double CZZ =
+                CHH
+                - cl * CHW
+              - ck * CWH
+              + ck * cl * CWW;
+
+
+              // ----------------------------------------------------
+              // Mixed additive-dominance covariances
+              // ----------------------------------------------------
+              const double CWZ = CWH - cl * CWW;  // Cov(W_k, Z_l)
+              const double CZW = CHW - ck * CWW;  // Cov(Z_k, W_l)
 
             // reuse DGen for all traits (diagonal only)
             for (arma::uword ti = 0; ti < numTrait; ++ti) {
               const arma::uword kdiag = tri_u_idx_incl(ti, ti);
 
-              const double contribA = U_mat(mj, ti) * DGen  * U_mat(mi, ti);
-              const double contribD = D_mat(mj, ti) * DGen2 * D_mat(mi, ti);
+              const double UiA = U_mat(mi, ti);
+              const double UjA = U_mat(mj, ti);
 
-              results1A(x, kdiag) += mult * contribA;
-              results1D(x, kdiag) += mult * contribD;
+              const double UiD = D_mat(mi, ti);
+              const double UjD = D_mat(mj, ti);
+
+              const double contribA =
+                UiA * CWW * UjA;
+
+              const double contribD =
+                UiD * CZZ * UjD;
+
+              // Cov(A,D) + Cov(D,A)
+              const double contribAD =
+                UiA * CWZ * UjD
+              + UiD * CZW * UjA;
+
+              results1A (x, kdiag) += mult * contribA;
+              results1D (x, kdiag) += mult * contribD;
+              results1AD(x, kdiag) += mult * contribAD;
             }
           }
         }
@@ -239,20 +340,41 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
 
       // write trait-wise outputs (diagonal)
       for (arma::uword ti = 0; ti < numTrait; ++ti) {
-        const arma::uword kdiag = tri_u_idx_incl(ti, ti);
-        const double varA = results1A(x, kdiag);
-        const double varD = results1D(x, kdiag);
 
-        const double eG  = results2(x, OFF_EG  + ti);
-        const double eTG = results2(x, OFF_ETG + ti);
+        const arma::uword kdiag = tri_u_idx_incl(ti, ti);
+
+        const double varA =
+          results1A(x, kdiag);
+
+        const double varD =
+          results1D(x, kdiag);
+
+        // Cov(A,D) + Cov(D,A) = 2*Cov(A,D) for one trait
+        const double varAD =
+          results1AD(x, kdiag);
+
+        const double varT =
+          std::max(0.0, varA + varD + varAD);
+
+        const double eG =
+          results2(x, OFF_EG + ti);
+
+        const double eTG =
+          results2(x, OFF_ETG + ti);
 
         results2(x, OFF_VAR_A + ti) = varA;
         results2(x, OFF_VAR_D + ti) = varD;
-        results2(x, OFF_SPV   + ti) = eG  + intensity * std::sqrt(varA);
-        results2(x, OFF_TSPV  + ti) = eTG + intensity *(std::sqrt(varA) + std::sqrt(varD));
-      }
+        results2(x, OFF_VAR_T + ti) = varT;
 
-    } else {
+        results2(x, OFF_SPV + ti) =
+          eG + intensity *
+          std::sqrt(std::max(0.0, varA));
+
+        results2(x, OFF_TSPV + ti) =
+          eTG + intensity *
+          std::sqrt(varT);
+      }
+      } else {
       // full covariance: fill all (ti,tj) upper triangle
       for (std::size_t cidx = 0; cidx < work.size(); ++cidx) {
         const auto &w = work[cidx];
@@ -269,7 +391,6 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
 
           for (std::size_t jj = ii; jj < k; ++jj) {
             const arma::uword mj = w.g[jj];
-            const double mult = (ii == jj) ? 1.0 : 2.0;
 
             const double rcf = RC(mi, mj);
 
@@ -287,8 +408,60 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
             const double d1 = offdiag_D(h1i_p1, h1j_p1, h2i_p1, h2j_p1);
             const double d2 = offdiag_D(h1i_p2, h1j_p2, h2i_p2, h2j_p2);
 
-            const double DGen  = rcf * (d1 + d2);
-            const double DGen2 = DGen * DGen;
+            // Gametic covariance contributed by each parent
+            const double C1 = rcf * d1;
+            const double C2 = rcf * d2;
+
+            // Cov(W_k, W_l)
+            const double CWW = C1 + C2;
+
+
+            // Parental dosages
+            const double m1k = M_mat(P1, mi);
+            const double m1l = M_mat(P1, mj);
+
+            const double m2k = M_mat(P2, mi);
+            const double m2l = M_mat(P2, mj);
+
+
+            // Cov(H_k, H_l)
+            const double CHH =
+              C1 * (1.0 - m2k) * (1.0 - m2l)
+              + C2 * (1.0 - m1k) * (1.0 - m1l)
+              + 4.0 * C1 * C2;
+
+
+              // Cov(W_k, H_l)
+              const double CWH =
+              C1 * (1.0 - m2l)
+                + C2 * (1.0 - m1l);
+
+              // Cov(H_k, W_l)
+              const double CHW =
+              C1 * (1.0 - m2k)
+                + C2 * (1.0 - m1k);
+
+
+              // q-p = 1-2p
+              const double ck = 1.0 - 2.0 * p_vec(mi);
+              const double cl = 1.0 - 2.0 * p_vec(mj);
+
+
+              // Cov(Z_k, Z_l)
+              const double CZZ =
+                CHH
+                - cl * CHW
+              - ck * CWH
+              + ck * cl * CWW;
+
+
+              // Cov(W_k, Z_l)
+              const double CWZ =
+              CWH - cl * CWW;
+
+              // Cov(Z_k, W_l)
+              const double CZW =
+                CHW - ck * CWW;
 
             for (arma::uword ti = 0; ti < numTrait; ++ti) {
               const double UiA_ti = U_mat(mi, ti);
@@ -308,21 +481,41 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
                   tri_u_idx_incl(ti, tj);
 
                 if (ii == jj) {
+
+                  // Additive covariance
                   results1A(x, kcol) +=
-                    UiA_ti * DGen * UiA_tj;
+                    UiA_ti * CWW * UiA_tj;
+
+                  // Dominance-deviation covariance
+                  results1D(x, kcol) +=
+                    UiD_ti * CZZ * UiD_tj;
+
+                  // A-D + D-A covariance
+                  results1AD(x, kcol) +=
+                    UiA_ti * CWZ * UiD_tj
+                  + UiD_ti * CZW * UiA_tj;
+
+                } else {
+
+                  // Both ordered marker pairs (k,l) and (l,k)
+
+                  results1A(x, kcol) +=
+                    CWW * (
+                        UiA_ti * UjA_tj
+                  + UjA_ti * UiA_tj
+                    );
 
                   results1D(x, kcol) +=
-                    UiD_ti * DGen2 * UiD_tj;
-                } else {
-                  results1A(x, kcol) += DGen * (
-                    UiA_ti * UjA_tj +
-                      UjA_ti * UiA_tj
-                  );
+                    CZZ * (
+                        UiD_ti * UjD_tj
+                  + UjD_ti * UiD_tj
+                    );
 
-                  results1D(x, kcol) += DGen2 * (
-                    UiD_ti * UjD_tj +
-                      UjD_ti * UiD_tj
-                  );
+                  results1AD(x, kcol) +=
+                    UiA_ti * CWZ * UjD_tj
+                  + UjA_ti * CZW * UiD_tj
+                  + UiD_ti * CZW * UjA_tj
+                  + UjD_ti * CWZ * UiA_tj;
                 }
               }
             }
@@ -332,17 +525,39 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
 
       // diagonal outputs
       for (arma::uword ti = 0; ti < numTrait; ++ti) {
-        const arma::uword kdiag = tri_u_idx_incl(ti, ti);
-        const double varA = results1A(x, kdiag);
-        const double varD = results1D(x, kdiag);
 
-        const double eG  = results2(x, OFF_EG  + ti);
-        const double eTG = results2(x, OFF_ETG + ti);
+        const arma::uword kdiag =
+          tri_u_idx_incl(ti, ti);
+
+        const double varA =
+          results1A(x, kdiag);
+
+        const double varD =
+          results1D(x, kdiag);
+
+        const double varAD =
+          results1AD(x, kdiag);
+
+        const double varT =
+          std::max(0.0, varA + varD + varAD);
+
+        const double eG =
+          results2(x, OFF_EG + ti);
+
+        const double eTG =
+          results2(x, OFF_ETG + ti);
 
         results2(x, OFF_VAR_A + ti) = varA;
         results2(x, OFF_VAR_D + ti) = varD;
-        results2(x, OFF_SPV   + ti) = eG  + intensity * std::sqrt(varA);
-        results2(x, OFF_TSPV  + ti) = eTG + intensity * (std::sqrt(varA) + std::sqrt(varD));
+        results2(x, OFF_VAR_T + ti) = varT;
+
+        results2(x, OFF_SPV + ti) =
+          eG + intensity *
+          std::sqrt(std::max(0.0, varA));
+
+        results2(x, OFF_TSPV + ti) =
+          eTG + intensity *
+          std::sqrt(varT);
       }
     }
   });
@@ -350,95 +565,263 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
   if (covariance) {
     std::vector<arma::mat> covsA(numCrosses);
     std::vector<arma::mat> covsD(numCrosses);
+    std::vector<arma::mat> covsAD(numCrosses);
 
     // Offsets for the 6 scalar outputs (indices/variances/SPV for A-only and A+D)
-    const arma::uword OFF_IDX_A     = 6 * numTrait + 0;
-    const arma::uword OFF_VARIDX_A  = 6 * numTrait + 1;
-    const arma::uword OFF_SPVI_A    = 6 * numTrait + 2;
-    const arma::uword OFF_IDX_AD    = 6 * numTrait + 3;
-    const arma::uword OFF_VARIDX_AD = 6 * numTrait + 4;
-    const arma::uword OFF_SPVI_AD   = 6 * numTrait + 5;
+    const arma::uword OFF_IDX_A     = 7 * numTrait + 0;
+    const arma::uword OFF_IDX_T     = 7 * numTrait + 1;
+
+    const arma::uword OFF_VARIDX_A  = 7 * numTrait + 2;
+    const arma::uword OFF_SPVI_A    = 7 * numTrait + 3;
+
+    const arma::uword OFF_VARIDX_D  = 7 * numTrait + 4;
+    const arma::uword OFF_VARIDX_T  = 7 * numTrait + 5;
+
+    const arma::uword OFF_SPVI_T    = 7 * numTrait + 6;
 
     ct_parallel_for(0, static_cast<int>(numCrosses), [&](int xi) {
       arma::uword x = static_cast<arma::uword>(xi);
 
       // Build symmetric covariance matrices GA (additive) and GD (dominance)
-      arma::mat GA(numTrait, numTrait, arma::fill::zeros);
-      arma::mat GD(numTrait, numTrait, arma::fill::zeros);
+      arma::mat GA (numTrait, numTrait, arma::fill::zeros);
+      arma::mat GD (numTrait, numTrait, arma::fill::zeros);
+      arma::mat GAD(numTrait, numTrait, arma::fill::zeros);
+
       for (arma::uword ti = 0; ti < numTrait; ++ti) {
         for (arma::uword tj = ti; tj < numTrait; ++tj) {
           const arma::uword k =
             (ti * numTrait) - (ti * (ti - 1)) / 2 + (tj - ti);
-          const double va = results1A(x, k);
-          const double vd = results1D(x, k);
-          GA(ti, tj) = GA(tj, ti) = va;
-          GD(ti, tj) = GD(tj, ti) = vd;
+          const double va =
+            results1A(x, k);
+
+          const double vd =
+            results1D(x, k);
+
+          const double vad =
+            results1AD(x, k);
+
+          GA(ti, tj) =
+            GA(tj, ti) = va;
+
+          GD(ti, tj) =
+            GD(tj, ti) = vd;
+
+          GAD(ti, tj) =
+            GAD(tj, ti) = vad;
         }
       }
-      covsA[x] = GA;
-      covsD[x] = GD;
+      covsA[x]  = GA;
+      covsD[x]  = GD;
+      covsAD[x] = GAD;
 
       if (calcindex) {
+
+        // --------------------------------------------------
+        // Covariance matrices
+        // --------------------------------------------------
         arma::mat VA = GA;
         arma::mat VD = GD;
+        arma::mat VT = GA + GD + GAD;
+
         arma::mat L;
+
+
+        // --------------------------------------------------
+        // Numerical PSD correction: additive covariance
+        // --------------------------------------------------
         bool spd = arma::chol(L, VA);
+
         if (!spd) {
+
           any_psd.store(true, std::memory_order_relaxed);
+
           arma::vec eval;
           arma::mat evec;
+
           arma::eig_sym(eval, evec, VA);
 
-          eval.transform([](double x){ return (x < 0.0) ? 0.0 : x; });
+          eval.transform([](double x) {
+            return (x < 0.0) ? 0.0 : x;
+          });
 
-          VA = evec * arma::diagmat(eval) * evec.t();
+          VA =
+            evec *
+            arma::diagmat(eval) *
+            evec.t();
         }
 
+
+        // --------------------------------------------------
+        // Numerical PSD correction: dominance covariance
+        // --------------------------------------------------
         spd = arma::chol(L, VD);
+
         if (!spd) {
+
           any_psd.store(true, std::memory_order_relaxed);
+
           arma::vec eval;
           arma::mat evec;
+
           arma::eig_sym(eval, evec, VD);
 
-          eval.transform([](double x){ return (x < 0.0) ? 0.0 : x; });
+          eval.transform([](double x) {
+            return (x < 0.0) ? 0.0 : x;
+          });
 
-          VD = evec * arma::diagmat(eval) * evec.t();
+          VD =
+            evec *
+            arma::diagmat(eval) *
+            evec.t();
         }
 
-        double var_index_A = arma::as_scalar(weights_vec.t() * VA * weights_vec);
-        var_index_A = std::max(0.0, var_index_A); // numeric safety
-        double index_A = arma::as_scalar(results2.row(x).cols(0, numTrait - 1) * weights_vec);
-        double spvi_A  = index_A + intensity * std::sqrt(var_index_A);
 
-        results2(x, OFF_IDX_A)    = index_A;
-        results2(x, OFF_VARIDX_A) = var_index_A;
-        results2(x, OFF_SPVI_A)   = spvi_A;
+        // --------------------------------------------------
+        // Numerical PSD correction: total genetic covariance
+        // --------------------------------------------------
+        spd = arma::chol(L, VT);
 
-        arma::mat VAD = VA + VD;
+        if (!spd) {
 
-        double var_index_AD = arma::as_scalar(weights_vec.t() * VAD * weights_vec);
-        var_index_AD = std::max(0.0, var_index_AD);
-        double index_AD = arma::as_scalar(results2.row(x).cols(numTrait, 2 * numTrait - 1) * weights_vec);
-        double spvi_AD  = index_AD + intensity * std::sqrt(var_index_AD);
+          any_psd.store(true, std::memory_order_relaxed);
 
-        results2(x, OFF_IDX_AD)    = index_AD;
-        results2(x, OFF_VARIDX_AD) = var_index_AD-var_index_A;
-        results2(x, OFF_SPVI_AD)   = spvi_AD;
+          arma::vec eval;
+          arma::mat evec;
+
+          arma::eig_sym(eval, evec, VT);
+
+          eval.transform([](double x) {
+            return (x < 0.0) ? 0.0 : x;
+          });
+
+          VT =
+            evec *
+            arma::diagmat(eval) *
+            evec.t();
+        }
+
+
+        // --------------------------------------------------
+        // Index means
+        // --------------------------------------------------
+
+        // Expected breeding-value index
+        const double index_A =
+          arma::as_scalar(
+            results2.row(x)
+                    .cols(OFF_EG, OFF_EG + numTrait - 1) *
+            weights_vec
+          );
+
+        // Expected total-genetic-value index
+        const double index_T =
+          arma::as_scalar(
+            results2.row(x)
+                    .cols(OFF_ETG, OFF_ETG + numTrait - 1) *
+            weights_vec
+          );
+
+
+        // --------------------------------------------------
+        // Index segregation variances
+        // --------------------------------------------------
+
+        double var_index_A =
+          arma::as_scalar(
+            weights_vec.t() *
+              VA *
+              weights_vec
+          );
+
+        double var_index_D =
+          arma::as_scalar(
+            weights_vec.t() *
+              VD *
+              weights_vec
+          );
+
+        double var_index_T =
+          arma::as_scalar(
+            weights_vec.t() *
+              VT *
+              weights_vec
+          );
+
+        var_index_A =
+          std::max(0.0, var_index_A);
+
+        var_index_D =
+          std::max(0.0, var_index_D);
+
+        var_index_T =
+          std::max(0.0, var_index_T);
+
+
+        // --------------------------------------------------
+        // Superior progeny values
+        // --------------------------------------------------
+
+        const double spvi_A =
+          index_A +
+          intensity *
+          std::sqrt(var_index_A);
+
+        const double spvi_T =
+          index_T +
+          intensity *
+          std::sqrt(var_index_T);
+
+
+        // --------------------------------------------------
+        // Store outputs
+        // --------------------------------------------------
+
+        results2(x, OFF_IDX_A) =
+          index_A;
+
+        results2(x, OFF_IDX_T) =
+          index_T;
+
+        results2(x, OFF_VARIDX_A) =
+          var_index_A;
+
+        results2(x, OFF_SPVI_A) =
+          spvi_A;
+
+        results2(x, OFF_VARIDX_D) =
+          var_index_D;
+
+        results2(x, OFF_VARIDX_T) =
+          var_index_T;
+
+        results2(x, OFF_SPVI_T) =
+          spvi_T;
       }
     });
 
-    Rcpp::List out_A(numCrosses), out_D(numCrosses);
+    Rcpp::List out_A(numCrosses),
+    out_D(numCrosses),
+    out_AD(numCrosses);
+
     for (arma::uword x = 0; x < numCrosses; ++x) {
-      out_A[x] = Rcpp::wrap(covsA[x]);
-      out_D[x] = Rcpp::wrap(covsD[x]);
+
+      out_A[x] =
+        Rcpp::wrap(covsA[x]);
+
+      out_D[x] =
+        Rcpp::wrap(covsD[x]);
+
+      out_AD[x] =
+        Rcpp::wrap(covsAD[x]);
     }
 
     return Rcpp::List::create(
       Rcpp::Named("cross_values") = results2,
       Rcpp::Named("covA")         = out_A,
       Rcpp::Named("covD")         = out_D,
-      Rcpp::Named("check_psd")  = any_psd.load(std::memory_order_relaxed)
+      Rcpp::Named("covAD")        = out_AD,
+      Rcpp::Named("check_psd")    =
+        any_psd.load(std::memory_order_relaxed)
     );
   }
 

@@ -49,16 +49,24 @@ SEXP cpp_calculate_covariance_RIL_allier(
   const arma::uword numTrait     = U.ncol();
   const arma::uword numTraitComb = numTrait * (numTrait + 1) / 2;
 
-  arma::mat M_mat = as<arma::mat>(M);   // (n_individuals × numMarkers)
-  arma::mat U_mat = as<arma::mat>(U);   // (numMarkers × numTrait)
+  arma::mat M_mat = as<arma::mat>(M);   // genotype dosage 0..2
+  arma::mat U_mat = as<arma::mat>(U);   // average substitution effects alpha
   const arma::uword nInd = M_mat.n_rows;
-  arma::vec weights_vec = as<arma::vec>(weights);
-  //Precompute GEBV
-  arma::mat GEBV = M_mat * U_mat;  // (nInd × numTrait)
 
-  const arma::uword OFF_EG  = 0;
-  const arma::uword OFF_VAR = numTrait;
-  const arma::uword OFF_SPV = 2 * numTrait;
+  arma::vec weights_vec =
+    as<arma::vec>(weights);
+
+  // Allele frequencies in the reference population
+  arma::rowvec p_vec =
+    0.5 * arma::mean(M_mat, 0);
+
+  // Centred additive genotype code W = M - 2p
+  arma::mat W_mat = M_mat;
+  W_mat.each_row() -= 2.0 * p_vec;
+
+  // Genomic breeding values
+  arma::mat GEBV =
+    W_mat * U_mat;
 
   // --- Precompute chromosome ranges + per-chromosome packed CK caches (global, reused by all crosses) ---
   struct ChrCache {
@@ -127,6 +135,12 @@ SEXP cpp_calculate_covariance_RIL_allier(
   // Results
   arma::mat results1(numCrosses, numTraitComb, arma::fill::zeros);
   arma::mat results2(numCrosses, numTrait * 3 + 3, arma::fill::zeros);
+
+  // Column offsets in results2
+  const arma::uword OFF_EG  = 0;
+  const arma::uword OFF_VAR = numTrait;
+  const arma::uword OFF_SPV = 2 * numTrait;
+
 
   auto tri_u_idx_incl = [numTrait](arma::uword ti, arma::uword tj) -> arma::uword {
     return ti * numTrait - (ti * (ti - 1)) / 2 + (tj - ti);

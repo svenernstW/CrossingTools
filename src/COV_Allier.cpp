@@ -50,12 +50,25 @@ SEXP cpp_calculate_covariance_allier(
   const arma::uword numTrait     = U.ncol();
   const arma::uword numTraitComb = numTrait * (numTrait + 1) / 2;
 
-  arma::mat M_mat = as<arma::mat>(M);   // (n_individuals × numMarkers)
-  arma::mat U_mat = as<arma::mat>(U);   // (numMarkers × numTrait)
+  arma::mat M_mat = as<arma::mat>(M);   // genotype dosage 0..2
+  arma::mat U_mat = as<arma::mat>(U);   // average substitution effects alpha
   const arma::uword nInd = M_mat.n_rows;
-  arma::vec weights_vec = as<arma::vec>(weights); // length == numTrait
-  //Precompute GEBV
-  arma::mat GEBV = M_mat * U_mat;  // (nInd × numTrait)
+
+  arma::vec weights_vec =
+    as<arma::vec>(weights);
+
+  // Allele frequencies in the reference population
+  arma::rowvec p_vec =
+    0.5 * arma::mean(M_mat, 0);
+
+  // Centred additive genotype code W = M - 2p
+  arma::mat W_mat = M_mat;
+  W_mat.each_row() -= 2.0 * p_vec;
+
+  // Genomic breeding values
+  arma::mat GEBV =
+    W_mat * U_mat;
+
 
   const arma::uword OFF_EG  = 0;
   const arma::uword OFF_VAR = numTrait;

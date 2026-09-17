@@ -1,0 +1,13 @@
+utils::globalVariables(c(
+  "sim",
+  "label",
+  "value",
+  "cross",
+  "xint",
+  "llabel",
+  "group",
+  "series",
+  "trait",
+  "mean.GEBV",
+  "point_type"
+))

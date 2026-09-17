@@ -129,7 +129,6 @@ Two optimization methods are available:
 \describe{
 \item{\code{method = "angle"}}{Returns one crossing plan targeting the
 trade-off specified by \code{target.angle}. An angle of 0 degrees prioritizes
-the cross criterion, whereas 90 degrees prioritizes low similarity and,
 consequently, greater diversity.}
 \item{\code{method = "pareto"}}{Returns an approximation of the Pareto
 frontier containing plans with different trade-offs between

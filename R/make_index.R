@@ -89,7 +89,7 @@ if(!is.null(gains) ){
   } else {
     use.marginal.V <- FALSE
     use.V.approx   <- TRUE
-    V.approx <- cov(effects)
+    V.approx <- stats::cov(effects)
   }
 
 

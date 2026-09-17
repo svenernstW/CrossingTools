@@ -12,7 +12,9 @@ export(optimize_cross_plan)
 export(plot_cross_plan)
 export(predict_response)
 export(summarize_cross_plan)
-importFrom(Rcpp,evalCpp)
-importFrom(Rcpp,sourceCpp)
+importFrom(Rcpp,
+  evalCpp,
+  sourceCpp
+)
 importFrom(RcppParallel,RcppParallelLibs)
 useDynLib(CrossingTools, .registration = TRUE)

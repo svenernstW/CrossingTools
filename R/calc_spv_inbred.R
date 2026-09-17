@@ -20,12 +20,14 @@
 #'     \item{\code{pos}}{Marker position on the chromosome in Morgan.}
 #'   }
 #'   All markers in \code{marker.mat} must be represented.
-#' @param marker.mat Numeric marker matrix with individuals in rows and markers
-#'   in columns.
-#' @param marker.effects Numeric matrix of marker effects with markers in rows
-#'   and traits in columns. Its number of rows must equal
+#' @param marker.mat Numeric marker dosage matrix with individuals in rows and
+#'   markers in columns, coded 0, 1, and 2 for the counted allele.
+##' @param marker.effects Numeric matrix of average allele-substitution effects
+#'   (\eqn{\alpha}) with markers in rows and traits in columns. Effects must be
+#'   parameterised relative to the reference population represented by
+#'   \code{marker.mat}. Its number of rows must equal
 #'   \code{ncol(marker.mat)}.
-#' @param t Integer. Number of random-mating generations before doubled haploid
+##' @param t Integer. Number of random-mating generations before doubled haploid
 #'   or recombinant inbred line development.
 #' @param intensity Numeric scalar giving the standardized selection intensity
 #'   used to calculate superior progeny values. The default is 1.
@@ -61,14 +63,27 @@
 #'
 #' @export
 
-calc_spv_inbred <- function(crosses, genetic.map, marker.mat, marker.effects, t, intensity=NULL, type = "DH",
+calc_spv_inbred <- function(crosses, genetic.map, marker.mat, marker.effects, t, intensity=1, type = "DH",
                             weights = NULL,covariance = FALSE,
                                    method = 1, nthreads = 4L) {
 
-  traits <- names(marker.effects)
-
   marker.effects <- as.matrix(marker.effects)
+  effects <- marker.effects
+
+  traits <- colnames(marker.effects)
+
+  if (is.null(traits)) {
+    traits <- paste0("trait", seq_len(ncol(marker.effects)))
+  }
+
   effects <- as.matrix(marker.effects)
+
+  if (!is.numeric(intensity) ||
+      length(intensity) != 1L ||
+      !is.finite(intensity)) {
+    stop("`intensity` must be a single finite numeric value.")
+  }
+
   n.Threads <- nthreads
   if(!ncol(crosses) %in% c(2,4)){stop("ncol(crosses) needs to be 2 for two way crosses or 4 for three or four way crosses")}
   crosses_in <- crosses

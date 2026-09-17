@@ -10,10 +10,12 @@
 #'   four columns for four-way crosses. Parent identifiers may be row indices of
 #'   \code{marker.mat} or character identifiers matching
 #'   \code{rownames(marker.mat)}.
-#' @param marker.mat Numeric marker matrix with individuals in rows and markers
-#'   in columns.
-#' @param marker.effects Numeric matrix of marker effects with markers in rows
-#'   and traits in columns. Its number of rows must equal
+#' @param marker.mat Numeric marker dosage matrix with individuals in rows and
+#'   markers in columns, coded 0, 1, and 2 for the counted allele.
+#' @param marker.effects Numeric matrix of average allele-substitution effects
+#'   (\eqn{\alpha}) with markers in rows and traits in columns. Effects must be
+#'   parameterised relative to the reference population represented by
+#'   \code{marker.mat}. Its number of rows must equal
 #'   \code{ncol(marker.mat)}.
 #' @param weights Optional numeric vector with one weight per trait. When
 #'   supplied, a weighted genomic breeding value index is calculated for each
@@ -36,8 +38,13 @@
 calc_midparent_inbred <- function(crosses,  marker.mat, marker.effects,  weights = NULL,
                               nthreads = 4L) {
   n.Threads <- nthreads
-  traits <- names(marker.effects)
+
   effects <- as.matrix(marker.effects)
+
+  traits <- colnames(effects)
+  if (is.null(traits)) {
+    traits <- paste0("trait", seq_len(ncol(effects)))
+  }
   if(!ncol(crosses) %in% c(2,4)){stop("ncol(crosses) needs to be 2 for two way crosses or 4 for three or four way crosses")}
   crosses_in <- crosses
 
@@ -77,6 +84,25 @@ calc_midparent_inbred <- function(crosses,  marker.mat, marker.effects,  weights
   storage.mode(crosses2) <- "integer"
   if (anyNA(crosses2)) stop("Internal error: `crosses2` contains NA after conversion.")
 
+  if (!is.numeric(marker.mat)) {
+    stop("`marker.mat` must be numeric.")
+  }
+
+  if (any(!is.finite(marker.mat))) {
+    stop("`marker.mat` must contain only finite values.")
+  }
+
+  if (any(!marker.mat %in% c(0, 1, 2))) {
+    stop("`marker.mat` must contain genotype dosages 0, 1, or 2.")
+  }
+
+  if (!is.numeric(effects)) {
+    stop("`marker.effects` must be numeric.")
+  }
+
+  if (any(!is.finite(effects))) {
+    stop("`marker.effects` must contain only finite values.")
+  }
 
   # ---- Normalize ----
   if (!is.matrix(marker.mat)) marker.mat <- as.matrix(marker.mat)
@@ -84,21 +110,32 @@ calc_midparent_inbred <- function(crosses,  marker.mat, marker.effects,  weights
   crosses2 <- as.matrix(crosses2)
   calculate.index <- !is.null(weights)
 
-  if (ncol(effects) == 1 | is.null(weights)) { weights <- rep(1,ncol(effects)) }
-
   # ---- Checks ----
-  if (ncol(marker.mat) <= 0L) stop("marker.mat must have markers in columns.")
-  if (nrow(effects) != ncol(marker.mat)) stop("effects must have nrow(effects) == ncol(marker.mat).")
+  if (ncol(marker.mat) <= 0L) {
+    stop("`marker.mat` must have markers in columns.")
+  }
 
-  if (calculate.index && is.null(weights)) {
-    stop("`weights` is required when calculate.index = TRUE.")
+  if (nrow(effects) != ncol(marker.mat)) {
+    stop(
+      "`marker.effects` must have one row per marker: ",
+      "nrow(marker.effects) = ", nrow(effects),
+      ", ncol(marker.mat) = ", ncol(marker.mat), "."
+    )
   }
-  if (calculate.index && length(weights) != ncol(effects)) {
-    stop("`weights` must have length equal to ncol(effects) when calculate.index = TRUE.")
-  }
-  if (calculate.index) {
+
+  if (is.null(weights)) {
+    # Dummy value required by C++; not used when calcindex = FALSE
+    weights <- rep(1, ncol(effects))
+  } else {
     weights <- as.numeric(weights)
-    if (any(!is.finite(weights))) stop("`weights` must contain only finite values.")
+
+    if (length(weights) != ncol(effects)) {
+      stop("`weights` must have length equal to ncol(marker.effects).")
+    }
+
+    if (any(!is.finite(weights))) {
+      stop("`weights` must contain only finite values.")
+    }
   }
 
 

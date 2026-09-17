@@ -17,13 +17,15 @@
 #'   \code{rownames(marker.mat)}.
 #' @param marker.mat Numeric marker dosage matrix with individuals in rows and
 #'   markers in columns.
-#' @param marker.effects.A Numeric matrix of additive marker effects with markers
-#'   in rows and traits in columns. Its number of rows must equal
-#'   \code{ncol(marker.mat)}.
-#' @param marker.effects.D Optional numeric matrix of dominance marker effects
-#'   with markers in rows and traits in columns. It must have the same
-#'   dimensions as \code{marker.effects.A}. If \code{NULL}, dominance effects
-#'   are assumed to be zero.
+#' @param marker.effects.A Numeric matrix of average allele-substitution effects
+#'   (\eqn{\alpha}) with markers in rows and traits in columns. Effects must be
+#'   parameterised relative to the reference population represented by
+#'   \code{hap.mat1} and \code{hap.mat2}. Its number of rows must equal
+#'   \code{ncol(hap.mat1)}.
+#' @param marker.effects.D Numeric matrix of dominance effects with markers
+#'   in rows and traits in columns, used with the statistical dominance-deviation
+#'   parameterisation. It must have the same dimensions as
+#'   \code{marker.effects.A}.
 #' @param weights Optional numeric vector with one weight per trait. When
 #'   supplied, weighted indices are calculated from the trait-specific GEBVs
 #'   and TGVs.
@@ -47,38 +49,99 @@
 calc_midparent_outcross <- function(crosses,  marker.mat, marker.effects.A, marker.effects.D=NULL,  weights = NULL,
                                    nthreads = 4L) {
 
-  traits <- names(marker.effects.A)
+  effects.A <- as.matrix(marker.effects.A)
+
+  traits <- colnames(effects.A)
+
+  if (is.null(traits)) {
+    traits <- paste0("trait", seq_len(ncol(effects.A)))
+  }
+
+  if (length(nthreads) != 1L ||
+      !is.numeric(nthreads) ||
+      !is.finite(nthreads) ||
+      nthreads < 1 ||
+      nthreads != as.integer(nthreads)) {
+    stop("`nthreads` must be a positive integer.")
+  }
+
+  nThreads <- as.integer(nthreads)
   nThreads = as.integer(nthreads)
   hap.mat1 <- NULL
   hap.mat2 <- NULL
   effects.A <- as.matrix(marker.effects.A)
-  effects.D <- as.matrix(marker.effects.D)
 
+  if (is.null(marker.effects.D)) {
+    warning("No marker.effects.D supplied; dominance effects are assumed to be zero.",
+            call. = FALSE)
+
+    effects.D <- matrix(
+      0,
+      nrow = nrow(effects.A),
+      ncol = ncol(effects.A)
+    )
+
+    colnames(effects.D) <- colnames(effects.A)
+
+  } else {
+    effects.D <- as.matrix(marker.effects.D)
+  }
   if (is.null(marker.mat)) {
     stop("marker.mat must be provided.")
   }
 
 
-  if(is.null(marker.mat) & !is.null(hap.mat1) & !is.null(hap.mat2)){
-    print("marker.mat not provided, calculating it from hap.mat1 and hap.mat2")
-    marker.mat <- hap.mat1+hap.mat2
-  }
 
   # ---- Normalize ----
-  if (!is.matrix(marker.mat)) marker.mat <- as.matrix(marker.mat)
+  marker.mat <- as.matrix(marker.mat)
+
+  if (!is.numeric(marker.mat)) {
+    stop("`marker.mat` must be numeric.")
+  }
+
+  if (any(!is.finite(marker.mat))) {
+    stop("`marker.mat` must contain only finite values.")
+  }
+
+  if (!all(dim(effects.D) == dim(effects.A))) {
+    stop("`marker.effects.A` and `marker.effects.D` must have the same dimensions.")
+  }
+
+  # ---- Checks ----
+  if (ncol(marker.mat) <= 0L) {
+    stop("`marker.mat` must have markers in columns.")
+  }
+
+  if (nrow(effects.A) != ncol(marker.mat)) {
+    stop(
+      "`marker.effects.A` must have one row per marker: ",
+      "nrow(marker.effects.A) = ", nrow(effects.A),
+      ", ncol(marker.mat) = ", ncol(marker.mat), "."
+    )
+  }
 
   calculate.index <- !is.null(weights)
 
-  if (is.null(effects.D) ) {
-    warning("No effects.D given, ignoring dominane effects")
-    effects.D <- matrix(0,ncol=ncol(effects.A), nrow=nrow(effects.A))
-  }
-  if (!is.matrix(effects.A)) effects.A <- as.matrix(effects.A)
-  if (!is.matrix(effects.D)) effects.D <- as.matrix(effects.D)
+  if (is.null(weights)) {
 
-  if (ncol(effects.A) == 1 | is.null(weights)) { weights <- rep(1,ncol(effects.A)) }
-  if (!all(dim(effects.D) == dim(effects.A))) {
-    stop("effects.A and effects.D need to have the same dimensions.")
+    # Dummy weights required by the C++ interface.
+    # They are not used because calcindex = FALSE.
+    weights <- rep(1, ncol(effects.A))
+
+  } else {
+
+    weights <- as.numeric(weights)
+
+    if (length(weights) != ncol(effects.A)) {
+      stop(
+        "`weights` must have length equal to the number of traits in ",
+        "`marker.effects.A`."
+      )
+    }
+
+    if (any(!is.finite(weights))) {
+      stop("`weights` must contain only finite values.")
+    }
   }
 
   # ---- Checks ----

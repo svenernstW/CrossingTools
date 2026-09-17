@@ -1,6 +1,6 @@
 Package: CrossingTools
 Title: Tools for Cross Optimization in Plant Breeding Programs
-Version: 1.0.9
+Version: 1.1.0
 Authors@R: 
     c(
       person("Sven", "Weber", email = "sven.e.weber@agrar.uni-giessen.de", role = c("aut", "cre", "cph")),
@@ -26,13 +26,12 @@ Description: Mate allocation is a critical component of plant breeding programs,
     The package combines R’s scripting flexibility with high-performance C++
     routines via 'Rcpp' and 'RcppArmadillo', ensuring scalability for large
     populations with dense marker data.
-License: GPL-3 | file LICENSE
+License: GPL-3
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE, roclets = c("collate", "namespace", "rd"))
 ByteCompile: true
-RoxygenNote: 7.3.3
 Depends:
-    R (>= 4.0.0)
+    R (>= 4.1.0)
 Imports:
     ggplot2,
     ggridges,
@@ -52,3 +51,4 @@ Config/testthat/edition: 3
 VignetteBuilder: knitr
 URL: https://github.com/svenernstW/CrossingTools
 BugReports: https://github.com/svenernstW/CrossingTools/issues
+Config/roxygen2/version: 8.1.0

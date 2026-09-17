@@ -11,7 +11,7 @@ calc_spv_outcross(
   hap.mat2,
   marker.effects.A,
   marker.effects.D,
-  intensity = NULL,
+  intensity = 1,
   weights = NULL,
   covariance = FALSE,
   nthreads = 4L
@@ -38,12 +38,15 @@ in columns, containing the first haplotype of each individual.}
 \item{hap.mat2}{Numeric haplotype matrix with the same dimensions as
 \code{hap.mat1}, containing the second haplotype of each individual.}
 
-\item{marker.effects.A}{Numeric matrix of additive marker effects with markers
-in rows and traits in columns. Its number of rows must equal
+\item{marker.effects.A}{Numeric matrix of average allele-substitution effects
+(\eqn{\alpha}) with markers in rows and traits in columns. Effects must be
+parameterised relative to the reference population represented by
+\code{hap.mat1} and \code{hap.mat2}. Its number of rows must equal
 \code{ncol(hap.mat1)}.}
 
-\item{marker.effects.D}{Numeric matrix of dominance marker effects with markers
-in rows and traits in columns. It must have the same dimensions as
+\item{marker.effects.D}{Numeric matrix of dominance effects with markers
+in rows and traits in columns, used with the statistical dominance-deviation
+parameterisation. It must have the same dimensions as
 \code{marker.effects.A}.}
 
 \item{intensity}{Numeric scalar giving the standardized selection intensity
@@ -52,8 +55,9 @@ used to calculate SPV and TSPV. The default is 1.}
 \item{weights}{Optional numeric vector with one weight per trait. When
 supplied, weighted index values are calculated for each cross.}
 
-\item{covariance}{Logical. If \code{TRUE}, also calculate additive and
-dominance segregation covariance matrices among traits for each cross.}
+\item{covariance}{Logical. If \code{TRUE}, also calculate breeding-value,
+dominance-deviation, and combined additive--dominance segregation
+covariance matrices among traits for each cross.}
 
 \item{nthreads}{Positive integer. Number of computational threads.}
 }
@@ -61,12 +65,15 @@ dominance segregation covariance matrices among traits for each cross.}
 If neither \code{weights} nor trait covariances are requested, a data
 frame containing the parental identifiers and, for each trait,
 \code{GEBV.<trait>}, \code{TGV.<trait>}, \code{var.A.<trait>},
-\code{SPV.<trait>}, \code{var.D.<trait>}, and \code{TSPV.<trait>}.
+\code{SPV.<trait>}, \code{var.D.<trait>},
+\code{var.TGV.<trait>}, and \code{TSPV.<trait>}.
 
-If \code{weights} is supplied, a list additionally containing
-\code{index.df}, with columns \code{GEBV.IDX}, \code{TGV.IDX},
-\code{var.A.IDX}, \code{SPV.IDX}, \code{var.D.IDX}, and
-\code{TSPV.IDX}.
+If \code{weights} is supplied, \code{index.df} contains
+\code{GEBV.IDX}, \code{TGV.IDX}, \code{var.A.IDX},
+\code{SPV.IDX}, \code{var.D.IDX}, \code{var.TGV.IDX},
+and \code{TSPV.IDX}. The total genetic segregation variance
+\code{var.TGV.IDX} includes breeding-value variance,
+dominance-deviation variance, and their covariance.
 
 If \code{covariance = TRUE}, a list containing:
 \describe{
@@ -74,10 +81,12 @@ If \code{covariance = TRUE}, a list containing:
 variances.}
 \item{\code{index.df}}{Weighted index values, if \code{weights} is
 supplied.}
-\item{\code{additive.covariances}}{Additive segregation covariance
+\item{\code{additive.covariances}}{Breeding-value segregation covariance
 matrices for each cross.}
-\item{\code{dominance.covariances}}{Dominance segregation covariance
-matrices for each cross.}
+\item{\code{dominance.covariances}}{Dominance-deviation segregation
+covariance matrices for each cross.}
+\item{\code{additive.dominance.covariances}}{Combined additive--dominance
+covariance matrices, \eqn{\Sigma_{AD} + \Sigma_{DA}}, for each cross.}
 }
 }
 \description{
@@ -86,8 +95,8 @@ additive and dominance segregation variances, and superior progeny values
 for proposed F1 crosses.
 }
 \details{
-Additive superior progeny values are calculated from the additive
-segregation variance, whereas total superior progeny values additionally
-account for dominance variance. Multiple traits and optional weighted trait
-indices are supported.
+Additive superior progeny values are calculated from the breeding-value
+segregation variance, whereas total superior progeny values are calculated
+from the total genetic segregation variance, including breeding-value
+variance, dominance-deviation variance, and their covariance.
 }

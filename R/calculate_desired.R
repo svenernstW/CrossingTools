@@ -60,7 +60,7 @@ calculate_desired_gains <- function(
     }
   }
   if (use.V.approx) {
-    V.approx <- cov(effects)
+    V.approx <- stats::cov(effects)
 
   }
 

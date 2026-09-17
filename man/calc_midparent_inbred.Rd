@@ -18,11 +18,13 @@ four columns for four-way crosses. Parent identifiers may be row indices of
 \code{marker.mat} or character identifiers matching
 \code{rownames(marker.mat)}.}
 
-\item{marker.mat}{Numeric marker matrix with individuals in rows and markers
-in columns.}
+\item{marker.mat}{Numeric marker dosage matrix with individuals in rows and
+markers in columns, coded 0, 1, and 2 for the counted allele.}
 
-\item{marker.effects}{Numeric matrix of marker effects with markers in rows
-and traits in columns. Its number of rows must equal
+\item{marker.effects}{Numeric matrix of average allele-substitution effects
+(\eqn{\alpha}) with markers in rows and traits in columns. Effects must be
+parameterised relative to the reference population represented by
+\code{marker.mat}. Its number of rows must equal
 \code{ncol(marker.mat)}.}
 
 \item{weights}{Optional numeric vector with one weight per trait. When

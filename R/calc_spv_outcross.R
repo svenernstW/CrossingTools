@@ -4,10 +4,10 @@
 #' additive and dominance segregation variances, and superior progeny values
 #' for proposed F1 crosses.
 #'
-#' Additive superior progeny values are calculated from the additive
-#' segregation variance, whereas total superior progeny values additionally
-#' account for dominance variance. Multiple traits and optional weighted trait
-#' indices are supported.
+#' Additive superior progeny values are calculated from the breeding-value
+#' segregation variance, whereas total superior progeny values are calculated
+#' from the total genetic segregation variance, including breeding-value
+#' variance, dominance-deviation variance, and their covariance.
 #'
 #' @param crosses Matrix or data frame with two columns specifying the parents
 #'   of each proposed cross. Parent identifiers may be row indices of
@@ -25,29 +25,36 @@
 #'   in columns, containing the first haplotype of each individual.
 #' @param hap.mat2 Numeric haplotype matrix with the same dimensions as
 #'   \code{hap.mat1}, containing the second haplotype of each individual.
-#' @param marker.effects.A Numeric matrix of additive marker effects with markers
-#'   in rows and traits in columns. Its number of rows must equal
+#' @param marker.effects.A Numeric matrix of average allele-substitution effects
+#'   (\eqn{\alpha}) with markers in rows and traits in columns. Effects must be
+#'   parameterised relative to the reference population represented by
+#'   \code{hap.mat1} and \code{hap.mat2}. Its number of rows must equal
 #'   \code{ncol(hap.mat1)}.
-#' @param marker.effects.D Numeric matrix of dominance marker effects with markers
-#'   in rows and traits in columns. It must have the same dimensions as
+#' @param marker.effects.D Numeric matrix of dominance effects with markers
+#'   in rows and traits in columns, used with the statistical dominance-deviation
+#'   parameterisation. It must have the same dimensions as
 #'   \code{marker.effects.A}.
 #' @param intensity Numeric scalar giving the standardized selection intensity
 #'   used to calculate SPV and TSPV. The default is 1.
 #' @param weights Optional numeric vector with one weight per trait. When
 #'   supplied, weighted index values are calculated for each cross.
-#' @param covariance Logical. If \code{TRUE}, also calculate additive and
-#'   dominance segregation covariance matrices among traits for each cross.
+#' @param covariance Logical. If \code{TRUE}, also calculate breeding-value,
+#'   dominance-deviation, and combined additive--dominance segregation
+#'   covariance matrices among traits for each cross.
 #' @param nthreads Positive integer. Number of computational threads.
 #'
 #' @return If neither \code{weights} nor trait covariances are requested, a data
 #'   frame containing the parental identifiers and, for each trait,
 #'   \code{GEBV.<trait>}, \code{TGV.<trait>}, \code{var.A.<trait>},
-#'   \code{SPV.<trait>}, \code{var.D.<trait>}, and \code{TSPV.<trait>}.
+#'   \code{SPV.<trait>}, \code{var.D.<trait>},
+#'   \code{var.TGV.<trait>}, and \code{TSPV.<trait>}.
 #'
-#'   If \code{weights} is supplied, a list additionally containing
-#'   \code{index.df}, with columns \code{GEBV.IDX}, \code{TGV.IDX},
-#'   \code{var.A.IDX}, \code{SPV.IDX}, \code{var.D.IDX}, and
-#'   \code{TSPV.IDX}.
+#'   If \code{weights} is supplied, \code{index.df} contains
+#'   \code{GEBV.IDX}, \code{TGV.IDX}, \code{var.A.IDX},
+#'   \code{SPV.IDX}, \code{var.D.IDX}, \code{var.TGV.IDX},
+#'   and \code{TSPV.IDX}. The total genetic segregation variance
+#'   \code{var.TGV.IDX} includes breeding-value variance,
+#'   dominance-deviation variance, and their covariance.
 #'
 #'   If \code{covariance = TRUE}, a list containing:
 #'   \describe{
@@ -55,19 +62,25 @@
 #'     variances.}
 #'     \item{\code{index.df}}{Weighted index values, if \code{weights} is
 #'     supplied.}
-#'     \item{\code{additive.covariances}}{Additive segregation covariance
+#'     \item{\code{additive.covariances}}{Breeding-value segregation covariance
 #'     matrices for each cross.}
-#'     \item{\code{dominance.covariances}}{Dominance segregation covariance
-#'     matrices for each cross.}
+#'     \item{\code{dominance.covariances}}{Dominance-deviation segregation
+#'     covariance matrices for each cross.}
+#'     \item{\code{additive.dominance.covariances}}{Combined additive--dominance
+#'     covariance matrices, \eqn{\Sigma_{AD} + \Sigma_{DA}}, for each cross.}
 #'   }
 #'
 #' @export
 
 calc_spv_outcross <- function(crosses, genetic.map, hap.mat1, hap.mat2, marker.effects.A, marker.effects.D,
-                                   intensity=NULL, weights = NULL, covariance = FALSE,
+                                   intensity=1, weights = NULL, covariance = FALSE,
                                    nthreads = 4L) {
 
-  traits <- names(marker.effects.A)
+  traits <- colnames(marker.effects.A)
+
+  if (is.null(traits)) {
+    traits <- paste0("trait", seq_len(ncol(marker.effects.A)))
+  }
 
   if(!ncol(crosses) %in% c(2)){stop("ncol(crosses) needs to be 2 ")}
   crosses_in <- crosses
@@ -232,6 +245,7 @@ calc_spv_outcross <- function(crosses, genetic.map, hap.mat1, hap.mat2, marker.e
     paste0("var.A.", traits),
     paste0("SPV.", traits),
     paste0("var.D.", traits),
+    paste0("var.TGV.", traits),
     paste0("TSPV.", traits)
   )
 
@@ -241,13 +255,21 @@ calc_spv_outcross <- function(crosses, genetic.map, hap.mat1, hap.mat2, marker.e
   if (covariance) {
     cv <- as.data.frame(temp$cross_values)
 
-    temp1 <- cv[, 1:(6 * ntraits), drop = FALSE]
+    temp1 <- cv[, 1:(7 * ntraits), drop = FALSE]
     names(temp1) <- name_vec
     temp1 <- cbind(crosses_df, temp1)
 
     if (calculate.index) {
-      temp2 <- cv[, (6 * ntraits + 1):(6 * ntraits + 6), drop = FALSE]
-      names(temp2) <- c("GEBV.IDX","TGV.IDX","var.A.IDX","SPV.IDX","var.D.IDX","TSPV.IDX")
+      temp2 <- cv[, (7 * ntraits + 1):(7 * ntraits + 7), drop = FALSE]
+      names(temp2) <- c(
+        "GEBV.IDX",
+        "TGV.IDX",
+        "var.A.IDX",
+        "SPV.IDX",
+        "var.D.IDX",
+        "var.TGV.IDX",
+        "TSPV.IDX"
+      )
       temp2 <- cbind(crosses_df, temp2)
 
       if (isTRUE(temp$check_psd)) {
@@ -258,13 +280,15 @@ calc_spv_outcross <- function(crosses, genetic.map, hap.mat1, hap.mat2, marker.e
         cross.df = temp1,
         index.df = temp2,
         additive.covariances = temp$covA,
-        dominance.covariances = temp$covD
+        dominance.covariances = temp$covD,
+        additive.dominance.covariances = temp$covAD
       ))
     } else {
       return(list(
         cross.df = temp1,
         additive.covariances = temp$covA,
-        dominance.covariances = temp$covD
+        dominance.covariances = temp$covD,
+        additive.dominance.covariances = temp$covAD
       ))
     }
   }
@@ -280,17 +304,34 @@ calc_spv_outcross <- function(crosses, genetic.map, hap.mat1, hap.mat2, marker.e
       2 * p + seq_len(ntraits),
       3 * p + seq_len(ntraits),
       4 * p + seq_len(ntraits),
-      5 * p + seq_len(ntraits)
+      5 * p + seq_len(ntraits),
+      6 * p + seq_len(ntraits)
     )
 
-    idx_cols <- c(p, 2 * p, 3 * p, 4 * p, 5 * p, 6 * p)
+    idx_cols <- c(
+      p,
+      2 * p,
+      3 * p,
+      4 * p,
+      5 * p,
+      6 * p,
+      7 * p
+    )
 
     temp1 <- cv[, trait_cols, drop = FALSE]
     names(temp1) <- name_vec
     temp1 <- cbind(crosses_df, temp1)
 
     temp2 <- cv[, idx_cols, drop = FALSE]
-    names(temp2) <- c("GEBV.IDX","TGV.IDX","var.A.IDX","SPV.IDX","var.D.IDX","TSPV.IDX")
+    names(temp2) <- c(
+      "GEBV.IDX",
+      "TGV.IDX",
+      "var.A.IDX",
+      "SPV.IDX",
+      "var.D.IDX",
+      "var.TGV.IDX",
+      "TSPV.IDX"
+    )
     temp2 <- cbind(crosses_df, temp2)
 
     return(list(
@@ -300,7 +341,7 @@ calc_spv_outcross <- function(crosses, genetic.map, hap.mat1, hap.mat2, marker.e
   }
 
   out <- as.data.frame(temp)
-  out <- out[, 1:(6 * ntraits), drop = FALSE]
+  out <- out[, 1:(7 * ntraits), drop = FALSE]
   names(out) <- name_vec
   out <- cbind(crosses_df, out)
   return(out)
