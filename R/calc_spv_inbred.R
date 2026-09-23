@@ -5,8 +5,30 @@
 #' families derived from proposed two-way or four-way crosses.
 #'
 #' The calculation can account for additional generations of random mating
-#' before line development. Multiple traits and optional weighted trait indices
-#' are supported.
+#' or inbreeding before line development. Multiple traits and optional weighted
+#' trait indices are supported.
+#'
+#' Segregation (co)variances are calculated analytically from parental marker
+#' genotypes, recombination fractions, and average allele-substitution effects.
+#' For biparental crosses, the available methods follow the analytical
+#' approaches of Lehermeier et al. (2017) and Osthushenrich et al. (2017).
+#' Both provide expressions for doubled haploid (DH) and recombinant
+#' inbred line (RIL) populations after an arbitrary number of intermating
+#' generations. Four-way crosses are calculated using the extension to
+#' multi-parental crosses described by Allier et al. (2019).
+#'
+#' Additive genetic values are expressed as breeding values using centred
+#' marker genotypes, \eqn{M - 2p}, and average allele-substitution effects
+#' (\eqn{\alpha}). The reference allele frequencies \eqn{p} can be supplied by
+#' the user. If they are not supplied, they are calculated from
+#' \code{marker.mat}. Thus, \code{p} defines the reference population relative
+#' to which breeding values are expressed.
+#'
+#' Superior progeny values (SPV) combine the expected family breeding value
+#' with the predicted segregation standard deviation and a user-supplied
+#' selection intensity. For multiple traits, segregation covariance matrices
+#' can additionally be calculated and combined with trait weights to obtain
+#' an index-level SPV.
 #'
 #' @param crosses Matrix or data frame with two columns for two-way crosses or
 #'   four columns for four-way crosses. Parent identifiers may be row indices of
@@ -22,25 +44,33 @@
 #'   All markers in \code{marker.mat} must be represented.
 #' @param marker.mat Numeric marker dosage matrix with individuals in rows and
 #'   markers in columns, coded 0, 1, and 2 for the counted allele.
-##' @param marker.effects Numeric matrix of average allele-substitution effects
-#'   (\eqn{\alpha}) with markers in rows and traits in columns. Effects must be
-#'   parameterised relative to the reference population represented by
+#' @param marker.effects Numeric matrix of average allele-substitution effects
+#'   (\eqn{\alpha}) with markers in rows and traits in columns. Effects should be
+#'   parameterised relative to the reference population defined by \code{p}.
+#'   If \code{p = NULL}, the reference allele frequencies are derived from
 #'   \code{marker.mat}. Its number of rows must equal
 #'   \code{ncol(marker.mat)}.
-##' @param t Integer. Number of random-mating generations before doubled haploid
-#'   or recombinant inbred line development.
-#' @param intensity Numeric scalar giving the standardized selection intensity
+#' @param t Integer. Number of additional generations considered before final
+#'   line development. Its interpretation depends on the selected offspring
+#'   type and segregation-variance method.
+#' @param intensity Numeric scalar giving the standardised selection intensity
 #'   used to calculate superior progeny values. The default is 1.
 #' @param type Character. Offspring type, either \code{"DH"} for doubled
 #'   haploid lines or \code{"RIL"} for recombinant inbred lines.
 #' @param weights Optional numeric vector with one weight per trait. When
 #'   supplied, weighted index values are calculated for each cross.
+#' @param p Optional numeric vector of reference allele frequencies, with one
+#'   value per marker. These frequencies define the reference population used
+#'   to centre marker genotypes for breeding-value calculations. If
+#'   \code{NULL}, allele frequencies are calculated from \code{marker.mat}.
 #' @param covariance Logical. If \code{TRUE}, also calculate segregation
 #'   covariance matrices among traits for each cross.
 #' @param method Method used to calculate segregation variance. Either
-#'   \code{1} or \code{"lehermeier"} for the Lehermeier method, or \code{2} or
-#'   \code{"osthushenrich"} for the Osthushenrich method. The latter is
-#'   currently available only for two-way crosses.
+#'   \code{1} or \code{"lehermeier"} for the Lehermeier et al. (2017) method,
+#'   or \code{2} or \code{"osthushenrich"} for the Osthushenrich et al. (2017)
+#'   method. The latter is currently available only for two-way crosses.
+#'   Four-way crosses are calculated using the multi-parental formulation of
+#'   Allier et al. (2019).
 #' @param nthreads Positive integer. Number of computational threads.
 #'
 #' @return If neither \code{weights} nor trait covariances are requested, a data
@@ -61,10 +91,30 @@
 #'     cross.}
 #'   }
 #'
+#' @references
+#' Lehermeier, C., Teyssedre, S. and Schon, C.-C. (2017).
+#' Genetic gain increases by applying the usefulness criterion with improved
+#' variance prediction in selection of crosses.
+#' \emph{Genetics}, 207(4), 1651--1661.
+#' \doi{10.1534/genetics.117.300403}
+#'
+#' Osthushenrich, T., Frisch, M. and Herzog, E. (2017).
+#' Genomic selection of crossing partners on basis of the expected mean and
+#' variance of their derived lines.
+#' \emph{PLOS ONE}, 12(12), e0188839.
+#' \doi{10.1371/journal.pone.0188839}
+#'
+#' Allier, A., Moreau, L., Charcosset, A., Teyssedre, S. and
+#' Lehermeier, C. (2019).
+#' Usefulness criterion and post-selection parental contributions in
+#' multi-parental crosses: Application to polygenic trait introgression.
+#' \emph{G3: Genes|Genomes|Genetics}, 9(5), 1469--1479.
+#' \doi{10.1534/g3.119.400129}
+#'
 #' @export
 
 calc_spv_inbred <- function(crosses, genetic.map, marker.mat, marker.effects, t, intensity=1, type = "DH",
-                            weights = NULL,covariance = FALSE,
+                            weights = NULL,p=NULL, covariance = FALSE,
                                    method = 1, nthreads = 4L) {
 
   marker.effects <- as.matrix(marker.effects)
@@ -141,6 +191,39 @@ calc_spv_inbred <- function(crosses, genetic.map, marker.mat, marker.effects, t,
   if (!is.matrix(marker.mat)) marker.mat <- as.matrix(marker.mat)
   if (!is.matrix(effects)) effects <- as.matrix(effects)
   crosses2 <- as.matrix(crosses2)
+  ###############################################################################
+  # Reference allele frequencies
+  ###############################################################################
+
+  if (is.null(p)) {
+
+    # Default: the supplied marker population defines the reference population
+    p <- colMeans(marker.mat) / 2
+
+  } else {
+
+    if (!is.numeric(p)) {
+      stop("`p` must be a numeric vector of reference allele frequencies.")
+    }
+
+    p <- as.numeric(p)
+
+    if (length(p) != ncol(marker.mat)) {
+      stop(
+        "`p` must contain one allele frequency per marker: ",
+        "length(p) = ", length(p),
+        ", ncol(marker.mat) = ", ncol(marker.mat), "."
+      )
+    }
+  }
+
+  if (any(!is.finite(p))) {
+    stop("`p` must contain only finite values.")
+  }
+
+  if (any(p < 0 | p > 1)) {
+    stop("All values in `p` must be between 0 and 1.")
+  }
 
   ntraits <- ncol(marker.effects)
   if (ntraits == 1L) covariance <- FALSE
@@ -217,9 +300,11 @@ calc_spv_inbred <- function(crosses, genetic.map, marker.mat, marker.effects, t,
 
   marker.mat <- marker.mat[, ord, drop = FALSE]
   effects    <- effects[ord, , drop = FALSE]
+  p          <- p[ord]
 
-  # relabel sites to 1..p for downstream code
+  # Relabel sites sequentially for downstream code
   map2$site <- seq_len(ncol(marker.mat))
+
 
   chr_levels <- unique(map2$chr)
   genmap_list <- lapply(chr_levels, function(cc) {
@@ -247,6 +332,7 @@ calc_spv_inbred <- function(crosses, genetic.map, marker.mat, marker.effects, t,
           t          = as.integer(t),
           intensity  = intensity,
           weights    = weights,
+          p = p,
           covariance = covariance,
           calcindex  = calculate.index,
           nThreads   = nThreads
@@ -260,6 +346,7 @@ calc_spv_inbred <- function(crosses, genetic.map, marker.mat, marker.effects, t,
           t          = as.integer(t),
           intensity  = intensity,
           weights    = weights,
+          p = p,
           covariance = covariance,
           calcindex  = calculate.index,
           nThreads   = nThreads
@@ -281,6 +368,7 @@ calc_spv_inbred <- function(crosses, genetic.map, marker.mat, marker.effects, t,
           t          = as.integer(t),
           intensity  = intensity,
           weights    = weights,
+          p = p,
           covariance = covariance,
           calcindex  = calculate.index,
           nThreads   = nThreads
@@ -295,6 +383,7 @@ calc_spv_inbred <- function(crosses, genetic.map, marker.mat, marker.effects, t,
           t          = as.integer(t),
           intensity  = intensity,
           weights    = weights,
+          p = p,
           covariance = covariance,
           calcindex  = calculate.index,
           nThreads   = nThreads
@@ -319,6 +408,7 @@ calc_spv_inbred <- function(crosses, genetic.map, marker.mat, marker.effects, t,
           t          = as.integer(t),
           intensity  = intensity,
           weights    = weights,
+          p = p,
           covariance = covariance,
           calcindex  = calculate.index,
           nThreads   = nThreads
@@ -332,6 +422,7 @@ calc_spv_inbred <- function(crosses, genetic.map, marker.mat, marker.effects, t,
           t          = as.integer(t),
           intensity  = intensity,
           weights    = weights,
+          p = p,
           covariance = covariance,
           calcindex  = calculate.index,
           nThreads   = nThreads
@@ -353,6 +444,7 @@ calc_spv_inbred <- function(crosses, genetic.map, marker.mat, marker.effects, t,
           t          = as.integer(t),
           intensity  = intensity,
           weights    = weights,
+          p = p,
           covariance = covariance,
           calcindex  = calculate.index,
           nThreads   = nThreads
@@ -367,6 +459,7 @@ calc_spv_inbred <- function(crosses, genetic.map, marker.mat, marker.effects, t,
           t          = as.integer(t),
           intensity  = intensity,
           weights    = weights,
+          p = p,
           covariance = covariance,
           calcindex  = calculate.index,
           nThreads   = nThreads
@@ -425,15 +518,19 @@ calc_spv_inbred <- function(crosses, genetic.map, marker.mat, marker.effects, t,
   if (calculate.simple.index) {
     cv <- as.data.frame(temp)
 
-    p <- ncol(effects)   # original traits + 1 appended index trait
+    ntraits.cpp <- ncol(effects)  # original traits + 1 appended index trait
 
     trait_cols <- c(
       seq_len(ntraits),
-      p + seq_len(ntraits),
-      2 * p + seq_len(ntraits)
+      ntraits.cpp + seq_len(ntraits),
+      2 * ntraits.cpp + seq_len(ntraits)
     )
 
-    idx_cols <- c(p, 2 * p, 3 * p)
+    idx_cols <- c(
+      ntraits.cpp,
+      2 * ntraits.cpp,
+      3 * ntraits.cpp
+    )
 
     temp1 <- cv[, trait_cols, drop = FALSE]
     names(temp1) <- name_vec

@@ -13,6 +13,7 @@ calc_spv_outcross(
   marker.effects.D,
   intensity = 1,
   weights = NULL,
+  p = NULL,
   covariance = FALSE,
   nthreads = 4L
 )
@@ -39,21 +40,27 @@ in columns, containing the first haplotype of each individual.}
 \code{hap.mat1}, containing the second haplotype of each individual.}
 
 \item{marker.effects.A}{Numeric matrix of average allele-substitution effects
-(\eqn{\alpha}) with markers in rows and traits in columns. Effects must be
-parameterised relative to the reference population represented by
+(\eqn{\alpha}) with markers in rows and traits in columns. Effects should be
+parameterised relative to the reference population defined by \code{p}.
+If \code{p = NULL}, the reference allele frequencies are derived from
 \code{hap.mat1} and \code{hap.mat2}. Its number of rows must equal
 \code{ncol(hap.mat1)}.}
 
-\item{marker.effects.D}{Numeric matrix of dominance effects with markers
-in rows and traits in columns, used with the statistical dominance-deviation
-parameterisation. It must have the same dimensions as
-\code{marker.effects.A}.}
+\item{marker.effects.D}{Numeric matrix of dominance marker effects
+(\eqn{\delta}) with markers in rows and traits in columns, used with the
+statistical dominance-deviation parameterisation. It must have the same
+dimensions as \code{marker.effects.A}.}
 
 \item{intensity}{Numeric scalar giving the standardized selection intensity
 used to calculate SPV and TSPV. The default is 1.}
 
 \item{weights}{Optional numeric vector with one weight per trait. When
 supplied, weighted index values are calculated for each cross.}
+
+\item{p}{Optional numeric vector of reference allele frequencies, with one
+value per marker. If \code{NULL}, allele frequencies are calculated from
+\code{hap.mat1} and \code{hap.mat2}. The supplied frequencies are used to
+centre marker genotypes for breeding-value calculations.}
 
 \item{covariance}{Logical. If \code{TRUE}, also calculate breeding-value,
 dominance-deviation, and combined additive--dominance segregation
@@ -99,4 +106,26 @@ Additive superior progeny values are calculated from the breeding-value
 segregation variance, whereas total superior progeny values are calculated
 from the total genetic segregation variance, including breeding-value
 variance, dominance-deviation variance, and their covariance.
+
+Segregation (co)variances are calculated analytically from phased parental
+haplotypes, recombination fractions, and additive and dominance marker
+effects, following the framework of Bonk et al. (2016) for Mendelian
+sampling covariability among full-sib progeny.
+
+Additive genetic values are expressed as breeding values using centred
+marker genotypes, \eqn{M - 2p}, and average allele-substitution effects
+(\eqn{\alpha}). Dominance is represented by statistical dominance
+deviations. The expected total genetic value is therefore the sum of the
+expected breeding value and expected dominance deviation.
+
+For multiple traits, the corresponding segregation covariance matrices are
+calculated analogously. These quantities can be combined with a selection
+intensity to obtain additive superior progeny values (SPV) and total
+superior progeny values (TSPV).
+}
+\references{
+Bonk, S., Reichelt, M., Teuscher, F., Segelke, D. and Reinsch, N. (2016).
+Mendelian sampling covariability of marker effects and genetic values.
+\emph{Genetics Selection Evolution}, 48, 36.
+\doi{10.1186/s12711-016-0214-0}
 }

@@ -2,7 +2,7 @@
 % Please edit documentation in R/calc_midparent_outcross.R
 \name{calc_midparent_outcross}
 \alias{calc_midparent_outcross}
-\title{Calculate predicted means for two-way outcrosses}
+\title{Calculate expected breeding and total genetic values for biparental outcrosses}
 \usage{
 calc_midparent_outcross(
   crosses,
@@ -10,6 +10,7 @@ calc_midparent_outcross(
   marker.effects.A,
   marker.effects.D = NULL,
   weights = NULL,
+  p = NULL,
   nthreads = 4L
 )
 }
@@ -20,22 +21,30 @@ of each proposed cross. Parent identifiers may be row indices of
 \code{rownames(marker.mat)}.}
 
 \item{marker.mat}{Numeric marker dosage matrix with individuals in rows and
-markers in columns.}
+markers in columns, coded 0, 1, and 2 for the counted allele.}
 
 \item{marker.effects.A}{Numeric matrix of average allele-substitution effects
-(\eqn{\alpha}) with markers in rows and traits in columns. Effects must be
-parameterised relative to the reference population represented by
-\code{hap.mat1} and \code{hap.mat2}. Its number of rows must equal
-\code{ncol(hap.mat1)}.}
+(\eqn{\alpha}) with markers in rows and traits in columns. Effects should
+be parameterised relative to the reference population defined by
+\code{p}. If \code{p = NULL}, the reference allele frequencies are derived
+from \code{marker.mat}. Its number of rows must equal
+\code{ncol(marker.mat)}.}
 
-\item{marker.effects.D}{Numeric matrix of dominance effects with markers
-in rows and traits in columns, used with the statistical dominance-deviation
-parameterisation. It must have the same dimensions as
-\code{marker.effects.A}.}
+\item{marker.effects.D}{Optional numeric matrix of dominance marker effects
+(\eqn{d}) with markers in rows and traits in columns, used with the
+statistical dominance-deviation parameterisation. It must have the same
+dimensions as \code{marker.effects.A}. If \code{NULL}, dominance effects
+are assumed to be zero.}
 
 \item{weights}{Optional numeric vector with one weight per trait. When
 supplied, weighted indices are calculated from the trait-specific GEBVs
 and TGVs.}
+
+\item{p}{Optional numeric vector of reference allele frequencies, with one
+value per marker. These frequencies define the reference population used
+to centre marker genotypes and parameterise statistical dominance
+deviations. If \code{NULL}, allele frequencies are calculated from
+\code{marker.mat}.}
 
 \item{nthreads}{Positive integer. Number of computational threads.}
 }
@@ -57,11 +66,38 @@ Calculates the expected genomic breeding value and expected total genetic
 value of proposed two-way crosses from additive and dominance marker effects.
 }
 \details{
-The expected genomic breeding value is the mid-parent additive value. The
-expected total genetic value additionally includes the expected dominance
-contribution of the F1. If dominance effects are not supplied, they are
-assumed to be zero.
+Under an additive genetic model, the expected breeding value of progeny from
+a cross between two individuals equals the average of the parental breeding
+values, i.e. the mid-parent value (Falconer and Mackay, 2009). Breeding
+values are calculated from centred marker genotypes, \eqn{M - 2p}, and
+average allele-substitution effects (\eqn{\alpha}), where \eqn{p} contains
+the allele frequencies of the reference population.
+
+When dominance effects are included, the expected total genetic value (TGV)
+additionally accounts for the expected statistical dominance deviation of
+the F1 progeny. This allows crosses between complementary parents to be
+distinguished when their expected performance differs because of dominance,
+which can be relevant for the selection of crossing parents in outcrossing
+and clonally propagated breeding programmes (Werner et al., 2023).
+
+The allele frequencies in \code{p} define the reference population used for
+the statistical additive and dominance parameterisation. If \code{p} is not
+supplied, allele frequencies are calculated from \code{marker.mat}. The
+supplied average allele-substitution and dominance effects should therefore
+correspond to the same reference population.
 
 Multiple traits can be evaluated simultaneously. Optional trait weights can
-be used to calculate additive and total-genetic-value indices.
+be used to calculate indices for the expected breeding value and expected
+total genetic value.
+}
+\references{
+Falconer, D. S. and Mackay, T. (2009).
+\emph{Introduction to Quantitative Genetics}. 4th ed.
+Pearson, Prentice Hall, Harlow.
+
+Werner, C. R., Gaynor, R. C., Sargent, D. J., Lillo, A., Gorjanc, G. and
+Hickey, J. M. (2023).
+Genomic selection strategies for clonally propagated crops.
+\emph{Theoretical and Applied Genetics}, 136, 74.
+\doi{10.1007/s00122-023-04300-6}
 }

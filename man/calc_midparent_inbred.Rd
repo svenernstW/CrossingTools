@@ -2,34 +2,41 @@
 % Please edit documentation in R/calc_midparent_inbred.R
 \name{calc_midparent_inbred}
 \alias{calc_midparent_inbred}
-\title{Calculate predicted additive means for specified crosses}
+\title{Calculate expected breeding values for inbred crosses}
 \usage{
 calc_midparent_inbred(
   crosses,
   marker.mat,
   marker.effects,
   weights = NULL,
+  p = NULL,
   nthreads = 4L
 )
 }
 \arguments{
-\item{crosses}{Matrix or data frame with two columns for two-way crosses or
-four columns for four-way crosses. Parent identifiers may be row indices of
-\code{marker.mat} or character identifiers matching
+\item{crosses}{Matrix or data frame with two columns for biparental crosses
+or four columns for four-parent crosses. Parent identifiers may be row
+indices of \code{marker.mat} or character identifiers matching
 \code{rownames(marker.mat)}.}
 
 \item{marker.mat}{Numeric marker dosage matrix with individuals in rows and
 markers in columns, coded 0, 1, and 2 for the counted allele.}
 
 \item{marker.effects}{Numeric matrix of average allele-substitution effects
-(\eqn{\alpha}) with markers in rows and traits in columns. Effects must be
-parameterised relative to the reference population represented by
-\code{marker.mat}. Its number of rows must equal
+(\eqn{\alpha}) with markers in rows and traits in columns. Effects should
+be parameterised relative to the reference population defined by
+\code{p}. If \code{p = NULL}, the reference allele frequencies are derived
+from \code{marker.mat}. Its number of rows must equal
 \code{ncol(marker.mat)}.}
 
 \item{weights}{Optional numeric vector with one weight per trait. When
-supplied, a weighted genomic breeding value index is calculated for each
+supplied, a weighted genomic breeding-value index is calculated for each
 cross.}
+
+\item{p}{Optional numeric vector of reference allele frequencies, with one
+value per marker. These frequencies define the reference population used
+to centre marker genotypes for breeding-value calculations. If
+\code{NULL}, allele frequencies are calculated from \code{marker.mat}.}
 
 \item{nthreads}{Positive integer. Number of computational threads.}
 }
@@ -46,10 +53,29 @@ genomic breeding values.}
 }
 }
 \description{
-Calculates the expected genomic breeding value of proposed two-way or
-four-way crosses as the mean of the parental genomic breeding values.
+Calculates the expected genomic breeding value of progeny from proposed
+biparental or four-parent crosses among inbred lines.
 }
 \details{
+Under an additive genetic model, the expected breeding value of progeny from
+a biparental cross equals the average of the parental breeding values, i.e.
+the mid-parent value (Falconer and Mackay, 2009). For four-parent crosses,
+the expected breeding value is analogously obtained as the average breeding
+value of the four contributing parents.
+
+Breeding values are calculated from centred marker genotypes,
+\eqn{M - 2p}, and average allele-substitution effects (\eqn{\alpha}), where
+\eqn{p} contains the allele frequencies of the reference population.
+The reference allele frequencies can be supplied by the user. If they are
+not supplied, they are calculated from \code{marker.mat}. Thus, \code{p}
+defines the reference population relative to which breeding values are
+expressed.
+
 Multiple traits can be evaluated simultaneously. Optional trait weights can
-be used to calculate a weighted genomic breeding value index for each cross.
+be used to calculate a weighted breeding-value index for each cross.
+}
+\references{
+Falconer, D. S. and Mackay, T. (2009).
+\emph{Introduction to Quantitative Genetics}. 4th ed.
+Pearson, Prentice Hall, Harlow.
 }

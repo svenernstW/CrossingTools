@@ -15,8 +15,9 @@ make_cross_plan(
 \item{parents}{Optional vector of parent identifiers for an unsexed crossing
 design. At least two unique identifiers must be supplied.}
 
-\item{self}{Logical. If \code{TRUE}, include self-crosses when \code{parents}
-is supplied. Ignored for sexed crossing designs.}
+\item{self}{Logical. If \code{TRUE}, include self-crosses in an unsexed
+crossing design. The argument is ignored when \code{male.parents} and
+\code{female.parents} are used.}
 
 \item{male.parents}{Optional vector of male parent identifiers for a sexed
 crossing design.}
@@ -25,15 +26,27 @@ crossing design.}
 sexed crossing design.}
 }
 \value{
-A data frame with one row per cross. For unsexed designs, the columns
-are \code{parent1} and \code{parent2}. For sexed designs, the columns are
-\code{male} and \code{female}.
+A data frame with one row per cross. For unsexed designs, the
+columns are \code{parent1} and \code{parent2}. For sexed designs, the
+columns are \code{male} and \code{female}.
 }
 \description{
-Generates all possible crosses among a set of candidate parents.
+Generates all possible crosses among a supplied set of candidate parents.
 }
 \details{
-For an unsexed design, all unique pairwise crosses are returned, optionally
-including self-crosses. For a sexed design, all combinations between the
-supplied male and female parents are returned.
+For an unsexed crossing design, all unique unordered pairwise combinations
+of the supplied parents are returned. Self-crosses can optionally be added.
+Reciprocal crosses are not distinguished; for example, the crosses
+\code{A x B} and \code{B x A} are represented by a single combination.
+
+For a sexed crossing design, all combinations between the supplied male and
+female parents are returned. Reciprocal crosses are therefore distinguished
+when the same parents occur in both sets. The \code{self} argument is not
+applied to sexed designs; consequently, a self-cross is included whenever
+the same parent occurs in both \code{male.parents} and
+\code{female.parents}.
+
+Either \code{parents} or both \code{male.parents} and
+\code{female.parents} should be supplied. If \code{parents} is supplied
+together with sex-specific parent sets, the latter are ignored.
 }

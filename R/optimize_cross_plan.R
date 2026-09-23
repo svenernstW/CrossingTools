@@ -1,20 +1,46 @@
-#' Optimize a crossing plan using a genetic algorithm
+#' Optimise crossing plans for genetic gain and diversity
 #'
-#' Selects a crossing plan of \code{ncrosses} parent pairs by maximizing a
-#' user-defined cross criterion while minimizing genomic similarity, or another
-#' relationship measure, derived from \code{G.mat}. Fixed crosses and upper and
-#' lower parent contribution constraints can be included.
+#' Selects a crossing plan of \code{ncrosses} crosses by balancing a
+#' user-defined cross criterion against genomic similarity among the
+#' contributing parents. Fixed crosses and upper and lower constraints on
+#' parental contributions can be incorporated directly into the optimisation.
 #'
-#' Two optimization methods are available:
-#' \describe{
-#'   \item{\code{method = "angle"}}{Returns one crossing plan targeting the
-#'   trade-off specified by \code{target.angle}. An angle of 0 degrees prioritizes
-#'   consequently, greater diversity.}
-#'   \item{\code{method = "pareto"}}{Returns an approximation of the Pareto
-#'   frontier containing plans with different trade-offs between
-#'   the cross criterion and similarity. This method is generally more
-#'   computationally demanding.}
-#' }
+#' Ranking crosses solely according to their predicted value may maximise
+#' short-term genetic gain but can increase coancestry among selected parents
+#' and reduce genetic diversity. Optimal cross selection therefore combines
+#' expected cross performance with a measure of relatedness among the parents
+#' contributing to a crossing plan.
+#'
+#' For each candidate crossing plan, performance is quantified by the mean
+#' value of the supplied cross criterion across all selected crosses. Genomic
+#' similarity is calculated from proportional parental contributions and the
+#' relationship matrix supplied in \code{G.mat}, analogous to group coancestry
+#' as used in optimal contribution selection (Meuwissen, 1997). Each mating
+#' contributes equally to the crossing plan, with half of its contribution
+#' assigned to each parent.
+#'
+#' Because the cross criterion and genomic similarity may be measured on
+#' different scales, the objectives are normalised before optimisation.
+#' CrossingTools provides two strategies for balancing the resulting gain--
+#' diversity objectives. With \code{method = "angle"}, the user specifies a
+#' target angle between 0 and 90 degrees. An angle of 0 degrees gives maximum
+#' emphasis to the cross criterion, whereas an angle of 90 degrees gives
+#' maximum emphasis to reducing genomic similarity and therefore maintaining
+#' diversity. Intermediate angles specify different compromises between the
+#' two objectives.
+#'
+#' With \code{method = "pareto"}, the cross criterion and genomic similarity
+#' are treated as separate objectives and optimised simultaneously using an
+#' NSGA-II-type multi-objective genetic algorithm (Deb et al., 2002). The
+#' returned non-dominated solutions approximate the Pareto frontier and
+#' represent alternative trade-offs between predicted cross performance and
+#' genomic diversity.
+#'
+#' Both optimisation strategies search over complete crossing plans rather
+#' than ranking crosses independently. Practical breeding constraints can be
+#' imposed through fixed crosses and minimum or maximum parental contributions.
+#' Crosses that should not be considered can be excluded from
+#' \code{candidate.crosses}.
 #'
 #' @param candidate.crosses Integer or character matrix or data frame with two
 #'   columns. Candidate crosses from which the variable part of the crossing
@@ -26,15 +52,17 @@
 #' @param ncrosses Integer. Total number of crosses in each returned plan,
 #'   including fixed crosses. Must be at least \code{nrow(fixed.crosses)}.
 #' @param target.angle Numeric scalar between 0 and 90. Target trade-off angle
-#'   used when \code{method = "angle"}. An angle of 0 prioritizes the cross
-#'   criterion, whereas 90 prioritizes minimum similarity.
+#'   used when \code{method = "angle"}. An angle of 0 gives maximum emphasis
+#'   to the cross criterion, whereas an angle of 90 gives maximum emphasis to
+#'   reducing genomic similarity.
 #' @param criterion Numeric vector with one cross-criterion value for each row
-#'   of \code{candidate.crosses}.
+#'   of \code{candidate.crosses}. Larger values are considered favourable.
 #' @param criterion.fixed Numeric vector with one cross-criterion value for each
 #'   row of \code{fixed.crosses}, or \code{NULL} when no fixed crosses are used.
 #' @param G.mat Numeric square matrix containing genomic relationships,
-#'   similarities, or another measure used to quantify parental contributions.
-#'   Character parent identifiers require matching row names.
+#'   similarities, or another pairwise measure used to quantify similarity
+#'   among parental contributions. Character parent identifiers require
+#'   matching row names.
 #' @param parents.upper Numeric vector with one value per parent in
 #'   \code{G.mat}, giving the maximum number of times each parent may occur
 #'   across the complete crossing plan. Each cross contributes one occurrence
@@ -46,9 +74,9 @@
 #'   to each parent. Values must be non-negative whole numbers and cannot exceed
 #'   the corresponding values in \code{parents.upper}. The default is zero for
 #'   every parent.
-#' @param method Character string specifying the optimization method. Must be
+#' @param method Character string specifying the optimisation method. Must be
 #'   either \code{"angle"} or \code{"pareto"}.
-#' @param return.params Logical. Whether to return optimization diagnostics in
+#' @param return.params Logical. Whether to return optimisation diagnostics in
 #'   addition to the selected crossing plan or Pareto solutions.
 #' @param plot Logical. Whether to display the estimated Pareto frontier when
 #'   \code{method = "pareto"}. Ignored when \code{method = "angle"}.
@@ -65,9 +93,9 @@
 #'     \item{\code{max.generation}}{Positive integer. Maximum number of
 #'     generations.}
 #'     \item{\code{max.iteration}}{Positive integer. Number of generations
-#'     without improvement after which optimization stops.}
-#'     \item{\code{angle.penalty}}{Non-negative numeric scalar. Penalty for
-#'     deviation from \code{target.angle}, used only when
+#'     without improvement after which optimisation stops.}
+#'     \item{\code{angle.penalty}}{Non-negative numeric scalar controlling the
+#'     penalty for deviation from \code{target.angle}, used only when
 #'     \code{method = "angle"}.}
 #'   }
 #' @param nthreads Positive integer. Number of computational threads.
@@ -77,7 +105,8 @@
 #' with columns \code{parent1} and \code{parent2} describing the selected
 #' crossing plan.
 #'
-#' For \code{method = "angle"} and \code{return.params = TRUE}, a list containing:
+#' For \code{method = "angle"} and \code{return.params = TRUE}, a list
+#' containing:
 #' \describe{
 #'   \item{\code{crossPlan}}{The selected crossing plan as a data frame with
 #'   columns \code{parent1} and \code{parent2}.}
@@ -86,18 +115,28 @@
 #'   \item{\code{uBest}, \code{simBest}}{The cross criterion and similarity of
 #'   the selected solution.}
 #'   \item{\code{angleBest}, \code{lenBest}}{The angle and length of the
-#'   selected solution in normalized objective space.}
+#'   selected solution in normalised objective space.}
 #' }
 #'
 #' For \code{method = "pareto"}, a list containing:
 #' \describe{
-#'   \item{\code{pareto.plans}}{A list of pareto crossing plans, each
+#'   \item{\code{pareto.plans}}{A list of Pareto-optimal crossing plans, each
 #'   represented by a data frame with columns \code{parent1} and
 #'   \code{parent2}.}
 #'   \item{\code{pareto.frontier}}{A data frame containing the solution
-#'   identifier \code{pareto.id}, cross criterion \code{u}, and similarity
-#'   \code{sim}.}
+#'   identifier \code{pareto.id}, cross criterion \code{u}, and genomic
+#'   similarity \code{sim}.}
 #' }
+#'
+#' @references
+#' Meuwissen, T. H. E. (1997).
+#' Maximizing the response of selection with a predefined rate of inbreeding.
+#' \emph{Journal of Animal Science}, 75(4), 934--940.
+#'
+#' Deb, K., Pratap, A., Agarwal, S. and Meyarivan, T. (2002).
+#' A fast and elitist multiobjective genetic algorithm: NSGA-II.
+#' \emph{IEEE Transactions on Evolutionary Computation}, 6(2), 182--197.
+#' \doi{10.1109/4235.996017}
 #'
 #' @export
 

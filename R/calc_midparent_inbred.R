@@ -1,25 +1,44 @@
-#' Calculate predicted additive means for specified crosses
+#' Calculate expected breeding values for inbred crosses
 #'
-#' Calculates the expected genomic breeding value of proposed two-way or
-#' four-way crosses as the mean of the parental genomic breeding values.
+#' Calculates the expected genomic breeding value of progeny from proposed
+#' biparental or four-parent crosses among inbred lines.
+#'
+#' Under an additive genetic model, the expected breeding value of progeny from
+#' a biparental cross equals the average of the parental breeding values, i.e.
+#' the mid-parent value (Falconer and Mackay, 2009). For four-parent crosses,
+#' the expected breeding value is analogously obtained as the average breeding
+#' value of the four contributing parents.
+#'
+#' Breeding values are calculated from centred marker genotypes,
+#' \eqn{M - 2p}, and average allele-substitution effects (\eqn{\alpha}), where
+#' \eqn{p} contains the allele frequencies of the reference population.
+#' The reference allele frequencies can be supplied by the user. If they are
+#' not supplied, they are calculated from \code{marker.mat}. Thus, \code{p}
+#' defines the reference population relative to which breeding values are
+#' expressed.
 #'
 #' Multiple traits can be evaluated simultaneously. Optional trait weights can
-#' be used to calculate a weighted genomic breeding value index for each cross.
+#' be used to calculate a weighted breeding-value index for each cross.
 #'
-#' @param crosses Matrix or data frame with two columns for two-way crosses or
-#'   four columns for four-way crosses. Parent identifiers may be row indices of
-#'   \code{marker.mat} or character identifiers matching
+#' @param crosses Matrix or data frame with two columns for biparental crosses
+#'   or four columns for four-parent crosses. Parent identifiers may be row
+#'   indices of \code{marker.mat} or character identifiers matching
 #'   \code{rownames(marker.mat)}.
 #' @param marker.mat Numeric marker dosage matrix with individuals in rows and
 #'   markers in columns, coded 0, 1, and 2 for the counted allele.
 #' @param marker.effects Numeric matrix of average allele-substitution effects
-#'   (\eqn{\alpha}) with markers in rows and traits in columns. Effects must be
-#'   parameterised relative to the reference population represented by
-#'   \code{marker.mat}. Its number of rows must equal
+#'   (\eqn{\alpha}) with markers in rows and traits in columns. Effects should
+#'   be parameterised relative to the reference population defined by
+#'   \code{p}. If \code{p = NULL}, the reference allele frequencies are derived
+#'   from \code{marker.mat}. Its number of rows must equal
 #'   \code{ncol(marker.mat)}.
 #' @param weights Optional numeric vector with one weight per trait. When
-#'   supplied, a weighted genomic breeding value index is calculated for each
+#'   supplied, a weighted genomic breeding-value index is calculated for each
 #'   cross.
+#' @param p Optional numeric vector of reference allele frequencies, with one
+#'   value per marker. These frequencies define the reference population used
+#'   to centre marker genotypes for breeding-value calculations. If
+#'   \code{NULL}, allele frequencies are calculated from \code{marker.mat}.
 #' @param nthreads Positive integer. Number of computational threads.
 #'
 #' @return If \code{weights = NULL}, a data frame containing the parental
@@ -33,10 +52,21 @@
 #'     \code{GEBV.IDX}.}
 #'   }
 #'
+#' @references
+#' Falconer, D. S. and Mackay, T. (2009).
+#' \emph{Introduction to Quantitative Genetics}. 4th ed.
+#' Pearson, Prentice Hall, Harlow.
+#'
 #' @export
 
-calc_midparent_inbred <- function(crosses,  marker.mat, marker.effects,  weights = NULL,
-                              nthreads = 4L) {
+calc_midparent_inbred <- function(
+    crosses,
+    marker.mat,
+    marker.effects,
+    weights = NULL,
+    p = NULL,
+    nthreads = 4L
+) {
   n.Threads <- nthreads
 
   effects <- as.matrix(marker.effects)
@@ -45,7 +75,7 @@ calc_midparent_inbred <- function(crosses,  marker.mat, marker.effects,  weights
   if (is.null(traits)) {
     traits <- paste0("trait", seq_len(ncol(effects)))
   }
-  if(!ncol(crosses) %in% c(2,4)){stop("ncol(crosses) needs to be 2 for two way crosses or 4 for three or four way crosses")}
+  if(!ncol(crosses) %in% c(2,4)){stop("`crosses` must have 2 columns for biparental crosses or 4 columns for four-parent crosses.")}
   crosses_in <- crosses
 
   crosses <- as.matrix(crosses)
@@ -123,6 +153,40 @@ calc_midparent_inbred <- function(crosses,  marker.mat, marker.effects,  weights
     )
   }
 
+  ###############################################################################
+  # Reference allele frequencies
+  ###############################################################################
+
+  if (is.null(p)) {
+
+    # Default: the supplied marker population defines the reference population
+    p <- colMeans(marker.mat) / 2
+
+  } else {
+
+    if (!is.numeric(p)) {
+      stop("`p` must be a numeric vector of reference allele frequencies.")
+    }
+
+    p <- as.numeric(p)
+
+    if (length(p) != ncol(marker.mat)) {
+      stop(
+        "`p` must contain one allele frequency per marker: ",
+        "length(p) = ", length(p),
+        ", ncol(marker.mat) = ", ncol(marker.mat), "."
+      )
+    }
+  }
+
+  if (any(!is.finite(p))) {
+    stop("`p` must contain only finite values.")
+  }
+
+  if (any(p < 0 | p > 1)) {
+    stop("All values in `p` must be between 0 and 1.")
+  }
+
   if (is.null(weights)) {
     # Dummy value required by C++; not used when calcindex = FALSE
     weights <- rep(1, ncol(effects))
@@ -150,26 +214,29 @@ calc_midparent_inbred <- function(crosses,  marker.mat, marker.effects,  weights
 
     if(cross.type=="2W"){
 
-        temp <- cpp_calculate_expectation_A(
-          Crosses    = crosses2,
-           M = marker.mat,
-          U    = effects,
-           weights    = weights,
-          calcindex  = calculate.index,
-          nThreads   = nThreads
-        )
+      temp <- cpp_calculate_expectation_A(
+        Crosses   = crosses2,
+        M         = marker.mat,
+        U         = effects,
+        weights   = weights,
+        p         = p,
+        calcindex = calculate.index,
+        nThreads  = nThreads
+      )
+
         }
 
 
   if(cross.type=="4W"){
 
     temp <- cpp_calculate_expectation_A4W(
-      Crosses    = crosses2,
-      M = marker.mat,
-      U    = effects,
-      weights    = weights,
-      calcindex  = calculate.index,
-      nThreads   = nThreads
+      Crosses   = crosses2,
+      M         = marker.mat,
+      U         = effects,
+      weights   = weights,
+      p         = p,
+      calcindex = calculate.index,
+      nThreads  = nThreads
     )
   }
 

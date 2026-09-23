@@ -2,7 +2,7 @@
 % Please edit documentation in R/predict_response.R
 \name{predict_response}
 \alias{predict_response}
-\title{Predict the response to multi-trait index selection}
+\title{Predict response to multi-trait index selection}
 \usage{
 predict_response(
   var.mat = NULL,
@@ -13,18 +13,22 @@ predict_response(
 )
 }
 \arguments{
-\item{var.mat}{Numeric covariance matrix. It may be either a trait covariance
-matrix or a block-structured covariance matrix containing one trait
-covariance block per genotype. In the latter case, the trait covariance
-matrix is obtained by averaging the diagonal blocks.}
+\item{var.mat}{Numeric square covariance matrix. It may either be an
+\eqn{n_{\mathrm{trait}} \times n_{\mathrm{trait}}} trait covariance
+matrix or a block-structured covariance matrix containing one
+\eqn{n_{\mathrm{trait}} \times n_{\mathrm{trait}}} diagonal block per
+genotype. In the latter case, the diagonal blocks are averaged to obtain
+the trait covariance matrix used for index calculations.}
 
-\item{desired.gains}{Optional numeric vector specifying the desired gain for
-each trait.}
+\item{desired.gains}{Optional numeric vector specifying the desired relative
+response for each trait. Index weights are calculated from the desired
+response vector and the trait covariance matrix as
+\eqn{b = \Sigma^{-1}g}.}
 
-\item{weights}{Optional numeric vector specifying the index weight for each
-trait.}
+\item{weights}{Optional numeric vector specifying the fixed Smith--Hazel
+index coefficients for each trait.}
 
-\item{intensity}{Numeric scalar giving the standardized selection intensity
+\item{intensity}{Numeric scalar giving the standardised selection intensity
 used to scale the expected responses. The default is 1.}
 
 \item{plot}{Logical. If \code{TRUE}, plot the expected response for each
@@ -34,22 +38,79 @@ trait. The default is \code{TRUE}.}
 A list containing:
 \describe{
 \item{\code{overall.df}}{A data frame containing the index variance
-\code{index.var} and expected index response \code{gain.index}.}
+\code{index.var} and expected response in the index
+\code{gain.index}.}
 \item{\code{trait.df}}{A data frame containing, for each trait, its
 variance, correlation with the index, expected response, and index
 weight.}
 }
 }
 \description{
-Summarizes a linear multi-trait selection index from a trait covariance
-matrix and either desired gains or fixed trait weights.
+Calculates the expected response to multi-trait selection for either a
+desired-gains index or an index with user-defined trait weights.
 }
 \details{
-For a desired-gains index, trait weights are derived from the supplied
-desired gains. For an index with fixed weights, the supplied weights are
-used directly. Exactly one of \code{desired.gains} or \code{weights} must be
-provided.
+Linear selection indices combine information from multiple traits into a
+single selection criterion and provide a framework for predicting correlated
+responses to selection (Smith, 1936; Hazel, 1943). Index selection can
+improve multiple traits simultaneously and has long been applied in plant
+and animal breeding (Hazel and Lush, 1942; Pesek and Baker, 1969).
 
-The function returns the index variance, the expected response in the index,
-and the expected response and correlation with the index for each trait.
+For a desired-gains index, index weights are derived from a vector of desired
+responses \eqn{g} as
+\deqn{b = \Sigma^{-1} g,}
+where \eqn{\Sigma} is the trait covariance matrix. The desired-gains
+formulation specifies the relative direction of genetic improvement rather
+than fixing the absolute magnitude of response. Consequently, the predicted
+responses are proportional to the supplied desired gains, while their
+overall magnitude depends on the covariance structure and the selection
+intensity. This formulation allows breeding objectives to be expressed
+directly as desired relative changes among traits without requiring explicit
+economic weights (Werner et al., 2024).
+
+Alternatively, fixed index weights can be supplied directly. This corresponds
+to the classical linear selection-index framework of Smith (1936) and
+Hazel (1943), in which multiple traits are combined into a single selection
+criterion. Here, the supplied weights are treated directly as the index
+coefficients \eqn{b}. For a vector of index coefficients \eqn{b}, the index
+variance is
+\deqn{\sigma_I^2 = b^\top \Sigma b,}
+and the expected response in trait \eqn{k} is
+\deqn{\Delta G_k =
+i \frac{(\Sigma b)_k}{\sqrt{b^\top \Sigma b}},}
+where \eqn{i} is the selection intensity. The function additionally returns
+the correlation between each trait and the selection index.
+
+Exactly one of \code{desired.gains} or \code{weights} must be supplied.
+
+If \code{var.mat} is a block-structured covariance matrix containing one
+trait covariance block per genotype, the diagonal trait covariance blocks
+are averaged before constructing the index. Covariances between different
+genotypes are therefore not used in the response calculation.
+}
+\references{
+Smith, H. F. (1936).
+A discriminant function for plant selection.
+\emph{Annals of Eugenics}, 7(3), 240--250.
+
+Hazel, L. N. (1943).
+The genetic basis for constructing selection indexes.
+\emph{Genetics}, 28(6), 476--490.
+
+Hazel, L. N. and Lush, J. L. (1942).
+The efficiency of three methods of selection.
+\emph{Journal of Heredity}, 33(11), 393--399.
+\doi{10.1093/oxfordjournals.jhered.a105102}
+
+Pesek, J. and Baker, R. J. (1969).
+Comparison of tandem and index selection in the modified pedigree method
+of breeding self-pollinated species.
+\emph{Canadian Journal of Plant Science}, 49(6), 773--781.
+\doi{10.4141/cjps69-132}
+
+Werner, C. R., Gardner, K. A. and Tolhurst, D. J. (2024).
+Reviving the Desired Gains Index: An optimal solution for parent selection
+in public plant breeding programs.
+\emph{bioRxiv}, 2024.07.21.603926.
+\doi{10.1101/2024.07.21.603926}
 }

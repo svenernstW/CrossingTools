@@ -38,6 +38,7 @@ SEXP cpp_calculate_covariance_allier(
     int t,
     double intensity,
     const NumericVector& weights,
+    const NumericVector& p,
     bool covariance = false,
     bool calcindex = false,
     int nThreads = 4) {
@@ -58,8 +59,8 @@ SEXP cpp_calculate_covariance_allier(
     as<arma::vec>(weights);
 
   // Allele frequencies in the reference population
-  arma::rowvec p_vec =
-    0.5 * arma::mean(M_mat, 0);
+  arma::vec p_vec =
+    as<arma::vec>(p);
 
   // Centred additive genotype code W = M - 2p
   arma::mat W_mat = M_mat;

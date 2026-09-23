@@ -2,11 +2,7 @@
 % Please edit documentation in R/get_optimal_haploid_value.R
 \name{calc_optimal_haploid_value}
 \alias{calc_optimal_haploid_value}
-\title{Calculates the Optimal Haploid Value (OHV) of proposed two-way or four-way
-crosses from marker effects. If haplotype blocks are provided, marker effects
-are first aggregated within blocks; otherwise, each marker is treated as an
-independent block. Trait-specific OHVs and an optional weighted OHV index are
-returned.}
+\title{Calculate optimal haploid values for candidate crosses}
 \usage{
 calc_optimal_haploid_value(
   crosses,
@@ -18,16 +14,16 @@ calc_optimal_haploid_value(
 )
 }
 \arguments{
-\item{crosses}{Matrix or data frame with two columns for two-way crosses or
-four columns for four-way crosses. Parent identifiers may be
-integer row indices of \code{marker.mat} or character identifiers matching
+\item{crosses}{Matrix or data frame with two columns for biparental crosses
+or four columns for four-parent crosses. Parent identifiers may be integer
+row indices of \code{marker.mat} or character identifiers matching
 \code{rownames(marker.mat)}.}
 
 \item{marker.mat}{Numeric marker matrix with individuals in rows and markers
 in columns.}
 
-\item{marker.effects}{Numeric matrix of marker effects with markers in rows
-and traits in columns. Its number of rows must equal
+\item{marker.effects}{Numeric matrix of additive marker effects with markers
+in rows and traits in columns. Its number of rows must equal
 \code{ncol(marker.mat)}.}
 
 \item{weights}{Optional numeric vector with one weight per trait. When
@@ -61,9 +57,56 @@ in column \code{OHV.IDX}.}
 }
 }
 \description{
-Calculates the Optimal Haploid Value (OHV) of proposed two-way or four-way
-crosses from marker effects. If haplotype blocks are provided, marker effects
-are first aggregated within blocks; otherwise, each marker is treated as an
-independent block. Trait-specific OHVs and an optional weighted OHV index are
-returned.
+Calculates the Optimal Haploid Value (OHV) of proposed biparental or
+four-parent crosses from additive marker effects.
+}
+\details{
+The OHV describes the maximum additive genetic value obtainable by combining
+favourable parental haplotypes and was proposed as a criterion for selecting
+breeding material according to its potential to generate superior fixed
+progeny (Daetwyler et al., 2015). Related haplotype-based approaches have
+also been used to characterise Mendelian sampling effects and upper
+selection limits (Cole and VanRaden, 2011).
+
+For each haplotype block, the function determines the most favourable
+parental contribution according to the supplied marker effects and sums
+these contributions across blocks. If \code{haplotype.blocks = NULL}, each
+marker is treated as an independent block. User-defined haplotype blocks can
+instead be supplied to account for sets of markers that should be inherited
+jointly.
+
+The OHV represents an upper bound on additive cross potential rather than
+the expected mean performance of progeny. In contrast to criteria such as
+the superior progeny value (SPV), it does not use the expected progeny mean
+and segregation variance to describe the distribution of progeny values.
+Instead, it evaluates the most favourable combination of parental genetic
+material that can be assembled under the specified haplotype-block
+definition.
+
+Multiple traits can be evaluated simultaneously. If trait weights are
+supplied, trait-specific OHVs are combined into a weighted OHV index.
+
+A practical consideration is that certain plant-breeding procedures based
+on the OHV criterion have been the subject of patent protection, including
+US11744199B2 (Daetwyler et al., 2023). Patent scope and status may differ
+among jurisdictions and over time; users intending commercial application
+should assess whether relevant patent claims apply to their intended use.
+}
+\references{
+Cole, J. B. and VanRaden, P. M. (2011).
+Use of haplotypes to estimate Mendelian sampling effects and selection
+limits.
+\emph{Journal of Animal Breeding and Genetics}, 128(6), 446--455.
+\doi{10.1111/j.1439-0388.2011.00922.x}
+
+Daetwyler, H. D., Hayden, M. J., Spangenberg, G. C. and Hayes, B. J. (2015).
+Selection on Optimal Haploid Value increases genetic gain and preserves more
+genetic diversity relative to genomic selection.
+\emph{Genetics}, 200(4), 1341--1348.
+\doi{10.1534/genetics.115.178038}
+
+Daetwyler, H. D., Hayes, B. J., Robbins, K., Hayden, M. J. and
+Spangenberg, G. (2023).
+Selection based on optimal haploid value to create elite lines.
+U.S. Patent US11744199B2.
 }

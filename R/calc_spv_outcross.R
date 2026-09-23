@@ -9,6 +9,22 @@
 #' from the total genetic segregation variance, including breeding-value
 #' variance, dominance-deviation variance, and their covariance.
 #'
+#' Segregation (co)variances are calculated analytically from phased parental
+#' haplotypes, recombination fractions, and additive and dominance marker
+#' effects, following the framework of Bonk et al. (2016) for Mendelian
+#' sampling covariability among full-sib progeny.
+#'
+#' Additive genetic values are expressed as breeding values using centred
+#' marker genotypes, \eqn{M - 2p}, and average allele-substitution effects
+#' (\eqn{\alpha}). Dominance is represented by statistical dominance
+#' deviations. The expected total genetic value is therefore the sum of the
+#' expected breeding value and expected dominance deviation.
+#'
+#' For multiple traits, the corresponding segregation covariance matrices are
+#' calculated analogously. These quantities can be combined with a selection
+#' intensity to obtain additive superior progeny values (SPV) and total
+#' superior progeny values (TSPV).
+#'
 #' @param crosses Matrix or data frame with two columns specifying the parents
 #'   of each proposed cross. Parent identifiers may be row indices of
 #'   \code{hap.mat1} and \code{hap.mat2}, or character identifiers matching
@@ -26,18 +42,23 @@
 #' @param hap.mat2 Numeric haplotype matrix with the same dimensions as
 #'   \code{hap.mat1}, containing the second haplotype of each individual.
 #' @param marker.effects.A Numeric matrix of average allele-substitution effects
-#'   (\eqn{\alpha}) with markers in rows and traits in columns. Effects must be
-#'   parameterised relative to the reference population represented by
+#'   (\eqn{\alpha}) with markers in rows and traits in columns. Effects should be
+#'   parameterised relative to the reference population defined by \code{p}.
+#'   If \code{p = NULL}, the reference allele frequencies are derived from
 #'   \code{hap.mat1} and \code{hap.mat2}. Its number of rows must equal
 #'   \code{ncol(hap.mat1)}.
-#' @param marker.effects.D Numeric matrix of dominance effects with markers
-#'   in rows and traits in columns, used with the statistical dominance-deviation
-#'   parameterisation. It must have the same dimensions as
-#'   \code{marker.effects.A}.
+#' @param marker.effects.D Numeric matrix of dominance marker effects
+#'   (\eqn{\delta}) with markers in rows and traits in columns, used with the
+#'   statistical dominance-deviation parameterisation. It must have the same
+#'   dimensions as \code{marker.effects.A}.
 #' @param intensity Numeric scalar giving the standardized selection intensity
 #'   used to calculate SPV and TSPV. The default is 1.
 #' @param weights Optional numeric vector with one weight per trait. When
 #'   supplied, weighted index values are calculated for each cross.
+#' @param p Optional numeric vector of reference allele frequencies, with one
+#'   value per marker. If \code{NULL}, allele frequencies are calculated from
+#'   \code{hap.mat1} and \code{hap.mat2}. The supplied frequencies are used to
+#'   centre marker genotypes for breeding-value calculations.
 #' @param covariance Logical. If \code{TRUE}, also calculate breeding-value,
 #'   dominance-deviation, and combined additive--dominance segregation
 #'   covariance matrices among traits for each cross.
@@ -70,10 +91,16 @@
 #'     covariance matrices, \eqn{\Sigma_{AD} + \Sigma_{DA}}, for each cross.}
 #'   }
 #'
+#' @references
+#' Bonk, S., Reichelt, M., Teuscher, F., Segelke, D. and Reinsch, N. (2016).
+#' Mendelian sampling covariability of marker effects and genetic values.
+#' \emph{Genetics Selection Evolution}, 48, 36.
+#' \doi{10.1186/s12711-016-0214-0}
+#'
 #' @export
 
 calc_spv_outcross <- function(crosses, genetic.map, hap.mat1, hap.mat2, marker.effects.A, marker.effects.D,
-                                   intensity=1, weights = NULL, covariance = FALSE,
+                                   intensity=1, weights = NULL,p=NULL, covariance = FALSE,
                                    nthreads = 4L) {
 
   traits <- colnames(marker.effects.A)
@@ -135,6 +162,40 @@ calc_spv_outcross <- function(crosses, genetic.map, hap.mat1, hap.mat2, marker.e
   }
   if (ncol(effects.D) != ncol(effects.A)) stop("effects.A and effects.D must have the same number of trait columns.")
   if (ncol(crosses) != 2L) stop("`crosses` must have exactly 2 columns (P1, P2).")
+
+  ###############################################################################
+  # Reference allele frequencies
+  ###############################################################################
+
+  if (is.null(p)) {
+
+    # Genotype dosage matrix M = hap.mat1 + hap.mat2
+    p <- colMeans(hap.mat1 + hap.mat2) / 2
+
+  } else {
+
+    if (!is.numeric(p)) {
+      stop("`p` must be a numeric vector of reference allele frequencies.")
+    }
+
+    p <- as.numeric(p)
+
+    if (length(p) != ncol(hap.mat1)) {
+      stop(
+        "`p` must contain one allele frequency per marker: ",
+        "length(p) = ", length(p),
+        ", ncol(hap.mat1) = ", ncol(hap.mat1), "."
+      )
+    }
+  }
+
+  if (any(!is.finite(p))) {
+    stop("`p` must contain only finite values.")
+  }
+
+  if (any(p < 0 | p > 1)) {
+    stop("All values in `p` must be between 0 and 1.")
+  }
 
   ntraits <- ncol(effects.A)
 
@@ -212,10 +273,11 @@ calc_spv_outcross <- function(crosses, genetic.map, hap.mat1, hap.mat2, marker.e
   map2$site <- seq_len(ncol(hap.mat1))
 
 
-  hap.mat1 <- hap.mat1[, ord, drop = FALSE]
-  hap.mat2 <- hap.mat2[, ord, drop = FALSE]
+  hap.mat1  <- hap.mat1[, ord, drop = FALSE]
+  hap.mat2  <- hap.mat2[, ord, drop = FALSE]
   effects.A <- effects.A[ord, , drop = FALSE]
   effects.D <- effects.D[ord, , drop = FALSE]
+  p         <- p[ord]
 
   chr_levels <- unique(map2$chr)
   genmap_list <- lapply(chr_levels, function(cc) {
@@ -231,6 +293,7 @@ calc_spv_outcross <- function(crosses, genetic.map, hap.mat1, hap.mat2, marker.e
     D          = effects.D,
     intensity  = intensity,
     weights    = weights,
+    p          = p,
     covariance = covariance,
     calcindex  = calculate.index,
     nThreads   = nThreads
@@ -296,26 +359,26 @@ calc_spv_outcross <- function(crosses, genetic.map, hap.mat1, hap.mat2, marker.e
   if (calculate.simple.index) {
     cv <- as.data.frame(temp)
 
-    p <- ncol(effects.A)  # original traits + 1 appended index trait
+    ntraits.cpp <- ncol(effects.A)  # original traits + 1 appended index trait
 
     trait_cols <- c(
       seq_len(ntraits),
-      p + seq_len(ntraits),
-      2 * p + seq_len(ntraits),
-      3 * p + seq_len(ntraits),
-      4 * p + seq_len(ntraits),
-      5 * p + seq_len(ntraits),
-      6 * p + seq_len(ntraits)
+      ntraits.cpp + seq_len(ntraits),
+      2 * ntraits.cpp + seq_len(ntraits),
+      3 * ntraits.cpp + seq_len(ntraits),
+      4 * ntraits.cpp + seq_len(ntraits),
+      5 * ntraits.cpp + seq_len(ntraits),
+      6 * ntraits.cpp + seq_len(ntraits)
     )
 
     idx_cols <- c(
-      p,
-      2 * p,
-      3 * p,
-      4 * p,
-      5 * p,
-      6 * p,
-      7 * p
+      ntraits.cpp,
+      2 * ntraits.cpp,
+      3 * ntraits.cpp,
+      4 * ntraits.cpp,
+      5 * ntraits.cpp,
+      6 * ntraits.cpp,
+      7 * ntraits.cpp
     )
 
     temp1 <- cv[, trait_cols, drop = FALSE]

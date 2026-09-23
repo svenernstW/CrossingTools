@@ -12,8 +12,8 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // cpp_calculate_covariance_allier
-SEXP cpp_calculate_covariance_allier(const NumericMatrix& Crosses, const List& genMap, const NumericMatrix& M, const NumericMatrix& U, int t, double intensity, const NumericVector& weights, bool covariance, bool calcindex, int nThreads);
-RcppExport SEXP _CrossingTools_cpp_calculate_covariance_allier(SEXP CrossesSEXP, SEXP genMapSEXP, SEXP MSEXP, SEXP USEXP, SEXP tSEXP, SEXP intensitySEXP, SEXP weightsSEXP, SEXP covarianceSEXP, SEXP calcindexSEXP, SEXP nThreadsSEXP) {
+SEXP cpp_calculate_covariance_allier(const NumericMatrix& Crosses, const List& genMap, const NumericMatrix& M, const NumericMatrix& U, int t, double intensity, const NumericVector& weights, const NumericVector& p, bool covariance, bool calcindex, int nThreads);
+RcppExport SEXP _CrossingTools_cpp_calculate_covariance_allier(SEXP CrossesSEXP, SEXP genMapSEXP, SEXP MSEXP, SEXP USEXP, SEXP tSEXP, SEXP intensitySEXP, SEXP weightsSEXP, SEXP pSEXP, SEXP covarianceSEXP, SEXP calcindexSEXP, SEXP nThreadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -24,16 +24,17 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type t(tSEXP);
     Rcpp::traits::input_parameter< double >::type intensity(intensitySEXP);
     Rcpp::traits::input_parameter< const NumericVector& >::type weights(weightsSEXP);
+    Rcpp::traits::input_parameter< const NumericVector& >::type p(pSEXP);
     Rcpp::traits::input_parameter< bool >::type covariance(covarianceSEXP);
     Rcpp::traits::input_parameter< bool >::type calcindex(calcindexSEXP);
     Rcpp::traits::input_parameter< int >::type nThreads(nThreadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(cpp_calculate_covariance_allier(Crosses, genMap, M, U, t, intensity, weights, covariance, calcindex, nThreads));
+    rcpp_result_gen = Rcpp::wrap(cpp_calculate_covariance_allier(Crosses, genMap, M, U, t, intensity, weights, p, covariance, calcindex, nThreads));
     return rcpp_result_gen;
 END_RCPP
 }
 // cpp_calculate_covariance_RIL_allier
-SEXP cpp_calculate_covariance_RIL_allier(const NumericMatrix& Crosses, const List& genMap, const NumericMatrix& M, const NumericMatrix& U, int t, double intensity, const NumericVector& weights, bool covariance, bool calcindex, int nThreads);
-RcppExport SEXP _CrossingTools_cpp_calculate_covariance_RIL_allier(SEXP CrossesSEXP, SEXP genMapSEXP, SEXP MSEXP, SEXP USEXP, SEXP tSEXP, SEXP intensitySEXP, SEXP weightsSEXP, SEXP covarianceSEXP, SEXP calcindexSEXP, SEXP nThreadsSEXP) {
+SEXP cpp_calculate_covariance_RIL_allier(const NumericMatrix& Crosses, const List& genMap, const NumericMatrix& M, const NumericMatrix& U, int t, double intensity, const NumericVector& weights, const NumericVector& p, bool covariance, bool calcindex, int nThreads);
+RcppExport SEXP _CrossingTools_cpp_calculate_covariance_RIL_allier(SEXP CrossesSEXP, SEXP genMapSEXP, SEXP MSEXP, SEXP USEXP, SEXP tSEXP, SEXP intensitySEXP, SEXP weightsSEXP, SEXP pSEXP, SEXP covarianceSEXP, SEXP calcindexSEXP, SEXP nThreadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -44,16 +45,17 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type t(tSEXP);
     Rcpp::traits::input_parameter< double >::type intensity(intensitySEXP);
     Rcpp::traits::input_parameter< const NumericVector& >::type weights(weightsSEXP);
+    Rcpp::traits::input_parameter< const NumericVector& >::type p(pSEXP);
     Rcpp::traits::input_parameter< bool >::type covariance(covarianceSEXP);
     Rcpp::traits::input_parameter< bool >::type calcindex(calcindexSEXP);
     Rcpp::traits::input_parameter< int >::type nThreads(nThreadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(cpp_calculate_covariance_RIL_allier(Crosses, genMap, M, U, t, intensity, weights, covariance, calcindex, nThreads));
+    rcpp_result_gen = Rcpp::wrap(cpp_calculate_covariance_RIL_allier(Crosses, genMap, M, U, t, intensity, weights, p, covariance, calcindex, nThreads));
     return rcpp_result_gen;
 END_RCPP
 }
 // cpp_calculate_covariance_lehermeier
-SEXP cpp_calculate_covariance_lehermeier(const NumericMatrix& Crosses, const List& genMap, const NumericMatrix& M, const NumericMatrix& U, int t, double intensity, const NumericVector& weights, bool covariance, bool calcindex, int nThreads);
-RcppExport SEXP _CrossingTools_cpp_calculate_covariance_lehermeier(SEXP CrossesSEXP, SEXP genMapSEXP, SEXP MSEXP, SEXP USEXP, SEXP tSEXP, SEXP intensitySEXP, SEXP weightsSEXP, SEXP covarianceSEXP, SEXP calcindexSEXP, SEXP nThreadsSEXP) {
+SEXP cpp_calculate_covariance_lehermeier(const NumericMatrix& Crosses, const List& genMap, const NumericMatrix& M, const NumericMatrix& U, int t, double intensity, const NumericVector& weights, const NumericVector& p, bool covariance, bool calcindex, int nThreads);
+RcppExport SEXP _CrossingTools_cpp_calculate_covariance_lehermeier(SEXP CrossesSEXP, SEXP genMapSEXP, SEXP MSEXP, SEXP USEXP, SEXP tSEXP, SEXP intensitySEXP, SEXP weightsSEXP, SEXP pSEXP, SEXP covarianceSEXP, SEXP calcindexSEXP, SEXP nThreadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -64,16 +66,17 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type t(tSEXP);
     Rcpp::traits::input_parameter< double >::type intensity(intensitySEXP);
     Rcpp::traits::input_parameter< const NumericVector& >::type weights(weightsSEXP);
+    Rcpp::traits::input_parameter< const NumericVector& >::type p(pSEXP);
     Rcpp::traits::input_parameter< bool >::type covariance(covarianceSEXP);
     Rcpp::traits::input_parameter< bool >::type calcindex(calcindexSEXP);
     Rcpp::traits::input_parameter< int >::type nThreads(nThreadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(cpp_calculate_covariance_lehermeier(Crosses, genMap, M, U, t, intensity, weights, covariance, calcindex, nThreads));
+    rcpp_result_gen = Rcpp::wrap(cpp_calculate_covariance_lehermeier(Crosses, genMap, M, U, t, intensity, weights, p, covariance, calcindex, nThreads));
     return rcpp_result_gen;
 END_RCPP
 }
 // cpp_calculate_covariance_RIL_lehermeier
-SEXP cpp_calculate_covariance_RIL_lehermeier(const NumericMatrix& Crosses, const List& genMap, const NumericMatrix& M, const NumericMatrix& U, int t, double intensity, const NumericVector& weights, bool covariance, bool calcindex, int nThreads);
-RcppExport SEXP _CrossingTools_cpp_calculate_covariance_RIL_lehermeier(SEXP CrossesSEXP, SEXP genMapSEXP, SEXP MSEXP, SEXP USEXP, SEXP tSEXP, SEXP intensitySEXP, SEXP weightsSEXP, SEXP covarianceSEXP, SEXP calcindexSEXP, SEXP nThreadsSEXP) {
+SEXP cpp_calculate_covariance_RIL_lehermeier(const NumericMatrix& Crosses, const List& genMap, const NumericMatrix& M, const NumericMatrix& U, int t, double intensity, const NumericVector& weights, const NumericVector& p, bool covariance, bool calcindex, int nThreads);
+RcppExport SEXP _CrossingTools_cpp_calculate_covariance_RIL_lehermeier(SEXP CrossesSEXP, SEXP genMapSEXP, SEXP MSEXP, SEXP USEXP, SEXP tSEXP, SEXP intensitySEXP, SEXP weightsSEXP, SEXP pSEXP, SEXP covarianceSEXP, SEXP calcindexSEXP, SEXP nThreadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -84,16 +87,17 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type t(tSEXP);
     Rcpp::traits::input_parameter< double >::type intensity(intensitySEXP);
     Rcpp::traits::input_parameter< const NumericVector& >::type weights(weightsSEXP);
+    Rcpp::traits::input_parameter< const NumericVector& >::type p(pSEXP);
     Rcpp::traits::input_parameter< bool >::type covariance(covarianceSEXP);
     Rcpp::traits::input_parameter< bool >::type calcindex(calcindexSEXP);
     Rcpp::traits::input_parameter< int >::type nThreads(nThreadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(cpp_calculate_covariance_RIL_lehermeier(Crosses, genMap, M, U, t, intensity, weights, covariance, calcindex, nThreads));
+    rcpp_result_gen = Rcpp::wrap(cpp_calculate_covariance_RIL_lehermeier(Crosses, genMap, M, U, t, intensity, weights, p, covariance, calcindex, nThreads));
     return rcpp_result_gen;
 END_RCPP
 }
 // cpp_calculate_covariance_osthushenrich
-SEXP cpp_calculate_covariance_osthushenrich(const NumericMatrix& Crosses, const List& genMap, const NumericMatrix& M, const NumericMatrix& U, int t, double intensity, const NumericVector& weights, bool covariance, bool calcindex, int nThreads);
-RcppExport SEXP _CrossingTools_cpp_calculate_covariance_osthushenrich(SEXP CrossesSEXP, SEXP genMapSEXP, SEXP MSEXP, SEXP USEXP, SEXP tSEXP, SEXP intensitySEXP, SEXP weightsSEXP, SEXP covarianceSEXP, SEXP calcindexSEXP, SEXP nThreadsSEXP) {
+SEXP cpp_calculate_covariance_osthushenrich(const NumericMatrix& Crosses, const List& genMap, const NumericMatrix& M, const NumericMatrix& U, int t, double intensity, const NumericVector& weights, const NumericVector& p, bool covariance, bool calcindex, int nThreads);
+RcppExport SEXP _CrossingTools_cpp_calculate_covariance_osthushenrich(SEXP CrossesSEXP, SEXP genMapSEXP, SEXP MSEXP, SEXP USEXP, SEXP tSEXP, SEXP intensitySEXP, SEXP weightsSEXP, SEXP pSEXP, SEXP covarianceSEXP, SEXP calcindexSEXP, SEXP nThreadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -104,16 +108,17 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type t(tSEXP);
     Rcpp::traits::input_parameter< double >::type intensity(intensitySEXP);
     Rcpp::traits::input_parameter< const NumericVector& >::type weights(weightsSEXP);
+    Rcpp::traits::input_parameter< const NumericVector& >::type p(pSEXP);
     Rcpp::traits::input_parameter< bool >::type covariance(covarianceSEXP);
     Rcpp::traits::input_parameter< bool >::type calcindex(calcindexSEXP);
     Rcpp::traits::input_parameter< int >::type nThreads(nThreadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(cpp_calculate_covariance_osthushenrich(Crosses, genMap, M, U, t, intensity, weights, covariance, calcindex, nThreads));
+    rcpp_result_gen = Rcpp::wrap(cpp_calculate_covariance_osthushenrich(Crosses, genMap, M, U, t, intensity, weights, p, covariance, calcindex, nThreads));
     return rcpp_result_gen;
 END_RCPP
 }
 // cpp_calculate_covariance_RIL_osthushenrich
-SEXP cpp_calculate_covariance_RIL_osthushenrich(const NumericMatrix& Crosses, const List& genMap, const NumericMatrix& M, const NumericMatrix& U, int t, double intensity, const NumericVector& weights, bool covariance, bool calcindex, int nThreads);
-RcppExport SEXP _CrossingTools_cpp_calculate_covariance_RIL_osthushenrich(SEXP CrossesSEXP, SEXP genMapSEXP, SEXP MSEXP, SEXP USEXP, SEXP tSEXP, SEXP intensitySEXP, SEXP weightsSEXP, SEXP covarianceSEXP, SEXP calcindexSEXP, SEXP nThreadsSEXP) {
+SEXP cpp_calculate_covariance_RIL_osthushenrich(const NumericMatrix& Crosses, const List& genMap, const NumericMatrix& M, const NumericMatrix& U, int t, double intensity, const NumericVector& weights, const NumericVector& p, bool covariance, bool calcindex, int nThreads);
+RcppExport SEXP _CrossingTools_cpp_calculate_covariance_RIL_osthushenrich(SEXP CrossesSEXP, SEXP genMapSEXP, SEXP MSEXP, SEXP USEXP, SEXP tSEXP, SEXP intensitySEXP, SEXP weightsSEXP, SEXP pSEXP, SEXP covarianceSEXP, SEXP calcindexSEXP, SEXP nThreadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -124,16 +129,17 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type t(tSEXP);
     Rcpp::traits::input_parameter< double >::type intensity(intensitySEXP);
     Rcpp::traits::input_parameter< const NumericVector& >::type weights(weightsSEXP);
+    Rcpp::traits::input_parameter< const NumericVector& >::type p(pSEXP);
     Rcpp::traits::input_parameter< bool >::type covariance(covarianceSEXP);
     Rcpp::traits::input_parameter< bool >::type calcindex(calcindexSEXP);
     Rcpp::traits::input_parameter< int >::type nThreads(nThreadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(cpp_calculate_covariance_RIL_osthushenrich(Crosses, genMap, M, U, t, intensity, weights, covariance, calcindex, nThreads));
+    rcpp_result_gen = Rcpp::wrap(cpp_calculate_covariance_RIL_osthushenrich(Crosses, genMap, M, U, t, intensity, weights, p, covariance, calcindex, nThreads));
     return rcpp_result_gen;
 END_RCPP
 }
 // cpp_calculate_covariance_wolfe
-SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses, const List& genMap, const NumericMatrix& Hap1, const NumericMatrix& Hap2, const NumericMatrix& U, const NumericMatrix& D, double intensity, const NumericVector& weights, bool covariance, bool calcindex, int nThreads);
-RcppExport SEXP _CrossingTools_cpp_calculate_covariance_wolfe(SEXP CrossesSEXP, SEXP genMapSEXP, SEXP Hap1SEXP, SEXP Hap2SEXP, SEXP USEXP, SEXP DSEXP, SEXP intensitySEXP, SEXP weightsSEXP, SEXP covarianceSEXP, SEXP calcindexSEXP, SEXP nThreadsSEXP) {
+SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses, const List& genMap, const NumericMatrix& Hap1, const NumericMatrix& Hap2, const NumericMatrix& U, const NumericMatrix& D, double intensity, const NumericVector& weights, const NumericVector& p, bool covariance, bool calcindex, int nThreads);
+RcppExport SEXP _CrossingTools_cpp_calculate_covariance_wolfe(SEXP CrossesSEXP, SEXP genMapSEXP, SEXP Hap1SEXP, SEXP Hap2SEXP, SEXP USEXP, SEXP DSEXP, SEXP intensitySEXP, SEXP weightsSEXP, SEXP pSEXP, SEXP covarianceSEXP, SEXP calcindexSEXP, SEXP nThreadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -145,10 +151,11 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const NumericMatrix& >::type D(DSEXP);
     Rcpp::traits::input_parameter< double >::type intensity(intensitySEXP);
     Rcpp::traits::input_parameter< const NumericVector& >::type weights(weightsSEXP);
+    Rcpp::traits::input_parameter< const NumericVector& >::type p(pSEXP);
     Rcpp::traits::input_parameter< bool >::type covariance(covarianceSEXP);
     Rcpp::traits::input_parameter< bool >::type calcindex(calcindexSEXP);
     Rcpp::traits::input_parameter< int >::type nThreads(nThreadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(cpp_calculate_covariance_wolfe(Crosses, genMap, Hap1, Hap2, U, D, intensity, weights, covariance, calcindex, nThreads));
+    rcpp_result_gen = Rcpp::wrap(cpp_calculate_covariance_wolfe(Crosses, genMap, Hap1, Hap2, U, D, intensity, weights, p, covariance, calcindex, nThreads));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -183,8 +190,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // cpp_calculate_expectation_A
-SEXP cpp_calculate_expectation_A(const NumericMatrix& Crosses, const NumericMatrix& M, const NumericMatrix& U, const NumericVector& weights, bool calcindex, int nThreads);
-RcppExport SEXP _CrossingTools_cpp_calculate_expectation_A(SEXP CrossesSEXP, SEXP MSEXP, SEXP USEXP, SEXP weightsSEXP, SEXP calcindexSEXP, SEXP nThreadsSEXP) {
+SEXP cpp_calculate_expectation_A(const NumericMatrix& Crosses, const NumericMatrix& M, const NumericMatrix& U, const NumericVector& weights, const NumericVector& p, bool calcindex, int nThreads);
+RcppExport SEXP _CrossingTools_cpp_calculate_expectation_A(SEXP CrossesSEXP, SEXP MSEXP, SEXP USEXP, SEXP weightsSEXP, SEXP pSEXP, SEXP calcindexSEXP, SEXP nThreadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -192,15 +199,16 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const NumericMatrix& >::type M(MSEXP);
     Rcpp::traits::input_parameter< const NumericMatrix& >::type U(USEXP);
     Rcpp::traits::input_parameter< const NumericVector& >::type weights(weightsSEXP);
+    Rcpp::traits::input_parameter< const NumericVector& >::type p(pSEXP);
     Rcpp::traits::input_parameter< bool >::type calcindex(calcindexSEXP);
     Rcpp::traits::input_parameter< int >::type nThreads(nThreadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(cpp_calculate_expectation_A(Crosses, M, U, weights, calcindex, nThreads));
+    rcpp_result_gen = Rcpp::wrap(cpp_calculate_expectation_A(Crosses, M, U, weights, p, calcindex, nThreads));
     return rcpp_result_gen;
 END_RCPP
 }
 // cpp_calculate_expectation_A4W
-SEXP cpp_calculate_expectation_A4W(const NumericMatrix& Crosses, const NumericMatrix& M, const NumericMatrix& U, const NumericVector& weights, bool calcindex, int nThreads);
-RcppExport SEXP _CrossingTools_cpp_calculate_expectation_A4W(SEXP CrossesSEXP, SEXP MSEXP, SEXP USEXP, SEXP weightsSEXP, SEXP calcindexSEXP, SEXP nThreadsSEXP) {
+SEXP cpp_calculate_expectation_A4W(const NumericMatrix& Crosses, const NumericMatrix& M, const NumericMatrix& U, const NumericVector& weights, const NumericVector& p, bool calcindex, int nThreads);
+RcppExport SEXP _CrossingTools_cpp_calculate_expectation_A4W(SEXP CrossesSEXP, SEXP MSEXP, SEXP USEXP, SEXP weightsSEXP, SEXP pSEXP, SEXP calcindexSEXP, SEXP nThreadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -208,15 +216,16 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const NumericMatrix& >::type M(MSEXP);
     Rcpp::traits::input_parameter< const NumericMatrix& >::type U(USEXP);
     Rcpp::traits::input_parameter< const NumericVector& >::type weights(weightsSEXP);
+    Rcpp::traits::input_parameter< const NumericVector& >::type p(pSEXP);
     Rcpp::traits::input_parameter< bool >::type calcindex(calcindexSEXP);
     Rcpp::traits::input_parameter< int >::type nThreads(nThreadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(cpp_calculate_expectation_A4W(Crosses, M, U, weights, calcindex, nThreads));
+    rcpp_result_gen = Rcpp::wrap(cpp_calculate_expectation_A4W(Crosses, M, U, weights, p, calcindex, nThreads));
     return rcpp_result_gen;
 END_RCPP
 }
 // cpp_calculate_expectation_AD
-SEXP cpp_calculate_expectation_AD(const NumericMatrix& Crosses, const NumericMatrix& Hap1, const NumericMatrix& Hap2, const NumericMatrix& U, const NumericMatrix& D, const NumericVector& weights, bool calcindex, int nThreads);
-RcppExport SEXP _CrossingTools_cpp_calculate_expectation_AD(SEXP CrossesSEXP, SEXP Hap1SEXP, SEXP Hap2SEXP, SEXP USEXP, SEXP DSEXP, SEXP weightsSEXP, SEXP calcindexSEXP, SEXP nThreadsSEXP) {
+SEXP cpp_calculate_expectation_AD(const NumericMatrix& Crosses, const NumericMatrix& Hap1, const NumericMatrix& Hap2, const NumericMatrix& U, const NumericMatrix& D, const NumericVector& weights, const NumericVector& p, bool calcindex, int nThreads);
+RcppExport SEXP _CrossingTools_cpp_calculate_expectation_AD(SEXP CrossesSEXP, SEXP Hap1SEXP, SEXP Hap2SEXP, SEXP USEXP, SEXP DSEXP, SEXP weightsSEXP, SEXP pSEXP, SEXP calcindexSEXP, SEXP nThreadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -226,9 +235,10 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const NumericMatrix& >::type U(USEXP);
     Rcpp::traits::input_parameter< const NumericMatrix& >::type D(DSEXP);
     Rcpp::traits::input_parameter< const NumericVector& >::type weights(weightsSEXP);
+    Rcpp::traits::input_parameter< const NumericVector& >::type p(pSEXP);
     Rcpp::traits::input_parameter< bool >::type calcindex(calcindexSEXP);
     Rcpp::traits::input_parameter< int >::type nThreads(nThreadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(cpp_calculate_expectation_AD(Crosses, Hap1, Hap2, U, D, weights, calcindex, nThreads));
+    rcpp_result_gen = Rcpp::wrap(cpp_calculate_expectation_AD(Crosses, Hap1, Hap2, U, D, weights, p, calcindex, nThreads));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -318,18 +328,18 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_CrossingTools_cpp_calculate_covariance_allier", (DL_FUNC) &_CrossingTools_cpp_calculate_covariance_allier, 10},
-    {"_CrossingTools_cpp_calculate_covariance_RIL_allier", (DL_FUNC) &_CrossingTools_cpp_calculate_covariance_RIL_allier, 10},
-    {"_CrossingTools_cpp_calculate_covariance_lehermeier", (DL_FUNC) &_CrossingTools_cpp_calculate_covariance_lehermeier, 10},
-    {"_CrossingTools_cpp_calculate_covariance_RIL_lehermeier", (DL_FUNC) &_CrossingTools_cpp_calculate_covariance_RIL_lehermeier, 10},
-    {"_CrossingTools_cpp_calculate_covariance_osthushenrich", (DL_FUNC) &_CrossingTools_cpp_calculate_covariance_osthushenrich, 10},
-    {"_CrossingTools_cpp_calculate_covariance_RIL_osthushenrich", (DL_FUNC) &_CrossingTools_cpp_calculate_covariance_RIL_osthushenrich, 10},
-    {"_CrossingTools_cpp_calculate_covariance_wolfe", (DL_FUNC) &_CrossingTools_cpp_calculate_covariance_wolfe, 11},
+    {"_CrossingTools_cpp_calculate_covariance_allier", (DL_FUNC) &_CrossingTools_cpp_calculate_covariance_allier, 11},
+    {"_CrossingTools_cpp_calculate_covariance_RIL_allier", (DL_FUNC) &_CrossingTools_cpp_calculate_covariance_RIL_allier, 11},
+    {"_CrossingTools_cpp_calculate_covariance_lehermeier", (DL_FUNC) &_CrossingTools_cpp_calculate_covariance_lehermeier, 11},
+    {"_CrossingTools_cpp_calculate_covariance_RIL_lehermeier", (DL_FUNC) &_CrossingTools_cpp_calculate_covariance_RIL_lehermeier, 11},
+    {"_CrossingTools_cpp_calculate_covariance_osthushenrich", (DL_FUNC) &_CrossingTools_cpp_calculate_covariance_osthushenrich, 11},
+    {"_CrossingTools_cpp_calculate_covariance_RIL_osthushenrich", (DL_FUNC) &_CrossingTools_cpp_calculate_covariance_RIL_osthushenrich, 11},
+    {"_CrossingTools_cpp_calculate_covariance_wolfe", (DL_FUNC) &_CrossingTools_cpp_calculate_covariance_wolfe, 12},
     {"_CrossingTools_cpp_calcOHV", (DL_FUNC) &_CrossingTools_cpp_calcOHV, 5},
     {"_CrossingTools_cpp_calcOHV4W", (DL_FUNC) &_CrossingTools_cpp_calcOHV4W, 5},
-    {"_CrossingTools_cpp_calculate_expectation_A", (DL_FUNC) &_CrossingTools_cpp_calculate_expectation_A, 6},
-    {"_CrossingTools_cpp_calculate_expectation_A4W", (DL_FUNC) &_CrossingTools_cpp_calculate_expectation_A4W, 6},
-    {"_CrossingTools_cpp_calculate_expectation_AD", (DL_FUNC) &_CrossingTools_cpp_calculate_expectation_AD, 8},
+    {"_CrossingTools_cpp_calculate_expectation_A", (DL_FUNC) &_CrossingTools_cpp_calculate_expectation_A, 7},
+    {"_CrossingTools_cpp_calculate_expectation_A4W", (DL_FUNC) &_CrossingTools_cpp_calculate_expectation_A4W, 7},
+    {"_CrossingTools_cpp_calculate_expectation_AD", (DL_FUNC) &_CrossingTools_cpp_calculate_expectation_AD, 9},
     {"_CrossingTools_cpp_optimal_cross_pareto", (DL_FUNC) &_CrossingTools_cpp_optimal_cross_pareto, 15},
     {"_CrossingTools_cpp_u_from_from_g_simple", (DL_FUNC) &_CrossingTools_cpp_u_from_from_g_simple, 4},
     {"_CrossingTools_cpp_calculate_desired_gains", (DL_FUNC) &_CrossingTools_cpp_calculate_desired_gains, 8},

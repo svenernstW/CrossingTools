@@ -13,6 +13,7 @@ calc_spv_inbred(
   intensity = 1,
   type = "DH",
   weights = NULL,
+  p = NULL,
   covariance = FALSE,
   method = 1,
   nthreads = 4L
@@ -37,15 +38,17 @@ All markers in \code{marker.mat} must be represented.}
 markers in columns, coded 0, 1, and 2 for the counted allele.}
 
 \item{marker.effects}{Numeric matrix of average allele-substitution effects
-(\eqn{\alpha}) with markers in rows and traits in columns. Effects must be
-parameterised relative to the reference population represented by
+(\eqn{\alpha}) with markers in rows and traits in columns. Effects should be
+parameterised relative to the reference population defined by \code{p}.
+If \code{p = NULL}, the reference allele frequencies are derived from
 \code{marker.mat}. Its number of rows must equal
 \code{ncol(marker.mat)}.}
 
-\item{t}{Integer. Number of random-mating generations before doubled haploid
-or recombinant inbred line development.}
+\item{t}{Integer. Number of additional generations considered before final
+line development. Its interpretation depends on the selected offspring
+type and segregation-variance method.}
 
-\item{intensity}{Numeric scalar giving the standardized selection intensity
+\item{intensity}{Numeric scalar giving the standardised selection intensity
 used to calculate superior progeny values. The default is 1.}
 
 \item{type}{Character. Offspring type, either \code{"DH"} for doubled
@@ -54,13 +57,20 @@ haploid lines or \code{"RIL"} for recombinant inbred lines.}
 \item{weights}{Optional numeric vector with one weight per trait. When
 supplied, weighted index values are calculated for each cross.}
 
+\item{p}{Optional numeric vector of reference allele frequencies, with one
+value per marker. These frequencies define the reference population used
+to centre marker genotypes for breeding-value calculations. If
+\code{NULL}, allele frequencies are calculated from \code{marker.mat}.}
+
 \item{covariance}{Logical. If \code{TRUE}, also calculate segregation
 covariance matrices among traits for each cross.}
 
 \item{method}{Method used to calculate segregation variance. Either
-\code{1} or \code{"lehermeier"} for the Lehermeier method, or \code{2} or
-\code{"osthushenrich"} for the Osthushenrich method. The latter is
-currently available only for two-way crosses.}
+\code{1} or \code{"lehermeier"} for the Lehermeier et al. (2017) method,
+or \code{2} or \code{"osthushenrich"} for the Osthushenrich et al. (2017)
+method. The latter is currently available only for two-way crosses.
+Four-way crosses are calculated using the multi-parental formulation of
+Allier et al. (2019).}
 
 \item{nthreads}{Positive integer. Number of computational threads.}
 }
@@ -90,6 +100,48 @@ families derived from proposed two-way or four-way crosses.
 }
 \details{
 The calculation can account for additional generations of random mating
-before line development. Multiple traits and optional weighted trait indices
-are supported.
+or inbreeding before line development. Multiple traits and optional weighted
+trait indices are supported.
+
+Segregation (co)variances are calculated analytically from parental marker
+genotypes, recombination fractions, and average allele-substitution effects.
+For biparental crosses, the available methods follow the analytical
+approaches of Lehermeier et al. (2017) and Osthushenrich et al. (2017).
+Both provide expressions for doubled haploid (DH) and recombinant
+inbred line (RIL) populations after an arbitrary number of intermating
+generations. Four-way crosses are calculated using the extension to
+multi-parental crosses described by Allier et al. (2019).
+
+Additive genetic values are expressed as breeding values using centred
+marker genotypes, \eqn{M - 2p}, and average allele-substitution effects
+(\eqn{\alpha}). The reference allele frequencies \eqn{p} can be supplied by
+the user. If they are not supplied, they are calculated from
+\code{marker.mat}. Thus, \code{p} defines the reference population relative
+to which breeding values are expressed.
+
+Superior progeny values (SPV) combine the expected family breeding value
+with the predicted segregation standard deviation and a user-supplied
+selection intensity. For multiple traits, segregation covariance matrices
+can additionally be calculated and combined with trait weights to obtain
+an index-level SPV.
+}
+\references{
+Lehermeier, C., Teyssedre, S. and Schon, C.-C. (2017).
+Genetic gain increases by applying the usefulness criterion with improved
+variance prediction in selection of crosses.
+\emph{Genetics}, 207(4), 1651--1661.
+\doi{10.1534/genetics.117.300403}
+
+Osthushenrich, T., Frisch, M. and Herzog, E. (2017).
+Genomic selection of crossing partners on basis of the expected mean and
+variance of their derived lines.
+\emph{PLOS ONE}, 12(12), e0188839.
+\doi{10.1371/journal.pone.0188839}
+
+Allier, A., Moreau, L., Charcosset, A., Teyssedre, S. and
+Lehermeier, C. (2019).
+Usefulness criterion and post-selection parental contributions in
+multi-parental crosses: Application to polygenic trait introgression.
+\emph{G3: Genes|Genomes|Genetics}, 9(5), 1469--1479.
+\doi{10.1534/g3.119.400129}
 }
