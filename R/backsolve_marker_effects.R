@@ -4,29 +4,63 @@
 #' the equivalence between genomic relationship-matrix and marker-effect models
 #' (Stranden and Garrick, 2009).
 #'
-#' Genomic breeding values obtained from a genomic relationship-matrix model
-#' can be expressed equivalently in terms of marker effects. Given a marker
-#' matrix \eqn{M}, genomic relationship matrix \eqn{G}, and vector of predicted
-#' individual genetic effects \eqn{g}, marker effects are recovered by
-#' backsolving the genomic predictions onto the marker covariates. The required
-#' scaling is determined internally from the supplied marker and relationship
-#' matrices.
+#' Let \eqn{M} denote the marker design matrix, \eqn{G} the genomic relationship
+#' matrix, and \eqn{g_t} the vector of predicted individual genetic effects for
+#' trait \eqn{t}. Marker effects are first obtained as
 #'
-#' The marker matrix supplied to the function must therefore use the same
-#' coding and centring convention as that used to construct \code{G.mat}.
-#' For example, centred additive marker genotypes can be used to recover
-#' average allele-substitution effects from genomic breeding values when
-#' \code{G.mat} was constructed from the same centred marker matrix
-#' (VanRaden, 2008; Stranden and Garrick, 2009).
+#' \deqn{
+#' \tilde{\mu}_t = M^\top G^{-1} g_t .
+#' }
+#'
+#' Because genomic relationship matrices may differ from \eqn{M M^\top} by a
+#' constant scaling factor, the backsolved marker effects are subsequently
+#' rescaled so that the genetic values reconstructed from the marker effects
+#' optimally reproduce the supplied individual genetic effects. For each trait,
+#' the scalar
+#'
+#' \deqn{
+#' c_t =
+#' \frac{(M\tilde{\mu}_t)^\top g_t}
+#'      {(M\tilde{\mu}_t)^\top(M\tilde{\mu}_t)}
+#' }
+#'
+#' is calculated, and the final marker effects are
+#'
+#' \deqn{
+#' \mu_t = c_t \tilde{\mu}_t .
+#' }
+#'
+#' Thus, scaling is estimated independently for each trait and corresponds to a
+#' single constant applied to all marker effects within that trait. This is
+#' appropriate when \code{G.mat} is proportional to the crossproduct of the
+#' supplied marker matrix, for example
+#'
+#' \deqn{
+#' G = \frac{M M^\top}{s},
+#' }
+#'
+#' where \eqn{s} is a scalar normalization constant.
+#'
+#' Genomic relationship matrices using marker-specific or other non-scalar
+#' scaling are not supported.
+#'
+#' The marker matrix supplied to the function must use the same coding,
+#' centring, and marker representation as that used to construct
+#' \code{G.mat}. For example, centred additive marker genotypes can be used to
+#' recover average allele-substitution effects from genomic breeding values
+#' when \code{G.mat} was constructed from the same centred additive marker
+#' matrix (VanRaden, 2008; Stranden and Garrick, 2009). Likewise, dominance
+#' effects can be backsolved by supplying the corresponding dominance design
+#' matrix and dominance genomic relationship matrix.
 #'
 #' Multiple traits can be processed simultaneously by supplying
 #' \code{genotype.effects} as a matrix or data frame with one column per trait.
-#' Marker effects are backsolved separately for each trait using the same
-#' marker and genomic relationship matrices.
+#' Marker effects and their scalar rescaling factors are calculated separately
+#' for each trait using the same marker and genomic relationship matrices.
 #'
 #' @param marker.mat Numeric marker design matrix with individuals in rows and
-#'   markers in columns. Its coding and centring must correspond to that used
-#'   to construct \code{G.mat}.
+#'   markers in columns. Its coding, centring, and marker representation must
+#'   correspond to those used to construct \code{G.mat}.
 #' @param G.mat Numeric square genomic relationship matrix among the individuals
 #'   in \code{marker.mat}.
 #' @param genotype.effects Numeric vector, matrix, or data frame containing

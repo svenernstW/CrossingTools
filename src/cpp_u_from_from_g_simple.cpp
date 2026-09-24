@@ -47,11 +47,18 @@ SEXP cpp_u_from_from_g_simple(const NumericMatrix& M,
 
   //ensure proper scaling
 
-  arma::vec pred = M_mat * mu0.col(0);
-  double scalingFactor2 = arma::dot(pred, g_mat.col(0)) / arma::dot(pred, pred);
+  arma::mat mu = mu0;
 
+  for (arma::uword t = 0; t < g_mat.n_cols; ++t) {
 
-  arma::mat mu = mu0 * scalingFactor2;
+    arma::vec pred = M_mat * mu0.col(t);
+
+    double scalingFactor2 =
+      arma::dot(pred, g_mat.col(t)) /
+        arma::dot(pred, pred);
+
+    mu.col(t) *= scalingFactor2;
+  }
 
   return List::create(
     Named("mu_matrix")      = mu                              // p x k
