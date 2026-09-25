@@ -1,299 +1,410 @@
 ###############################################################################
 # Libraries
 ###############################################################################
+
 library(AlphaSimR)
 library(asreml)
 library(CrossingTools)
+
+
+###############################################################################
+# Simulation settings
+###############################################################################
+
+n_chr              <- 10
+n_parent           <- 50
+n_snp_per_chr      <- 500
+n_qtl_per_chr      <- 500
+n_seg_site_per_chr <- n_snp_per_chr + n_qtl_per_chr
+n_training_crosses <- 50
+n_dh               <- 40
+n_crosses          <- 50
+
+
+# Traits
+trait_names <- c("trait1", "trait2")
+trait_mean  <- c(0, 0)
+trait_var   <- c(1, 2)
+
+cor_a <- matrix(
+  c(
+    1.0, -0.5,
+    -0.5,  1.0
+  ),
+  nrow = 2
+)
+
+h2 <- c(0.5, 0.5)
+
+# Selection index
+
+desired_gains      <- c(10, 10)
+smith_hazel_weights <- c(1, 1)
+
+
+# Computation
+
+n_threads <- 7
+
+
 ###############################################################################
 # Create founders
 ###############################################################################
 
-# Generate initial haplotypes
-founderPop = runMacs(nInd     = 50,
-                     nChr     = 10,
-                     segSites = 1000,
-                     inbred   = TRUE,
-                     species  = "WHEAT")
-
-# Initialize simulation parameters from founder population
-SP = SimParam$new(founderPop)
-
-# Define SNP chip density
-SP$addSnpChip(500)
-
-###############################################################################
-# Add traits
-###############################################################################
-
-# Add (additive) multi-trait architecture (e.g., yield-related traits)
-SP$addTraitA(nQtlPerChr = 500,
-             mean       = c(0,0),
-             var        = c(1,2),
-             corA       = matrix(c(1,-0.5,
-                                   -0.5,1),nrow=2))
 
 
-###############################################################################
-# Create founder parents and assign phenotypes (EYT evaluation)
-###############################################################################
-
-# Create founder parents
-Parents = newPop(founderPop)
-
-# Add error to get a phenotype with desired H2
-Parents = setPheno(Parents, H2 = c(0.5,0.5))
-
-rm(founderPop)
-
-###############################################################################
-# Create F1 families and doubled haploid training population
-###############################################################################
-
-F1 <- randCross(Parents, 50)
-DH <- makeDH(F1, 40)
-
-# Phenotype DH lines
-DH <- setPheno(DH, H2 = c(0.5, 0.5))
-###############################################################################
-# Prepare genomic + phenotypic data for multi-trait GBLUP
-###############################################################################
-
-# Marker matrix for training (DH)
-Mtrain <- pullSnpGeno(DH)
-
-# Long-format phenotype table for multi-trait model
-Pheno <- data.frame(
-  id    = as.factor(rep(DH@id,2)),
-  trait = as.factor(c(rep("Trait1",nInd(DH)),rep("Trait2",nInd(DH)))),
-  value = c(DH@pheno[,1],DH@pheno[,2])
+founder_pop <- runMacs(
+  nInd     = n_parent,
+  nChr     = n_chr,
+  segSites = n_seg_site_per_chr,
+  inbred   = TRUE,
+  species  = "wheat"
 )
 
+
+###############################################################################
+# Simulation parameters
+###############################################################################
+
+SP <- SimParam$new(founder_pop)
+
+SP$addSnpChip(
+  nSnpPerChr = n_snp_per_chr
+)
+
+SP$addTraitA(
+  nQtlPerChr = n_qtl_per_chr,
+  mean       = trait_mean,
+  var        = trait_var,
+  corA       = cor_a
+)
+
+
+###############################################################################
+# Create parents and doubled haploid training population
+###############################################################################
+
+parent_pop <- newPop(founder_pop)
+
+rm(founder_pop)
+
+f1_pop <- randCross(
+  parent_pop,
+  nCrosses = n_crosses,
+  simParam = SP
+)
+
+dh_pop <- makeDH(
+  f1_pop,
+  nDH      = n_dh,
+  simParam = SP
+)
+
+dh_pop <- setPheno(
+  dh_pop,
+  H2       = h2,
+  simParam = SP
+)
+
+
+###############################################################################
+# Prepare genomic and phenotypic data
+###############################################################################
+
+marker_mat <- pullSnpGeno(dh_pop)
+
+pheno_df <- data.frame(
+  id = factor(
+    rep(dh_pop@id, times = length(trait_names))
+  ),
+  trait = factor(
+    rep(trait_names, each = nInd(dh_pop)),
+    levels = trait_names
+  ),
+  y = as.vector(dh_pop@pheno)
+)
+
+
 ###############################################################################
 # Additive genomic relationship matrix
 ###############################################################################
 
-# Allele frequencies used to centre marker genotypes
-p <- colMeans(Mtrain) / 2
+p <- colMeans(marker_mat) / 2
 
-# Additive genotype coding: W = M - 2p
-W <- Mtrain - 2 * p
+# Additive coding: W = M - 2p
 
-# Additive genomic relationship matrix
-GRM <- tcrossprod(W) / ncol(Mtrain)
+W <- sweep(
+  marker_mat,
+  2,
+  2 * p,
+  FUN = "-"
+)
+
+GRM <- tcrossprod(W) / ncol(marker_mat)
+
 
 ###############################################################################
-# Fit GBLUP model (ASReml) and predict breeding values
+# Fit multi-trait GBLUP
 ###############################################################################
 
-# Increase ASReml workspace
-asreml.options(pworkspace = "5gb",workspace = "5gb")
+asreml.options(
+  pworkspace = "5gb",
+  workspace  = "5gb"
+)
 
-GBLUP <- asreml(fixed = value ~ 1+trait,
-                random = ~vm(id,GRM):us(trait),
-                residual = ~ dsum(~ id(units) | trait),
-                na.action = na.method(y = "include"),
-                data = Pheno)
+GBLUP_asr <- asreml(
+  fixed     = y ~ 1 + trait,
+  random    = ~ vm(id, GRM):us(trait),
+  residual  = ~ dsum(~ id(units) | trait),
+  na.action = na.method(y = "include"),
+  data      = pheno_df
+)
 
 
-
-
-# EBVs (BLUPs) for id x trait, plus vcov matrix of those predictions
+###############################################################################
+# Prediction covariance matrix
+###############################################################################
 
 pred <- predict(
-  GBLUP,
+  GBLUP_asr,
   classify = "vm(id, GRM):trait",
-  only = "vm(id, GRM):trait",
-  vcov = TRUE
+  only     = "vm(id, GRM):trait",
+  vcov     = TRUE
 )
 
-
 # Prediction-error covariance matrix of the breeding-value BLUPs
+
 PEV <- as.matrix(pred$vcov)
 
-G <- diag(GBLUP$vparameters[c(1,3)],2,2) #this is the genetic covariance matrix
-G[2,1] <- G[1,2] <- GBLUP$vparameters[c(2)]
+# Genetic covariance matrix between traits
 
+G <- diag(
+  GBLUP_asr$vparameters[c(1, 3)],
+  nrow = 2
+)
+
+G[1, 2] <- G[2, 1] <- GBLUP_asr$vparameters[2]
 
 # Prior covariance matrix of the stacked breeding values
-GRM.G <- GRM %x% G
 
-# Covariance matrix of the predicted breeding values:
+GRM_G <- GRM %x% G
+
+# Covariance matrix of predicted breeding values:
 # Var(A_hat) = Var(A) - PEV
-V <- GRM.G - PEV
+
+V <- GRM_G - PEV
+
 
 ###############################################################################
-# Extract breeding values (two traits)
+# Extract breeding values
 ###############################################################################
 
-# Breeding values for Trait1 and Trait2 (stacked random coefficients)
-A <- as.data.frame(cbind(
-  GBLUP$coefficients$random[grepl("Trait1",row.names(GBLUP$coefficients$random))],
-  GBLUP$coefficients$random[grepl("Trait2",row.names(GBLUP$coefficients$random))]
-))
+random_coef_df <- as.data.frame(
+  GBLUP_asr$coefficients$random
+)
 
-names(A) <- c("Trait1","Trait2")
+bv_df <- cbind(
+  random_coef_df[grep(trait_names[1], rownames(random_coef_df), fixed = TRUE), 1],
+  random_coef_df[grep(trait_names[2], rownames(random_coef_df), fixed = TRUE), 1]
+)
+
+bv_df <- as.data.frame(bv_df)
+
+colnames(bv_df) <- trait_names
+rownames(bv_df) <- rownames(marker_mat)
+
 
 ###############################################################################
-# Summarize expected index behavior from trait covariance (quick intuition)
+# Evaluate multi-trait selection indices
 ###############################################################################
-desired_gain <- c(10, 10)  # desired relative gain of 1:1 across traits
-smith_hazel  <- c(1, 1)    # equal economic weights for both traits
 
-# Uses var.mat (trait covariance matrix), not per-genotype VCOV
-predict_response(var.mat = cov(A), desired.gains = desired_gain, intensity = 1)
+# Desired gains specify a 1:1 direction of improvement.
 
-predict_response(var.mat = cov(A), weights = smith_hazel, intensity = 1)
+predict_response(
+  var.mat       = V,
+  desired.gains = desired_gains,
+  intensity     = 1
+)
+
+# Fixed Smith-Hazel index coefficients.
+
+predict_response(
+  var.mat   = V,
+  weights   = smith_hazel_weights,
+  intensity = 1
+)
 
 
 ###############################################################################
 # Desired gains index
 ###############################################################################
 
-
-# Calculate desired gains index and resulting trait weights
-
-DG <- make_index(
-  genotype.effects         = A,
-  var.mat         = V, #posterior variance covariance matrix of BLUPS (ntrait * ngenotype x ntrait * ngenotype), also accepts a simple covariance matric
-  desired.gains           = desired_gain
+dg_index <- make_index(
+  genotype.effects = bv_df,
+  var.mat          = V,
+  desired.gains    = desired_gains
 )
 
-# Inspect results
-head(DG$index)  # Desired Gains index for each genotype
-DG$weights
+head(dg_index$index)
+dg_index$weights
+
 
 ###############################################################################
-# Back-solve average allele-substitution effects
+# Backsolve marker effects
 ###############################################################################
 
-# Convert breeding values to marker effects via backsolve_marker_effects()
 alpha <- backsolve_marker_effects(
   marker.mat       = W,
   G.mat            = GRM,
-  genotype.effects = A
+  genotype.effects = bv_df
 )
 
 head(alpha)
-###############################################################################
-# Genetic map for markers
-###############################################################################
 
-# Get marker genetic map and assign sequential site IDs
-map        <- getSnpMap()
-map$site   <- seq_len(nrow(map))
-#map$site   <- map$id
 
 ###############################################################################
-# Strategy: Desired gains; cross expectation (average GEBV), Optimal haploid value and superior progeny index
+# Genetic map
 ###############################################################################
 
-# Build all possible parent crosses
-PotCrosses <- make_cross_plan(parents = 1:nrow(Mtrain))
-head(PotCrosses)
+map_df <- getSnpMap()
+map_df$site <- seq_len(nrow(map_df))
 
-# Get multi-trait cross expectation
+
+###############################################################################
+# Candidate crosses
+###############################################################################
+
+potential_crosses <- make_cross_plan(
+  parents = 1:nrow(marker_mat)
+)
+
+head(potential_crosses)
+
+
+###############################################################################
+# Cross expectation
+###############################################################################
+
 expectations <- calc_midparent_inbred(
-  crosses         = PotCrosses,
-  marker.mat      = Mtrain,
-  marker.effects         = alpha,
-  weights         = DG$weights,
-  nthreads       = 7
+  crosses        = potential_crosses,
+  marker.mat     = marker_mat,
+  marker.effects = alpha,
+  weights        = dg_index$weights,
+  p              = p,
+  nthreads       = n_threads
 )
 
 head(expectations$cross.df)
 
-# Get multi-trait cross optimal haploid value
+
+###############################################################################
+# Optimal haploid value
+###############################################################################
+
 ohv <- calc_optimal_haploid_value(
-  crosses         = PotCrosses,
-  marker.mat      = Mtrain,
-  marker.effects         = alpha,
-  weights         = DG$weights,
-  nthreads       = 7
+  crosses        = potential_crosses,
+  marker.mat     = marker_mat,
+  marker.effects = alpha,
+  weights        = dg_index$weights,
+  nthreads       = n_threads
 )
 
 head(ohv$cross.df)
 
-# Get multi-trait segregation var & covariance and superior progeny value
-# Selection intensity at cross level
-nCrosses <- 50
-a     <- nCrosses / nrow(PotCrosses) # this is really just a weighting factor on the segregation variance
-intensity <- dnorm(qnorm(1 - a), 0, 1) / a
 
+###############################################################################
+# Segregation variance and superior progeny value
+###############################################################################
 
-#with two traits and about two million crosses as in this example might take a while
+selection_proportion <- n_crosses / nrow(potential_crosses)
+
+intensity <- dnorm(
+  qnorm(1 - selection_proportion)
+) / selection_proportion
+
 spv <- calc_spv_inbred(
-  crosses         = PotCrosses,
-  genetic.map     = map,
-  marker.mat      = Mtrain,
-  marker.effects         = alpha,
-  t               = 0, # how many rounds of random mating before DH or RIL creation
-  intensity       = intensity,
-  weights         = DG$weights,
-  type = "DH",
-  covariance      = F,
-  method          = 2, # 1 for lehermeier and 2 for osthushenrich
-  nthreads       = 7)
-
-
-###############################################################################
-# Optimal cross selection (trade-off: diversity vs gain; here using SPV of index)
-###############################################################################
-
-# Notes:
-# - Can add fixed.crosses (always conducted)
-# - Can remove potential crosses from optimization by removing them from `crosses`
-ocs_pareto <- optimize_cross_plan(
-  candidate.crosses       = PotCrosses,
-  criterion             = spv$index.df$SPV.IDX,
-  G.mat             = GRM,
-  method = "pareto", #either pareto to return a pareto with multiple solutions or "angle" to only find a single solution to maximize gain and balance diversity alon a given target angle
-  ncrosses      = 50,
-  plot=T
+  crosses        = potential_crosses,
+  genetic.map    = map_df,
+  marker.mat     = marker_mat,
+  marker.effects = alpha,
+  t              = 0,
+  intensity      = intensity,
+  weights        = dg_index$weights,
+  p              = p,
+  type           = "DH",
+  covariance     = FALSE,
+  method         = 2,
+  nthreads       = n_threads
 )
 
-ocs_pareto$pareto.plans[[1]] # a list of all pareto plans
-head(ocs_pareto$pareto.frontier) # coordinates on the pareto
+head(spv$cross.df)
+head(spv$index.df)
 
-# Alternatively, optimise along a single target angle between gain and
-# genomic similarity
+
+###############################################################################
+# Optimal cross selection
+###############################################################################
+
+# Pareto optimisation returns alternative gain-diversity trade-offs.
+
+ocs_pareto <- optimize_cross_plan(
+  candidate.crosses = potential_crosses,
+  criterion         = spv$index.df$SPV.IDX,
+  G.mat             = GRM,
+  method            = "pareto",
+  ncrosses          = n_crosses,
+  plot              = TRUE
+)
+
+ocs_pareto$pareto.plans[[1]]
+
+head(
+  ocs_pareto$pareto.frontier
+)
+
+
+# Alternatively, optimise a single gain-diversity trade-off.
 
 ocs_angle <- optimize_cross_plan(
-  candidate.crosses       = PotCrosses,
-  criterion             = spv$index.df$SPV.IDX,
+  candidate.crosses = potential_crosses,
+  criterion         = spv$index.df$SPV.IDX,
   G.mat             = GRM,
-  method = "angle", #either pareto to return a pareto with multiple solutions or "angle" to only find a single solution to maximize gain and balance diversity alon a given target angle
-  ncrosses      = 50,
-  target.angle  = 15
+  method            = "angle",
+  ncrosses          = n_crosses,
+  target.angle      = 15
 )
+
 head(ocs_angle)
 
 
+###############################################################################
+# Select crossing plan
+###############################################################################
 
+# Select one Pareto solution according to the breeding objective.
+
+selected_plan_id <- 4000
+
+cross_plan <- ocs_pareto$pareto.plans[[selected_plan_id]]
 
 
 ###############################################################################
-# Final cross plan and evaluation
+# Evaluate crossing plan
 ###############################################################################
 
-# Final cross plan
-crosses <- ocs_pareto$pareto.plans[[4000]] # pick the one that fits your goals best
+ohv_cols <- paste0("OHV.", trait_names)
 
-
-###############################################################################
-# Evaluate and plot a crossing plan
-###############################################################################
-# Evaluate the plan
-
-cross.df <- cbind(spv$cross.df,ohv$cross.df[,3:4])
-
-
-summarize_cross_plan(
-  cross.plan  = crosses,
-  cross.df = cross.df
+cross_metrics <- cbind(
+  spv$cross.df,
+  ohv$cross.df[ohv_cols]
 )
 
-# Plot the plan
+summarize_cross_plan(
+  cross.plan = cross_plan,
+  cross.df   = cross_metrics
+)
+
 plot_cross_plan(
-  cross.plan  = crosses,
-  cross.df = cross.df
+  cross.plan = cross_plan,
+  cross.df   = cross_metrics
 )
