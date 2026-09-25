@@ -33,8 +33,7 @@ SEXP cpp_calculate_expectation_A4W(const NumericMatrix& Crosses,
     as<arma::vec>(weights);
 
   // Allele frequencies in the reference population
-  arma::vec p_vec =
-    as<arma::vec>(p);
+  arma::rowvec p_vec = as<arma::rowvec>(p);
 
   // Centred additive genotype code W = M - 2p
   arma::mat W_mat = M_mat;

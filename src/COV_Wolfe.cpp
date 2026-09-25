@@ -46,7 +46,7 @@ SEXP cpp_calculate_covariance_wolfe(const NumericMatrix& Crosses,
   arma::mat D_mat    = as<arma::mat>(D);      // (numMarkers × numTrait)
   arma::vec weights_vec = as<arma::vec>(weights); // length == numTrait
 
-  arma::vec p_vec = as<arma::vec>(p); // length == numTrait
+  arma::rowvec p_vec = as<arma::rowvec>(p);
 
   arma::mat W_mat = M_mat;
   W_mat.each_row() -= 2.0 * p_vec;

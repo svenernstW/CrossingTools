@@ -12,10 +12,6 @@ set.seed(123)
 # Create founders
 ###############################################################################
 
-###############################################################################
-# Create founders
-###############################################################################
-
 # 10 chromosomes
 # 100 Mb per chromosome
 # 100 cM = 1 Morgan per chromosome
@@ -53,9 +49,9 @@ SP$addSnpChip(
 #loosly following Werner et al. (2023) (https://doi.org/10.1007/s00122-023-04300-6)
 
 SP$addTraitAD(
-  nQtlPerChr = 500,     
+  nQtlPerChr = 500,
   mean        = 0,
-  var         = 1,       
+  var         = 1,
   meanDD      = 0.3,
   varDD       = 0.2,
   useVarA     = TRUE
@@ -68,9 +64,6 @@ SP$addTraitAD(
 
 # Create founder parents
 Parents = newPop(founderPop)
-
-# Add error to get a phenotype with desired H2
-Parents = setPheno(Parents, h2 = 0.5)
 
 rm(founderPop)
 
@@ -98,7 +91,7 @@ pop <- setPheno(
 # Marker genotype matrix for the training population
 Mtrain <- pullSnpGeno(pop)
 
-# Haplotype matrix, in reality, Genotype data would need to be phased with tools such as BEAGLE, only needed for SPV and segregation variances
+# Haplotype matrix, in practise, Genotype data would need to be phased with tools such as BEAGLE, only needed for SPV and segregation variances
 Hap1 <- pullSnpHaplo(pop)[seq(1,nrow(Mtrain)*2,2),]
 Hap2 <- pullSnpHaplo(pop)[seq(2,nrow(Mtrain)*2,2),]
 
@@ -120,26 +113,28 @@ p <- colMeans(Mtrain) / 2
 q <- 1 - p
 
 # Additive coding: W = M - 2p
-W <- Mtrain - 2 * p
+W <- sweep(Mtrain, 2, 2 * p, FUN = "-")
 
 # Additive GRM
 GRM.A <- tcrossprod(W) / ncol(Mtrain)
-
+GRM.A <- GRM.A + diag(1e-8, nrow(GRM.A))
 
 ###############################################################################
 # Dominance-deviation genomic relationship matrix
 ###############################################################################
 
-# Heterozygosity indicator: 1 for heterozygotes, 0 otherwise
+# Heterozygosity indicator
 H <- 1 * (Mtrain == 1)
 
 # Statistical dominance-deviation coding:
 # Z = H - (1 - 2p)W - 2pq
-Z <- H - (1 - 2 * p) * W - 2 * p * q
+Z <- H - sweep(W, 2, 1 - 2 * p, FUN = "*")
+Z <- sweep(Z, 2, 2 * p * q, FUN = "-")
+
 
 # Dominance GRM
 GRM.D <- tcrossprod(Z) / ncol(Mtrain)
-
+GRM.D <- GRM.D + diag(1e-8, nrow(GRM.D))
 ###############################################################################
 # Fit additive-dominance GBLUP model (ASReml)
 ###############################################################################
@@ -162,7 +157,7 @@ GBLUP <- asreml(fixed = value ~ 1,
 ###############################################################################
 
 # Breeding values for Trait1 and Trait2 (stacked random coefficients)
-A <- as.data.frame(GBLUP$coefficients$random[1:1000,])
+A <- as.data.frame(GBLUP$coefficients$random[1:1000,])#use grep here!!!!!!
 D <- as.data.frame(GBLUP$coefficients$random[1001:2000,])
 
 
