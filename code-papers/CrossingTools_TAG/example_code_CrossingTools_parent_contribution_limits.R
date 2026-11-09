@@ -141,7 +141,11 @@ W <- sweep(
 
 GRM <- tcrossprod(W) / ncol(marker_mat)
 
+# Add a small ridge penalty to ensure positive definiteness
 
+ridge <- 1e-4 * mean(diag(GRM))
+
+GRM <- GRM + diag(ridge, nrow(GRM))
 ###############################################################################
 # Fit multi-trait GBLUP
 ###############################################################################

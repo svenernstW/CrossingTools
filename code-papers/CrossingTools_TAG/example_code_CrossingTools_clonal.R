@@ -143,7 +143,11 @@ W <- sweep(
 GRM_A <- tcrossprod(W) / ncol(marker_mat)
 GRM_A <- GRM_A + diag(1e-8, nrow(GRM_A))
 
+# Add a small ridge penalty to ensure positive definiteness
 
+ridge <- 1e-4 * mean(diag(GRM_A))
+
+GRM_A <- GRM + diag(ridge, nrow(GRM_A))
 ###############################################################################
 # Dominance genomic relationship matrix
 ###############################################################################
@@ -169,8 +173,12 @@ Z <- sweep(
 )
 
 GRM_D <- tcrossprod(Z) / ncol(marker_mat)
-GRM_D <- GRM_D + diag(1e-8, nrow(GRM_D))
 
+# Add a small ridge penalty to ensure positive definiteness
+
+ridge <- 1e-4 * mean(diag(GRM_D))
+
+GRM_D <- GRM + diag(ridge, nrow(GRM_D))
 
 ###############################################################################
 # Fit additive-dominance GBLUP
