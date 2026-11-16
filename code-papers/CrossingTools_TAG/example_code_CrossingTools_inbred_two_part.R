@@ -285,7 +285,7 @@ head(alpha)
 # Part 2: rapid-cycling population
 ###############################################################################
 
-# Two random mating rounds illustrate the population-improvement part.
+# Two random mating rounds as an example for the population-improvement part.
 # Unlike the DH training population, these candidates are not phenotyped.
 
 rc1_pop <- randCross(
