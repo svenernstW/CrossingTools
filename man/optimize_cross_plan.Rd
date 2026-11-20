@@ -18,7 +18,8 @@ optimize_cross_plan(
   return.params = FALSE,
   plot = TRUE,
   params = list(),
-  nthreads = 4L
+  nthreads = 4L,
+  cross.constraints = NULL
 )
 }
 \arguments{
@@ -92,40 +93,118 @@ penalty for deviation from \code{target.angle}, used only when
 }}
 
 \item{nthreads}{Positive integer. Number of computational threads.}
+
+\item{cross.constraints}{Optional named list specifying additional
+constraints on numerical or categorical properties of the selected
+crosses. The default is \code{NULL}, corresponding to no additional
+cross-level constraints. The list may contain the following elements:
+\describe{
+\item{\code{values}}{
+A data frame or matrix with one row per candidate cross and one
+column per cross property. Rows must correspond to the order of
+\code{candidate.crosses}. Columns may contain numeric values,
+character strings, or factors. Numerical columns are interpreted
+as quantitative cross properties, whereas character or factor
+columns define categorical cross types.
+}
+\item{\code{fixed.values}}{
+A data frame or matrix containing the corresponding properties
+of fixed crosses, with one row per cross in \code{fixed.crosses}.
+The columns must match those in \code{values}. This element is
+required when fixed crosses are supplied and may otherwise be
+omitted or set to \code{NULL}.
+}
+\item{\code{bounds}}{
+A named list specifying the constraints to be imposed.
+Each list name must correspond to a column in \code{values}.
+The required format depends on whether the corresponding
+property is numerical or categorical.
+}
+}
+
+For numerical properties, each element of \code{bounds} must be a
+named numeric vector of the form
+\code{c(lower = ..., upper = ...)}, specifying the permissible
+interval for the mean property value across the complete crossing
+plan. Bounds are expressed in the original units of the property.
+The values \code{-Inf} and \code{Inf} can be used to specify
+unrestricted lower or upper bounds, respectively.
+
+For categorical properties, each element of \code{bounds} must be a
+data frame with columns \code{type}, \code{lower}, and \code{upper}.
+Each row specifies a category and its permissible proportion among
+selected crosses. Category bounds must lie between zero and one.
+Categories not included in the bounds table are not constrained
+directly.
+
+Numerical and categorical constraints may be combined.
+Only properties explicitly included in \code{bounds} are constrained.
+Constraints are applied to the complete crossing plan, including
+fixed crosses. The user is responsible for ensuring that each row
+of \code{values} and \code{fixed.values} corresponds to the correct
+cross. All additional constraints must be jointly feasible for
+a valid crossing plan to exist.}
 }
 \value{
-For \code{method = "angle"} and \code{return.params = FALSE}, a data frame
-with columns \code{parent1} and \code{parent2} describing the selected
-crossing plan.
-
 For \code{method = "angle"} and \code{return.params = TRUE}, a list
 containing:
 \describe{
 \item{\code{crossPlan}}{The selected crossing plan as a data frame with
 columns \code{parent1} and \code{parent2}.}
-\item{\code{uMax}, \code{simMax}}{The maximum attainable cross criterion
-and the corresponding similarity.}
+\item{\code{uMax}, \code{simMax}}{The cross criterion of the
+high-gain reference plan and its corresponding genomic similarity.
+With active constraints, the reference plan is constructed
+heuristically and is not guaranteed to be the global gain maximum.}
+\item{\code{uMin}, \code{simMin}}{Reference values obtained during
+similarity optimisation, used for normalisation of the objectives.}
 \item{\code{uBest}, \code{simBest}}{The cross criterion and similarity of
 the selected solution.}
 \item{\code{angleBest}, \code{lenBest}}{The angle and length of the
 selected solution in normalised objective space.}
+\item{\code{parentContributions}}{Numeric vector containing the
+proportional contribution of each parent to the selected crossing
+plan, including fixed crosses. Contributions sum to one.
+Parent names are retained when available in \code{G.mat}.}
+\item{\code{constraintValues}}{Named numeric vector containing the
+achieved mean values of numerical constraints and the proportions
+of constrained categorical cross types. Numerical values are
+reported in their original units. An empty vector is returned when
+no additional constraints are specified.}
 }
+
+For \code{target.angle = 0}, the high-gain reference plan is returned
+directly without running the genetic algorithm. In this case,
+\code{uMax}, \code{simMax}, \code{parentContributions}, and
+\code{constraintValues} are returned with \code{crossPlan};
+the remaining optimisation diagnostics are not available.
 
 For \code{method = "pareto"}, a list containing:
 \describe{
-\item{\code{pareto.plans}}{A list of Pareto-optimal crossing plans, each
-represented by a data frame with columns \code{parent1} and
-\code{parent2}.}
+\item{\code{pareto.plans}}{A list of non-dominated crossing plans
+identified by the optimisation, each represented by a data frame
+with columns \code{parent1} and \code{parent2}. All returned plans
+satisfy the specified parental and additional cross constraints.}
 \item{\code{pareto.frontier}}{A data frame containing the solution
 identifier \code{pareto.id}, cross criterion \code{u}, and genomic
-similarity \code{sim}.}
+similarity \code{sim}. Each row corresponds to the crossing plan
+at the same position in \code{pareto.plans}.}
+\item{\code{pareto.constraints}}{When \code{return.params = TRUE} and
+additional cross constraints are specified, a data frame containing
+the achieved constraint values for every returned Pareto solution.
+Rows correspond to \code{pareto.frontier} and \code{pareto.plans},
+while columns represent individual numerical constraints or
+constrained categorical cross types. Numerical properties are
+reported in their original units and categorical properties as
+proportions. This element is omitted when no additional cross
+constraints are specified.}
 }
 }
 \description{
 Selects a crossing plan of \code{ncrosses} crosses by balancing a
 user-defined cross criterion against genomic similarity among the
 contributing parents. Fixed crosses and upper and lower constraints on
-parental contributions can be incorporated directly into the optimisation.
+parental contributions or other constraints can be incorporated directly
+into the optimisation.
 }
 \details{
 Ranking crosses solely according to their predicted value may maximise
@@ -143,10 +222,10 @@ contributes equally to the crossing plan, with half of its contribution
 assigned to each parent.
 
 Because the cross criterion and genomic similarity may be measured on
-different scales, the objectives are normalised before optimisation.
-CrossingTools provides two strategies for balancing the resulting gain--
-diversity objectives. With \code{method = "angle"}, the user specifies a
-target angle between 0 and 90 degrees. An angle of 0 degrees gives maximum
+different scales, the objectives are normalised for the angle-based
+optimisation. CrossingTools provides two strategies for balancing the
+gain--diversity objectives. With \code{method = "angle"}, the user specifies
+a target angle between 0 and 90 degrees. An angle of 0 degrees gives maximum
 emphasis to the cross criterion, whereas an angle of 90 degrees gives
 maximum emphasis to reducing genomic similarity and therefore maintaining
 diversity. Intermediate angles specify different compromises between the
@@ -162,6 +241,20 @@ genomic diversity.
 Both optimisation strategies search over complete crossing plans rather
 than ranking crosses independently. Practical breeding constraints can be
 imposed through fixed crosses and minimum or maximum parental contributions.
+Additional constraints can be specified through \code{cross.constraints},
+allowing the mean of numerical cross properties or the proportion of
+individual cross types to be restricted to user-defined intervals.
+These constraints can be applied simultaneously with parental contribution
+limits and are treated as hard constraints rather than additional
+optimisation objectives.
+
+Numerical constraints can represent any quantitative cross property, such
+as expected trait values, expected allele frequencies of QTL, genetic
+distances, or crossing costs. Categorical constraints can be used to restrict
+the proportions of particular cross types, such as within-family or
+between-family crosses. Individual crosses may have numerical values outside
+the specified bounds as long as the overall mean satisfies the constraint.
+
 Crosses that should not be considered can be excluded from
 \code{candidate.crosses}.
 }

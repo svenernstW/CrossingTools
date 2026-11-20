@@ -25,16 +25,36 @@ cpp_calculate_covariance_RIL_osthushenrich <- function(Crosses, genMap, M, U, t,
     .Call(`_CrossingTools_cpp_calculate_covariance_RIL_osthushenrich`, Crosses, genMap, M, U, t, intensity, weights, p, covariance, calcindex, nThreads)
 }
 
-cpp_calculate_covariance_wolfe <- function(Crosses, genMap, Hap1, Hap2, U, D, intensity, weights, p, covariance = FALSE, calcindex = FALSE, nThreads = 4L) {
-    .Call(`_CrossingTools_cpp_calculate_covariance_wolfe`, Crosses, genMap, Hap1, Hap2, U, D, intensity, weights, p, covariance, calcindex, nThreads)
-}
-
 cpp_calcOHV <- function(Crosses, HBlocks, M, mu_vec, nThreads = 4L) {
     .Call(`_CrossingTools_cpp_calcOHV`, Crosses, HBlocks, M, mu_vec, nThreads)
 }
 
 cpp_calcOHV4W <- function(Crosses, HBlocks, M, mu_vec, nThreads = 4L) {
     .Call(`_CrossingTools_cpp_calcOHV4W`, Crosses, HBlocks, M, mu_vec, nThreads)
+}
+
+cpp_calculate_covariance_allier_dh <- function(Crosses, genMap, M, U, t, s, intensity, weights, p, covariance = FALSE, calcindex = FALSE, nThreads = 4L) {
+    .Call(`_CrossingTools_cpp_calculate_covariance_allier_dh`, Crosses, genMap, M, U, t, s, intensity, weights, p, covariance, calcindex, nThreads)
+}
+
+cpp_calculate_covariance_allier_ril <- function(Crosses, genMap, M, U, t, s, intensity, weights, p, covariance = FALSE, calcindex = FALSE, nThreads = 4L) {
+    .Call(`_CrossingTools_cpp_calculate_covariance_allier_ril`, Crosses, genMap, M, U, t, s, intensity, weights, p, covariance, calcindex, nThreads)
+}
+
+cpp_calculate_covariance_allier_ril_infinite <- function(Crosses, genMap, M, U, t, intensity, weights, p, covariance = FALSE, calcindex = FALSE, nThreads = 4L) {
+    .Call(`_CrossingTools_cpp_calculate_covariance_allier_ril_infinite`, Crosses, genMap, M, U, t, intensity, weights, p, covariance, calcindex, nThreads)
+}
+
+cpp_calculate_covariance_dh <- function(Crosses, genMap, M, U, t, s, intensity, weights, p, covariance = FALSE, calcindex = FALSE, nThreads = 4L) {
+    .Call(`_CrossingTools_cpp_calculate_covariance_dh`, Crosses, genMap, M, U, t, s, intensity, weights, p, covariance, calcindex, nThreads)
+}
+
+cpp_calculate_covariance_ril <- function(Crosses, genMap, M, U, t, s, intensity, weights, p, covariance = FALSE, calcindex = FALSE, nThreads = 4L) {
+    .Call(`_CrossingTools_cpp_calculate_covariance_ril`, Crosses, genMap, M, U, t, s, intensity, weights, p, covariance, calcindex, nThreads)
+}
+
+cpp_calculate_covariance_wolfe <- function(Crosses, genMap, Hap1, Hap2, U, D, intensity, weights, p, covariance = FALSE, calcindex = FALSE, nThreads = 4L) {
+    .Call(`_CrossingTools_cpp_calculate_covariance_wolfe`, Crosses, genMap, Hap1, Hap2, U, D, intensity, weights, p, covariance, calcindex, nThreads)
 }
 
 cpp_calculate_expectation_A <- function(Crosses, M, U, weights, p, calcindex = FALSE, nThreads = 4L) {
@@ -49,10 +69,6 @@ cpp_calculate_expectation_AD <- function(Crosses, Hap1, Hap2, U, D, weights, p, 
     .Call(`_CrossingTools_cpp_calculate_expectation_AD`, Crosses, Hap1, Hap2, U, D, weights, p, calcindex, nThreads)
 }
 
-cpp_optimal_cross_pareto <- function(Crosses, fixedCrosses, nCross, G, u, ufixed, minContr, maxContr, probMut = 0.01, nMutate = 0L, nSel = 500L, nPop = 10000L, maxGen = 500L, maxRun = 100L, nThreads = 4L) {
-    .Call(`_CrossingTools_cpp_optimal_cross_pareto`, Crosses, fixedCrosses, nCross, G, u, ufixed, minContr, maxContr, probMut, nMutate, nSel, nPop, maxGen, maxRun, nThreads)
-}
-
 cpp_u_from_from_g_simple <- function(M, G, g, scalingFactor) {
     .Call(`_CrossingTools_cpp_u_from_from_g_simple`, M, G, g, scalingFactor)
 }
@@ -61,7 +77,11 @@ cpp_calculate_desired_gains <- function(A, V, approxV, gains, useMargV = FALSE, 
     .Call(`_CrossingTools_cpp_calculate_desired_gains`, A, V, approxV, gains, useMargV, useV, useapproxV, nThreads)
 }
 
-cpp_optimal_cross_selection <- function(Crosses, fixedCrosses, nCross, targetAngle, u, ufixed, G, minContr, maxContr, probMut = 0.01, nMutate = 2L, nSel = 500L, nPop = 10000L, maxGen = 1000L, maxRun = 100L, anglePenalty = 0.5, nThreads = 4L) {
-    .Call(`_CrossingTools_cpp_optimal_cross_selection`, Crosses, fixedCrosses, nCross, targetAngle, u, ufixed, G, minContr, maxContr, probMut, nMutate, nSel, nPop, maxGen, maxRun, anglePenalty, nThreads)
+cpp_optimal_cross_pareto <- function(Crosses, fixedCrosses, nCross, G, u, ufixed, minContr, maxContr, A, Afixed, lower, upper, probMut = 0.01, nMutate = 0L, nSel = 500L, nPop = 10000L, maxGen = 500L, maxRun = 100L, nThreads = 4L) {
+    .Call(`_CrossingTools_cpp_optimal_cross_pareto`, Crosses, fixedCrosses, nCross, G, u, ufixed, minContr, maxContr, A, Afixed, lower, upper, probMut, nMutate, nSel, nPop, maxGen, maxRun, nThreads)
+}
+
+cpp_optimal_cross_selection <- function(Crosses, fixedCrosses, nCross, targetAngle, u, ufixed, G, minContr, maxContr, A, Afixed, lower, upper, probMut = 0.01, nMutate = 2L, nSel = 500L, nPop = 10000L, maxGen = 1000L, maxRun = 100L, anglePenalty = 0.5, nThreads = 4L) {
+    .Call(`_CrossingTools_cpp_optimal_cross_selection`, Crosses, fixedCrosses, nCross, targetAngle, u, ufixed, G, minContr, maxContr, A, Afixed, lower, upper, probMut, nMutate, nSel, nPop, maxGen, maxRun, anglePenalty, nThreads)
 }
 

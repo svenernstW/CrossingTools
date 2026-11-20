@@ -9,13 +9,13 @@ calc_spv_inbred(
   genetic.map,
   marker.mat,
   marker.effects,
-  t,
+  t = 0L,
+  s = 0L,
   intensity = 1,
   type = "DH",
   weights = NULL,
   p = NULL,
   covariance = FALSE,
-  method = 1,
   nthreads = 4L
 )
 }
@@ -44,9 +44,12 @@ If \code{p = NULL}, the reference allele frequencies are derived from
 \code{marker.mat}. Its number of rows must equal
 \code{ncol(marker.mat)}.}
 
-\item{t}{Integer. Number of additional generations considered before final
-line development. Its interpretation depends on the selected offspring
-type and segregation-variance method.}
+\item{t}{Non-negative integer. Number of rounds of random mating before
+selfing or line development; zero means no additional random mating.}
+
+\item{s}{Number of rounds of selfing following random intermating.
+Supply a finite non-negative integer or \code{Inf} for exact infinite
+selfing of RILs. \code{Inf} is not supported for DH.}
 
 \item{intensity}{Numeric scalar giving the standardised selection intensity
 used to calculate superior progeny values. The default is 1.}
@@ -64,13 +67,6 @@ to centre marker genotypes for breeding-value calculations. If
 
 \item{covariance}{Logical. If \code{TRUE}, also calculate segregation
 covariance matrices among traits for each cross.}
-
-\item{method}{Method used to calculate segregation variance. Either
-\code{1} or \code{"lehermeier"} for the Lehermeier et al. (2017) method,
-or \code{2} or \code{"osthushenrich"} for the Osthushenrich et al. (2017)
-method. The latter is currently available only for two-way crosses.
-Four-way crosses are calculated using the multi-parental formulation of
-Allier et al. (2019).}
 
 \item{nthreads}{Positive integer. Number of computational threads.}
 }
@@ -105,12 +101,10 @@ trait indices are supported.
 
 Segregation (co)variances are calculated analytically from parental marker
 genotypes, recombination fractions, and average allele-substitution effects.
-For biparental crosses, the available methods follow the analytical
-approaches of Lehermeier et al. (2017) and Osthushenrich et al. (2017).
-Both provide expressions for doubled haploid (DH) and recombinant
-inbred line (RIL) populations after an arbitrary number of intermating
-generations. Four-way crosses are calculated using the extension to
-multi-parental crosses described by Allier et al. (2019).
+Progeny development is modelled as \code{t} rounds of random intermating
+followed by \code{s} rounds of selfing. For RILs,
+\code{s = Inf} selects the exact asymptotic selfing model.
+Four-way crosses use the decomposition of Allier et al. (2019).
 
 Additive genetic values are expressed as breeding values using centred
 marker genotypes, \eqn{M - 2p}, and average allele-substitution effects

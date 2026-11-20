@@ -8,6 +8,7 @@
 #include <numeric>
 #include <limits>
 #include <sstream>
+#include <cstdint>
 
 #include "parallel_backend.h"  // OpenMP when available, else RcppParallel
 
@@ -47,772 +48,7 @@ static inline double calc_sim(const arma::vec& x, const arma::mat& G) {
   return q;
 }
 
-static inline arma::uvec build_constrained_umax_plan(
-    const arma::vec& u,
-    const arma::uvec& uOrder,       // cross indices sorted by descending u
-    const arma::umat& Crosses_mat,  // potCross x 2
-    arma::uword nVar,
-    arma::uword nCross,
-    arma::uword nInd,
-    const arma::vec& xfixed,
-    const arma::vec& minContr,
-    const arma::vec& maxContr,
-    double tol = 1e-12
-) {
-  const arma::uword potCross = Crosses_mat.n_rows;
-
-  if (nCross == 0) {
-    Rcpp::stop("nCross must be greater than zero.");
-  }
-
-  if (nVar > potCross) {
-    Rcpp::stop(
-      "Cannot construct uMax plan: nVar exceeds the number of candidate crosses."
-    );
-  }
-
-  if (minContr.n_elem != nInd || maxContr.n_elem != nInd) {
-    Rcpp::stop(
-      "minContr and maxContr must contain one value per parent."
-    );
-  }
-
-  auto value_violation = [&](
-    arma::uword parent,
-    double value
-  ) -> double {
-    double out = 0.0;
-
-    if (value < minContr(parent) - tol) {
-      out += minContr(parent) - value;
-    }
-
-    if (value > maxContr(parent) + tol) {
-      out += value - maxContr(parent);
-    }
-
-    return out;
-  };
-
-  // Handle a plan containing only fixed crosses.
-  if (nVar == 0) {
-    double violation = 0.0;
-
-    for (arma::uword p = 0; p < nInd; ++p) {
-      violation += value_violation(p, xfixed(p));
-    }
-
-    if (violation > tol) {
-      Rcpp::stop(
-        "The contribution constraints cannot be satisfied by the fixed crosses."
-      );
-    }
-
-    return arma::uvec();
-  }
-
-  // Start with the unconstrained top-u plan.
-  arma::uvec plan = uOrder.head(nVar);
-
-  std::vector<unsigned char> selected(
-      static_cast<size_t>(potCross),
-      0
-  );
-
-  for (arma::uword k = 0; k < nVar; ++k) {
-    selected[static_cast<size_t>(plan(k))] = 1;
-  }
-
-  arma::vec contr =
-    calcContr(
-      Crosses_mat.rows(plan),
-      nInd,
-      nCross
-    ) + xfixed;
-
-  const double step =
-    1.0 / (2.0 * static_cast<double>(nCross));
-
-  auto total_violation = [&]() -> double {
-    double out = 0.0;
-
-    for (arma::uword p = 0; p < nInd; ++p) {
-      out += value_violation(p, contr(p));
-    }
-
-    return out;
-  };
-
-  /*
-   * Compute constraint violation after replacing plan(pos)
-   * with newCross. The contribution vector is restored before
-   * returning.
-   */
-  auto violation_after_swap = [&](
-    arma::uword pos,
-    arma::uword newCross,
-    double currentViolation
-  ) -> double {
-    const arma::uword oldCross = plan(pos);
-
-    const arma::uword oldA = Crosses_mat(oldCross, 0);
-    const arma::uword oldB = Crosses_mat(oldCross, 1);
-    const arma::uword newA = Crosses_mat(newCross, 0);
-    const arma::uword newB = Crosses_mat(newCross, 1);
-
-    arma::uword affected[4];
-    int nAffected = 0;
-
-    auto add_affected = [&](arma::uword parent) {
-      for (int j = 0; j < nAffected; ++j) {
-        if (affected[j] == parent) return;
-      }
-
-      affected[nAffected++] = parent;
-    };
-
-    add_affected(oldA);
-    add_affected(oldB);
-    add_affected(newA);
-    add_affected(newB);
-
-    double before = 0.0;
-
-    for (int j = 0; j < nAffected; ++j) {
-      const arma::uword p = affected[j];
-      before += value_violation(p, contr(p));
-    }
-
-    contr(oldA) -= step;
-    contr(oldB) -= step;
-    contr(newA) += step;
-    contr(newB) += step;
-
-    double after = 0.0;
-
-    for (int j = 0; j < nAffected; ++j) {
-      const arma::uword p = affected[j];
-      after += value_violation(p, contr(p));
-    }
-
-    // Undo tentative change.
-    contr(oldA) += step;
-    contr(oldB) += step;
-    contr(newA) -= step;
-    contr(newB) -= step;
-
-    return std::max(
-      0.0,
-      currentViolation - before + after
-    );
-  };
-
-  auto apply_swap = [&](
-    arma::uword pos,
-    arma::uword newCross
-  ) {
-    const arma::uword oldCross = plan(pos);
-
-    const arma::uword oldA = Crosses_mat(oldCross, 0);
-    const arma::uword oldB = Crosses_mat(oldCross, 1);
-    const arma::uword newA = Crosses_mat(newCross, 0);
-    const arma::uword newB = Crosses_mat(newCross, 1);
-
-    contr(oldA) -= step;
-    contr(oldB) -= step;
-    contr(newA) += step;
-    contr(newB) += step;
-
-    selected[static_cast<size_t>(oldCross)] = 0;
-    selected[static_cast<size_t>(newCross)] = 1;
-
-    plan(pos) = newCross;
-  };
-
-  /*
-   * Phase 1:
-   * Repair the top-u plan.
-   */
-  double currentViolation = total_violation();
-
-  const arma::uword maxRepairIterations =
-    std::max<arma::uword>(100, 10 * nVar);
-
-  for (
-      arma::uword iter = 0;
-      iter < maxRepairIterations && currentViolation > tol;
-      ++iter
-  ) {
-    std::vector<unsigned char> under(
-        static_cast<size_t>(nInd),
-        0
-    );
-
-    bool anyUnder = false;
-
-    for (arma::uword p = 0; p < nInd; ++p) {
-      if (contr(p) < minContr(p) - tol) {
-        under[static_cast<size_t>(p)] = 1;
-        anyUnder = true;
-      }
-    }
-
-    // Prefer removing the lowest-u selected cross.
-    std::vector<arma::uword> removeOrder(
-        static_cast<size_t>(nVar)
-    );
-
-    std::iota(
-      removeOrder.begin(),
-      removeOrder.end(),
-      static_cast<arma::uword>(0)
-    );
-
-    std::sort(
-      removeOrder.begin(),
-      removeOrder.end(),
-      [&](arma::uword a, arma::uword b) {
-        return u(plan(a)) < u(plan(b));
-      }
-    );
-
-    bool foundSwap = false;
-    arma::uword selectedPos = 0;
-    arma::uword selectedNewCross = 0;
-    double selectedViolation = currentViolation;
-
-    /*
-     * New crosses are tested from highest to lowest u.
-     * For each new cross, old crosses are tested from
-     * lowest to highest u.
-     */
-    for (
-        arma::uword ord = 0;
-        ord < uOrder.n_elem && !foundSwap;
-        ++ord
-    ) {
-      const arma::uword newCross = uOrder(ord);
-
-      if (selected[static_cast<size_t>(newCross)]) {
-        continue;
-      }
-
-      const arma::uword newA = Crosses_mat(newCross, 0);
-      const arma::uword newB = Crosses_mat(newCross, 1);
-
-      /*
-       * When a minimum is violated, require the new cross
-       * to increase at least one currently deficient parent.
-       */
-      if (
-          anyUnder &&
-            !under[static_cast<size_t>(newA)] &&
-            !under[static_cast<size_t>(newB)]
-      ) {
-        continue;
-      }
-
-      for (arma::uword pos : removeOrder) {
-        const double newViolation =
-          violation_after_swap(
-            pos,
-            newCross,
-            currentViolation
-          );
-
-        if (newViolation < currentViolation - tol) {
-          selectedPos = pos;
-          selectedNewCross = newCross;
-          selectedViolation = newViolation;
-          foundSwap = true;
-          break;
-        }
-      }
-    }
-
-    if (!foundSwap) {
-      Rcpp::stop(
-        "Could not construct a contribution-feasible uMax plan "
-        "using single-cross replacements. The constraints may be "
-        "infeasible or may require a multi-cross replacement."
-      );
-    }
-
-    apply_swap(
-      selectedPos,
-      selectedNewCross
-    );
-
-    selectedViolation = total_violation();
-    currentViolation = selectedViolation;
-  }
-
-  currentViolation = total_violation();
-
-  if (currentViolation > tol) {
-    Rcpp::stop(
-      "Contribution repair for the uMax plan did not converge."
-    );
-  }
-
-  /*
-   * Phase 2:
-   * Feasible 1-swap local search.
-   *
-   * Replace a selected cross with a higher-u unselected cross
-   * whenever all contribution constraints remain satisfied.
-   */
-  bool improved = true;
-
-  while (improved) {
-    improved = false;
-
-    std::vector<arma::uword> removeOrder(
-        static_cast<size_t>(nVar)
-    );
-
-    std::iota(
-      removeOrder.begin(),
-      removeOrder.end(),
-      static_cast<arma::uword>(0)
-    );
-
-    std::sort(
-      removeOrder.begin(),
-      removeOrder.end(),
-      [&](arma::uword a, arma::uword b) {
-        return u(plan(a)) < u(plan(b));
-      }
-    );
-
-    const double lowestSelectedU =
-      u(plan(removeOrder.front()));
-
-    for (
-        arma::uword ord = 0;
-        ord < uOrder.n_elem && !improved;
-        ++ord
-    ) {
-      const arma::uword newCross = uOrder(ord);
-
-      if (selected[static_cast<size_t>(newCross)]) {
-        continue;
-      }
-
-      /*
-       * Since uOrder is descending, once the new cross is
-       * no better than the lowest-u selected cross, no later
-       * candidate can improve the objective.
-       */
-      if (u(newCross) <= lowestSelectedU + tol) {
-        break;
-      }
-
-      for (arma::uword pos : removeOrder) {
-        const arma::uword oldCross = plan(pos);
-
-        if (u(newCross) <= u(oldCross) + tol) {
-          break;
-        }
-
-        const double newViolation =
-          violation_after_swap(
-            pos,
-            newCross,
-            0.0
-          );
-
-        if (newViolation <= tol) {
-          apply_swap(pos, newCross);
-          improved = true;
-          break;
-        }
-      }
-    }
-  }
-
-  if (total_violation() > tol) {
-    Rcpp::stop(
-      "Internal error: constrained uMax plan is not feasible."
-    );
-  }
-
-  return plan;
-}
-
-static inline void fix_contribution_plans(
-    arma::umat& Plans,              // nVar x nPlans
-    const arma::umat& Crosses_mat,  // potCross x 2, 0-based parents
-    const arma::vec& minContr,      // fractions, e.g. 0.07
-    const arma::vec& maxContr,      // fractions or Inf
-    const arma::vec& xfixed,        // already normalized by nCross
-    arma::uword nCross,
-    arma::uword nInd,
-    uint64_t base_seed,
-    int maxIter = 5000,
-    int maxCandidateTries = 1000000,
-    double tol = 1e-12
-) {
-  const arma::uword nVar     = Plans.n_rows;
-  const arma::uword nPlans   = Plans.n_cols;
-  const arma::uword potCross = Crosses_mat.n_rows;
-
-  if (nPlans == 0) return;
-
-  // Completely unconstrained case:
-  // min = 0 and max = Inf for every individual.
-  bool noConstraints = true;
-
-  for (arma::uword p = 0; p < nInd; ++p) {
-    if (minContr(p) > tol || std::isfinite(maxContr(p))) {
-      noConstraints = false;
-      break;
-    }
-  }
-
-  if (noConstraints) return;
-
-  auto value_violation = [&](arma::uword p, double value) -> double {
-    double v = 0.0;
-
-    if (value < minContr(p) - tol) {
-      v += minContr(p) - value;
-    }
-
-    if (value > maxContr(p) + tol) {
-      v += value - maxContr(p);
-    }
-
-    return v;
-  };
-
-  // No variable crosses: only verify the fixed plan.
-  if (nVar == 0) {
-    double v = 0.0;
-
-    for (arma::uword p = 0; p < nInd; ++p) {
-      v += value_violation(p, xfixed(p));
-    }
-
-    if (v > tol) {
-      Rcpp::stop(
-        "Contribution constraints cannot be satisfied because "
-        "the plan contains only fixed crosses."
-      );
-    }
-
-    return;
-  }
-
-  if (potCross == 0) {
-    Rcpp::stop("No candidate crosses are available.");
-  }
-
-  const double step =
-    1.0 / (2.0 * static_cast<double>(nCross));
-
-  // Written only once per plan, so separate int elements are thread-safe.
-  std::vector<int> failed(
-      static_cast<size_t>(nPlans), 0
-  );
-
-  ct_parallel_for(0, static_cast<int>(nPlans), [&](int ii) {
-    const arma::uword planIndex =
-      static_cast<arma::uword>(ii);
-
-    std::mt19937 gen(
-        static_cast<uint32_t>(
-          base_seed ^
-            (0xA13B77C19E3779B9ULL +
-            static_cast<uint64_t>(planIndex))
-        )
-    );
-
-    arma::uvec plan =
-      arma::conv_to<arma::uvec>::from(
-        Plans.col(planIndex)
-      );
-
-    // Only stores the selected crosses, rather than allocating
-    // potCross bytes for every plan.
-    std::unordered_set<arma::uword> inPlan;
-    inPlan.reserve(
-      static_cast<size_t>(nVar) * 2 + 1
-    );
-
-    for (arma::uword k = 0; k < nVar; ++k) {
-      inPlan.insert(plan(k));
-    }
-
-    // Both variable and fixed contributions use nCross as denominator.
-    arma::vec contr =
-      calcContr(
-        Crosses_mat.rows(plan),
-        nInd,
-        nCross
-      ) + xfixed;
-
-    auto total_violation = [&]() -> double {
-      double v = 0.0;
-
-      for (arma::uword p = 0; p < nInd; ++p) {
-        v += value_violation(p, contr(p));
-      }
-
-      return v;
-    };
-
-    double currentV = total_violation();
-
-    for (
-        int iter = 0;
-        iter < maxIter && currentV > tol;
-        ++iter
-    ) {
-      std::vector<unsigned char> underFlag(nInd, 0);
-      std::vector<unsigned char> overFlag(nInd, 0);
-
-      bool anyUnder = false;
-      bool anyOver  = false;
-
-      for (arma::uword p = 0; p < nInd; ++p) {
-        if (contr(p) < minContr(p) - tol) {
-          underFlag[p] = 1;
-          anyUnder = true;
-        }
-
-        if (contr(p) > maxContr(p) + tol) {
-          overFlag[p] = 1;
-          anyOver = true;
-        }
-      }
-
-      if (!anyUnder && !anyOver) {
-        currentV = 0.0;
-        break;
-      }
-
-      std::vector<arma::uword> removePos;
-      removePos.reserve(static_cast<size_t>(nVar));
-
-      if (anyUnder) {
-        /*
-         * Best case:
-         * remove a cross containing an overrepresented parent
-         * but no underrepresented parent.
-         */
-        if (anyOver) {
-          for (arma::uword k = 0; k < nVar; ++k) {
-            const arma::uword cr = plan(k);
-            const arma::uword a  = Crosses_mat(cr, 0);
-            const arma::uword b  = Crosses_mat(cr, 1);
-
-            const bool containsUnder =
-              underFlag[a] || underFlag[b];
-
-            const bool containsOver =
-              overFlag[a] || overFlag[b];
-
-            if (!containsUnder && containsOver) {
-              removePos.push_back(k);
-            }
-          }
-        }
-
-        /*
-         * Second preference:
-         * remove any cross that does not contain an
-         * underrepresented parent.
-         */
-        if (removePos.empty()) {
-          for (arma::uword k = 0; k < nVar; ++k) {
-            const arma::uword cr = plan(k);
-            const arma::uword a  = Crosses_mat(cr, 0);
-            const arma::uword b  = Crosses_mat(cr, 1);
-
-            if (!underFlag[a] && !underFlag[b]) {
-              removePos.push_back(k);
-            }
-          }
-        }
-
-        /*
-         * Fallback:
-         * allow any removal. The swap is accepted only
-         * if total violation decreases.
-         */
-        if (removePos.empty()) {
-          for (arma::uword k = 0; k < nVar; ++k) {
-            removePos.push_back(k);
-          }
-        }
-
-      } else {
-        // Only maximum constraints remain.
-        for (arma::uword k = 0; k < nVar; ++k) {
-          const arma::uword cr = plan(k);
-          const arma::uword a  = Crosses_mat(cr, 0);
-          const arma::uword b  = Crosses_mat(cr, 1);
-
-          if (overFlag[a] || overFlag[b]) {
-            removePos.push_back(k);
-          }
-        }
-      }
-
-      if (removePos.empty()) break;
-
-      std::uniform_int_distribution<size_t> disRemove(
-          0,
-          removePos.size() - 1
-      );
-
-      std::uniform_int_distribution<arma::uword> disCross(
-          0,
-          potCross - 1
-      );
-
-      bool accepted = false;
-
-      for (
-          int tr = 0;
-          tr < maxCandidateTries && !accepted;
-          ++tr
-      ) {
-        const arma::uword pos =
-          removePos[disRemove(gen)];
-
-        const arma::uword oldCr = plan(pos);
-        const arma::uword newCr = disCross(gen);
-
-        // Crosses within one plan must stay unique.
-        if (inPlan.find(newCr) != inPlan.end()) {
-          continue;
-        }
-
-        const arma::uword oldA =
-          Crosses_mat(oldCr, 0);
-
-        const arma::uword oldB =
-          Crosses_mat(oldCr, 1);
-
-        const arma::uword newA =
-          Crosses_mat(newCr, 0);
-
-        const arma::uword newB =
-          Crosses_mat(newCr, 1);
-
-        // When minimum constraints are violated, the added
-        // cross must contain at least one underrepresented parent.
-        if (
-            anyUnder &&
-              !underFlag[newA] &&
-              !underFlag[newB]
-        ) {
-          continue;
-        }
-
-        // Collect the unique affected parents.
-        arma::uword affected[4];
-        int nAffected = 0;
-
-        auto add_affected = [&](arma::uword p) {
-          for (int j = 0; j < nAffected; ++j) {
-            if (affected[j] == p) return;
-          }
-
-          affected[nAffected++] = p;
-        };
-
-        add_affected(oldA);
-        add_affected(oldB);
-        add_affected(newA);
-        add_affected(newB);
-
-        double affectedBefore = 0.0;
-
-        for (int j = 0; j < nAffected; ++j) {
-          const arma::uword p = affected[j];
-
-          affectedBefore +=
-            value_violation(p, contr(p));
-        }
-
-        // Apply the tentative swap.
-        contr(oldA) -= step;
-        contr(oldB) -= step;
-        contr(newA) += step;
-        contr(newB) += step;
-
-        double affectedAfter = 0.0;
-
-        for (int j = 0; j < nAffected; ++j) {
-          const arma::uword p = affected[j];
-
-          affectedAfter +=
-            value_violation(p, contr(p));
-        }
-
-        double newV =
-          currentV -
-          affectedBefore +
-          affectedAfter;
-
-        newV = std::max(0.0, newV);
-
-        if (newV < currentV - tol) {
-          inPlan.erase(oldCr);
-          inPlan.insert(newCr);
-
-          plan(pos) = newCr;
-          currentV = newV;
-          accepted = true;
-
-        } else {
-          // Undo rejected swap.
-          contr(oldA) += step;
-          contr(oldB) += step;
-          contr(newA) -= step;
-          contr(newB) -= step;
-        }
-      }
-
-      if (!accepted) break;
-    }
-
-    // Full recalculation to avoid accumulated floating-point drift.
-    currentV = total_violation();
-
-    if (currentV > tol) {
-      failed[static_cast<size_t>(planIndex)] = 1;
-    }
-
-    Plans.col(planIndex) = plan;
-  });
-
-  size_t nFailed = 0;
-  size_t firstFailed = 0;
-
-  for (size_t i = 0; i < failed.size(); ++i) {
-    if (failed[i]) {
-      if (nFailed == 0) firstFailed = i;
-      ++nFailed;
-    }
-  }
-
-  if (nFailed > 0) {
-    std::ostringstream msg;
-
-    msg
-    << "Contribution repair failed for "
-    << nFailed
-    << " plan(s). First failed plan: "
-    << (firstFailed + 1)
-    << ". The constraints may be infeasible or too restrictive.";
-
-    Rcpp::stop(msg.str());
-  }
-}
+// Shared generalized constraint helpers are placed after the sampling helpers.
 
 // --- crowding distance on a front (indices into candidate list) ---
 static inline void crowding_distance(
@@ -1000,6 +236,1311 @@ static inline arma::umat sampHalfDialComb_std(arma::uword nLevel, arma::uword n,
   return out;
 }
 
+// -----------------------------------------------------------------------------
+// Generalized parental and cross-level constraint machinery
+// Same implementation as the angle optimizer.
+// -----------------------------------------------------------------------------
+
+// Violation of a single lower/upper bound.
+static inline double bound_violation(
+    double value,
+    double lower,
+    double upper,
+    double tol = 1e-12
+) {
+  double out = 0.0;
+  
+  if (value < lower - tol) {
+    out += lower - value;
+  }
+  
+  if (value > upper + tol) {
+    out += value - upper;
+  }
+  
+  return out;
+}
+
+
+// -----------------------------------------------------------------------------
+// Individual feasibility checks
+// These are necessary, but not sufficient, conditions for joint feasibility.
+// -----------------------------------------------------------------------------
+
+static inline void check_constraint_feasibility(
+    const arma::umat& crosses,
+    const arma::umat& fixedCrosses,
+    arma::uword nCross,
+    arma::uword nInd,
+    const arma::vec& minContr,
+    const arma::vec& maxContr,
+    const arma::mat& A,
+    const arma::mat& Afixed,
+    const arma::vec& lower,
+    const arma::vec& upper,
+    double tol = 1e-12
+) {
+  
+  const arma::uword nFixed = fixedCrosses.n_rows;
+  const arma::uword nVar = nCross - nFixed;
+  const arma::uword potCross = crosses.n_rows;
+  const arma::uword K = A.n_cols;
+  
+  // Check dimensions.
+  if (minContr.n_elem != nInd || maxContr.n_elem != nInd) {
+    Rcpp::stop(
+      "minContr and maxContr must have one entry per parent."
+    );
+  }
+  
+  if (
+      A.n_rows != potCross ||
+        Afixed.n_rows != nFixed ||
+        Afixed.n_cols != K ||
+        lower.n_elem != K ||
+        upper.n_elem != K
+  ) {
+    Rcpp::stop(
+      "Additional constraint dimensions are inconsistent."
+    );
+  }
+  
+  // Validate parental contribution limits.
+  double sumLower = 0.0;
+  double sumUpper = 0.0;
+  
+  for (arma::uword p = 0; p < nInd; ++p) {
+    
+    if (
+        !std::isfinite(minContr(p)) ||
+          minContr(p) < 0 ||
+          minContr(p) > 1 ||
+          std::isnan(maxContr(p)) ||
+          maxContr(p) < 0 ||
+          minContr(p) > maxContr(p) + tol
+    ) {
+      Rcpp::stop(
+        "Invalid parental contribution bounds for parent %u.",
+        static_cast<unsigned>(p + 1)
+      );
+    }
+    
+    sumLower += minContr(p);
+    sumUpper += std::min(1.0, maxContr(p));
+  }
+  
+  if (sumLower > 1.0 + tol || sumUpper < 1.0 - tol) {
+    Rcpp::stop(
+      "Parental contribution bounds cannot sum to one."
+    );
+  }
+  
+  // Validate additional constraint limits.
+  for (arma::uword j = 0; j < K; ++j) {
+    
+    if (
+        !std::isfinite(lower(j)) ||
+          lower(j) < 0 ||
+          lower(j) > 1 ||
+          std::isnan(upper(j)) ||
+          upper(j) < 0 ||
+          lower(j) > upper(j) + tol
+    ) {
+      Rcpp::stop(
+        "Invalid bounds for additional constraint %u.",
+        static_cast<unsigned>(j + 1)
+      );
+    }
+  }
+  
+  // Validate the additional cross scores.
+  // All values must be frequencies or proportions between 0 and 1.
+  for (arma::uword i = 0; i < potCross; ++i) {
+    for (arma::uword j = 0; j < K; ++j) {
+      
+      if (
+          !std::isfinite(A(i, j)) ||
+            A(i, j) < 0 ||
+            A(i, j) > 1
+      ) {
+        Rcpp::stop(
+          "A must contain finite values in [0,1]."
+        );
+      }
+    }
+  }
+  
+  for (arma::uword i = 0; i < nFixed; ++i) {
+    for (arma::uword j = 0; j < K; ++j) {
+      
+      if (
+          !std::isfinite(Afixed(i, j)) ||
+            Afixed(i, j) < 0 ||
+            Afixed(i, j) > 1
+      ) {
+        Rcpp::stop(
+          "Afixed must contain finite values in [0,1]."
+        );
+      }
+    }
+  }
+  
+
+  // For each candidate cross, a parent can appear 0, 1, or 2 times.
+  // Count these occurrences without allocating a dense parent matrix.
+  
+  std::vector<arma::uword> countOne(nInd, 0);
+  std::vector<arma::uword> countTwo(nInd, 0);
+  
+  for (arma::uword i = 0; i < potCross; ++i) {
+    
+    const arma::uword a = crosses(i, 0);
+    const arma::uword b = crosses(i, 1);
+    
+    if (a == b) {
+      ++countTwo[a];
+    } else {
+      ++countOne[a];
+      ++countOne[b];
+    }
+  }
+  
+  // Fixed parental contributions.
+  arma::vec fixedParent =
+    calcContr(fixedCrosses, nInd, nCross);
+  
+  for (arma::uword p = 0; p < nInd; ++p) {
+    
+    const arma::uword n0 =
+      potCross - countOne[p] - countTwo[p];
+    
+    // Minimum possible contribution:
+    // select crosses with 0 appearances first,
+    // followed by 1, followed by 2.
+    
+    const arma::uword take0 =
+      std::min(nVar, n0);
+    
+    const arma::uword take1 =
+      std::min(nVar - take0, countOne[p]);
+    
+    const arma::uword take2 =
+      nVar - take0 - take1;
+    
+    const double minPossible =
+      fixedParent(p) +
+      (
+          static_cast<double>(take1) +
+            2.0 * take2
+      ) / (2.0 * nCross);
+    
+    // Maximum possible contribution:
+    // select crosses with 2 appearances first,
+    // followed by 1, followed by 0.
+    
+    const arma::uword take2max =
+      std::min(nVar, countTwo[p]);
+    
+    const arma::uword take1max =
+      std::min(nVar - take2max, countOne[p]);
+    
+    const double maxPossible =
+      fixedParent(p) +
+      (
+          2.0 * take2max +
+            static_cast<double>(take1max)
+      ) / (2.0 * nCross);
+    
+    if (
+        minContr(p) > maxPossible + tol ||
+          maxContr(p) < minPossible - tol
+    ) {
+      Rcpp::stop(
+        "Parent %u impossible individually: "
+        "achievable [%.6f, %.6f], requested [%.6f, %.6f].",
+        static_cast<unsigned>(p + 1),
+        minPossible,
+        maxPossible,
+        minContr(p),
+        maxContr(p)
+      );
+    }
+  }
+  
+  // ---------------------------------------------------------------------------
+  // Feasibility of additional constraints
+  // ---------------------------------------------------------------------------
+  
+  for (arma::uword j = 0; j < K; ++j) {
+    
+    // Contribution from fixed crosses.
+    double fixedSum = 0.0;
+    
+    for (arma::uword f = 0; f < nFixed; ++f) {
+      fixedSum += Afixed(f, j);
+    }
+    
+    // Collect scores for the current constraint.
+    std::vector<double> scores(
+        static_cast<size_t>(potCross)
+    );
+    
+    for (arma::uword i = 0; i < potCross; ++i) {
+      scores[i] = A(i, j);
+    }
+    
+    double minSum = 0.0;
+    double maxSum = 0.0;
+    
+    if (nVar == potCross) {
+      
+      // All candidate crosses must be included.
+      minSum = std::accumulate(
+        scores.begin(),
+        scores.end(),
+        0.0
+      );
+      
+      maxSum = minSum;
+      
+    } else if (nVar > 0) {
+      
+      // Select the nVar smallest scores.
+      std::nth_element(
+        scores.begin(),
+        scores.begin() + nVar,
+        scores.end()
+      );
+      
+      minSum = std::accumulate(
+        scores.begin(),
+        scores.begin() + nVar,
+        0.0
+      );
+      
+      // Select the nVar largest scores.
+      std::nth_element(
+        scores.begin(),
+        scores.end() - nVar,
+        scores.end()
+      );
+      
+      maxSum = std::accumulate(
+        scores.end() - nVar,
+        scores.end(),
+        0.0
+      );
+    }
+    
+    const double minPossible =
+      (fixedSum + minSum) / nCross;
+    
+    const double maxPossible =
+      (fixedSum + maxSum) / nCross;
+    
+    if (
+        lower(j) > maxPossible + tol ||
+          upper(j) < minPossible - tol
+    ) {
+      Rcpp::stop(
+        "Additional constraint %u impossible individually: "
+        "achievable [%.6f, %.6f], requested [%.6f, %.6f].",
+        static_cast<unsigned>(j + 1),
+        minPossible,
+        maxPossible,
+        lower(j),
+        upper(j)
+      );
+    }
+  }
+}
+
+
+struct ConstraintState {
+  
+  arma::vec parents;  // Parental contributions
+  arma::vec extra;    // QTL frequencies and cross-type proportions
+  
+  double violation = 0.0;
+};
+
+
+
+struct ConstraintSystem {
+  
+  const arma::umat& crosses;
+  const arma::mat& scores;      // K x potCross
+  
+  const arma::vec& minContr;
+  const arma::vec& maxContr;
+  
+  const arma::vec& lower;
+  const arma::vec& upper;
+  
+  const arma::vec& fixedParents;
+  const arma::vec& fixedExtra;
+  
+  arma::uword nCross;
+  arma::uword nInd;
+  
+  double tol;
+  
+  
+  // Check whether any constraint is active.
+  bool active() const {
+    
+    for (arma::uword p = 0; p < nInd; ++p) {
+      
+      if (
+          minContr(p) > tol ||
+            maxContr(p) < 1.0 - tol
+      ) {
+        return true;
+      }
+    }
+    
+    for (arma::uword j = 0; j < lower.n_elem; ++j) {
+      
+      if (
+          lower(j) > tol ||
+            upper(j) < 1.0 - tol
+      ) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+  
+  
+  // Calculate total violation across all constraints.
+  double full_violation(
+      const ConstraintState& s
+  ) const {
+    
+    double v = 0.0;
+    
+    for (arma::uword p = 0; p < nInd; ++p) {
+      
+      v += bound_violation(
+        s.parents(p),
+        minContr(p),
+        maxContr(p),
+        tol
+      );
+    }
+    
+    for (arma::uword j = 0; j < lower.n_elem; ++j) {
+      
+      v += bound_violation(
+        s.extra(j),
+        lower(j),
+        upper(j),
+        tol
+      );
+    }
+    
+    return v;
+  }
+  
+  
+  // Initialize constraints for a complete variable-cross plan.
+  // Fixed crosses are already included through fixedParents/fixedExtra.
+  ConstraintState initialize(
+      const arma::uvec& plan
+  ) const {
+    
+    ConstraintState s;
+    
+    s.parents = fixedParents;
+    s.extra = fixedExtra;
+    
+    const double parentStep =
+      1.0 / (2.0 * nCross);
+    
+    const double extraStep =
+      1.0 / nCross;
+    
+    for (arma::uword k = 0; k < plan.n_elem; ++k) {
+      
+      const arma::uword c = plan(k);
+      
+      s.parents(crosses(c, 0)) += parentStep;
+      s.parents(crosses(c, 1)) += parentStep;
+      
+      for (arma::uword j = 0; j < lower.n_elem; ++j) {
+        s.extra(j) += scores(j, c) * extraStep;
+      }
+    }
+    
+    s.violation = full_violation(s);
+    
+    return s;
+  }
+  
+  
+  // Evaluate a proposed single-cross swap without changing the state.
+  double after_swap(
+      const ConstraintState& s,
+      arma::uword oldCross,
+      arma::uword newCross
+  ) const {
+    
+    const arma::uword oa = crosses(oldCross, 0);
+    const arma::uword ob = crosses(oldCross, 1);
+    const arma::uword na = crosses(newCross, 0);
+    const arma::uword nb = crosses(newCross, 1);
+    
+    arma::uword affected[4] = {oa, ob, na, nb};
+    
+    const double step =
+      1.0 / (2.0 * nCross);
+    
+    double result = s.violation;
+    
+    // Parent contributions: inspect at most four distinct parents.
+    for (int i = 0; i < 4; ++i) {
+      
+      bool seen = false;
+      
+      for (int k = 0; k < i; ++k) {
+        if (affected[k] == affected[i]) {
+          seen = true;
+          break;
+        }
+      }
+      
+      if (seen) continue;
+      
+      const arma::uword p = affected[i];
+      
+      const double delta = step * (
+        static_cast<int>(na == p) +
+          static_cast<int>(nb == p) -
+          static_cast<int>(oa == p) -
+          static_cast<int>(ob == p)
+      );
+      
+      result +=
+        bound_violation(
+          s.parents(p) + delta,
+          minContr(p),
+          maxContr(p),
+          tol
+        ) -
+          bound_violation(
+            s.parents(p),
+            minContr(p),
+            maxContr(p),
+            tol
+          );
+    }
+    
+    // Additional constraints: evaluate changed frequencies.
+    for (arma::uword j = 0; j < lower.n_elem; ++j) {
+      
+      const double next =
+        s.extra(j) +
+        (scores(j, newCross) - scores(j, oldCross)) / nCross;
+      
+      result +=
+        bound_violation(
+          next,
+          lower(j),
+          upper(j),
+          tol
+        ) -
+          bound_violation(
+            s.extra(j),
+            lower(j),
+            upper(j),
+            tol
+          );
+    }
+    
+    return std::max(0.0, result);
+  }
+  
+  
+  // Evaluate two simultaneous replacements.
+  double after_double_swap(
+      const ConstraintState& s,
+      arma::uword old1,
+      arma::uword new1,
+      arma::uword old2,
+      arma::uword new2
+  ) const {
+    
+    const arma::uword affected[8] = {
+      crosses(old1, 0),
+      crosses(old1, 1),
+      crosses(new1, 0),
+      crosses(new1, 1),
+      crosses(old2, 0),
+      crosses(old2, 1),
+      crosses(new2, 0),
+      crosses(new2, 1)
+    };
+    
+    const double step =
+      1.0 / (2.0 * nCross);
+    
+    double result = s.violation;
+    
+    for (int i = 0; i < 8; ++i) {
+      
+      bool seen = false;
+      
+      for (int k = 0; k < i; ++k) {
+        if (affected[k] == affected[i]) {
+          seen = true;
+          break;
+        }
+      }
+      
+      if (seen) continue;
+      
+      const arma::uword p = affected[i];
+      
+      const double delta = step * (
+        static_cast<int>(affected[2] == p) +
+          static_cast<int>(affected[3] == p) +
+          static_cast<int>(affected[6] == p) +
+          static_cast<int>(affected[7] == p) -
+          static_cast<int>(affected[0] == p) -
+          static_cast<int>(affected[1] == p) -
+          static_cast<int>(affected[4] == p) -
+          static_cast<int>(affected[5] == p)
+      );
+      
+      result +=
+        bound_violation(
+          s.parents(p) + delta,
+          minContr(p),
+          maxContr(p),
+          tol
+        ) -
+          bound_violation(
+            s.parents(p),
+            minContr(p),
+            maxContr(p),
+            tol
+          );
+    }
+    
+    for (arma::uword j = 0; j < lower.n_elem; ++j) {
+      
+      const double next =
+        s.extra(j) +
+        (
+            scores(j, new1) - scores(j, old1) +
+              scores(j, new2) - scores(j, old2)
+        ) / nCross;
+      
+      result +=
+        bound_violation(
+          next,
+          lower(j),
+          upper(j),
+          tol
+        ) -
+          bound_violation(
+            s.extra(j),
+            lower(j),
+            upper(j),
+            tol
+          );
+    }
+    
+    return std::max(0.0, result);
+  }
+  
+  
+  // Apply an accepted single-cross replacement.
+  void apply_swap(
+      ConstraintState& s,
+      arma::uword oldCross,
+      arma::uword newCross,
+      double newViolation
+  ) const {
+    
+    const double step =
+      1.0 / (2.0 * nCross);
+    
+    s.parents(crosses(oldCross, 0)) -= step;
+    s.parents(crosses(oldCross, 1)) -= step;
+    
+    s.parents(crosses(newCross, 0)) += step;
+    s.parents(crosses(newCross, 1)) += step;
+    
+    for (arma::uword j = 0; j < lower.n_elem; ++j) {
+      
+      s.extra(j) +=
+        (scores(j, newCross) - scores(j, oldCross)) / nCross;
+    }
+    
+    s.violation = newViolation;
+  }
+};
+
+// -----------------------------------------------------------------------------
+// Repair a single mating plan
+// -----------------------------------------------------------------------------
+
+static inline bool repair_one_plan(
+    arma::uvec& plan,
+    const ConstraintSystem& cs,
+    std::mt19937& gen,
+    int maxIter = 2000,
+    int maxCandidateTries = 3000
+) {
+  
+  ConstraintState state = cs.initialize(plan);
+  
+  if (state.violation <= cs.tol) {
+    return true;
+  }
+  
+  if (
+      plan.n_elem == 0 ||
+        cs.crosses.n_rows <= plan.n_elem
+  ) {
+    return false;
+  }
+  
+  // Track selected crosses to enforce uniqueness.
+  std::unordered_set<arma::uword> selected(
+      plan.begin(),
+      plan.end()
+  );
+  
+  std::uniform_int_distribution<arma::uword> posDist(
+      0,
+      plan.n_elem - 1
+  );
+  
+  std::uniform_int_distribution<arma::uword> crossDist(
+      0,
+      cs.crosses.n_rows - 1
+  );
+  
+  for (
+      int iter = 0;
+      iter < maxIter && state.violation > cs.tol;
+      ++iter
+  ) {
+    
+    bool improved = false;
+    
+    arma::uword chosenPos = 0;
+    arma::uword chosenNew = 0;
+    
+    double chosenV = state.violation;
+    
+    // -------------------------------------------------------------------------
+    // First attempt: random single-cross replacements.
+    // -------------------------------------------------------------------------
+    
+    for (int t = 0; t < maxCandidateTries; ++t) {
+      
+      const arma::uword pos = posDist(gen);
+      const arma::uword newCross = crossDist(gen);
+      
+      // Do not introduce duplicate crosses.
+      if (selected.count(newCross)) {
+        continue;
+      }
+      
+      const double newV =
+        cs.after_swap(
+          state,
+          plan(pos),
+          newCross
+        );
+      
+      if (newV < state.violation - cs.tol) {
+        
+        chosenPos = pos;
+        chosenNew = newCross;
+        chosenV = newV;
+        
+        improved = true;
+        break;
+      }
+    }
+    
+    // -------------------------------------------------------------------------
+    // Second attempt: exhaustive single-cross replacements.
+    // Only used for manageable numbers of combinations.
+    // -------------------------------------------------------------------------
+    
+    if (
+        !improved &&
+          static_cast<double>(plan.n_elem) *
+          cs.crosses.n_rows <= 200000.0
+    ) {
+      
+      for (
+          arma::uword c = 0;
+          c < cs.crosses.n_rows && !improved;
+          ++c
+      ) {
+        
+        if (selected.count(c)) {
+          continue;
+        }
+        
+        for (arma::uword pos = 0; pos < plan.n_elem; ++pos) {
+          
+          const double newV =
+            cs.after_swap(
+              state,
+              plan(pos),
+              c
+            );
+          
+          if (newV < state.violation - cs.tol) {
+            
+            chosenPos = pos;
+            chosenNew = c;
+            chosenV = newV;
+            
+            improved = true;
+            break;
+          }
+        }
+      }
+    }
+    
+    // -------------------------------------------------------------------------
+    // Third attempt: simultaneous two-cross replacement.
+    // This can overcome local minima of single-cross repair.
+    // -------------------------------------------------------------------------
+    
+    if (
+        !improved &&
+          plan.n_elem >= 2 &&
+          cs.crosses.n_rows >= plan.n_elem + 2
+    ) {
+      
+      for (int trial = 0; trial < 2500; ++trial) {
+        
+        const arma::uword pos1 = posDist(gen);
+        const arma::uword pos2 = posDist(gen);
+        
+        if (pos1 == pos2) {
+          continue;
+        }
+        
+        const arma::uword new1 = crossDist(gen);
+        const arma::uword new2 = crossDist(gen);
+        
+        if (
+            new1 == new2 ||
+              selected.count(new1) ||
+              selected.count(new2)
+        ) {
+          continue;
+        }
+        
+        const double newV =
+          cs.after_double_swap(
+            state,
+            plan(pos1),
+            new1,
+            plan(pos2),
+            new2
+          );
+        
+        if (newV < state.violation - cs.tol) {
+          
+          const arma::uword old1 = plan(pos1);
+          const arma::uword old2 = plan(pos2);
+          
+          // Apply the first replacement.
+          const double midV =
+            cs.after_swap(
+              state,
+              old1,
+              new1
+            );
+          
+          cs.apply_swap(
+            state,
+            old1,
+            new1,
+            midV
+          );
+          
+          // Apply the second replacement.
+          cs.apply_swap(
+            state,
+            old2,
+            new2,
+            newV
+          );
+          
+          selected.erase(old1);
+          selected.erase(old2);
+          
+          selected.insert(new1);
+          selected.insert(new2);
+          
+          plan(pos1) = new1;
+          plan(pos2) = new2;
+          
+          improved = true;
+          break;
+        }
+      }
+      
+      if (improved) {
+        
+        if ((iter + 1) % 64 == 0) {
+          state.violation = cs.full_violation(state);
+        }
+        
+        continue;
+      }
+    }
+    
+    // No improving replacement was found.
+    if (!improved) {
+      break;
+    }
+    
+    // -------------------------------------------------------------------------
+    // Apply the accepted single-cross replacement.
+    // -------------------------------------------------------------------------
+    
+    const arma::uword oldCross = plan(chosenPos);
+    
+    cs.apply_swap(
+      state,
+      oldCross,
+      chosenNew,
+      chosenV
+    );
+    
+    selected.erase(oldCross);
+    selected.insert(chosenNew);
+    
+    plan(chosenPos) = chosenNew;
+    
+    // Periodically recalculate violations to limit numerical drift.
+    if ((iter + 1) % 64 == 0) {
+      state.violation = cs.full_violation(state);
+    }
+  }
+  
+  // Recalculate the entire constraint state to verify feasibility.
+  return cs.initialize(plan).violation <= cs.tol;
+}
+
+// -----------------------------------------------------------------------------
+// Diversify a feasible mating plan
+// -----------------------------------------------------------------------------
+
+static inline void diversify_feasible_plan(
+    arma::uvec& plan,
+    const ConstraintSystem& cs,
+    std::mt19937& gen,
+    int maxAccepted = 3
+) {
+  
+  if (
+      plan.n_elem == 0 ||
+        cs.crosses.n_rows <= plan.n_elem
+  ) {
+    return;
+  }
+  
+  ConstraintState s = cs.initialize(plan);
+  
+  std::unordered_set<arma::uword> selected(
+      plan.begin(),
+      plan.end()
+  );
+  
+  std::uniform_int_distribution<arma::uword> posDist(
+      0,
+      plan.n_elem - 1
+  );
+  
+  std::uniform_int_distribution<arma::uword> crossDist(
+      0,
+      cs.crosses.n_rows - 1
+  );
+  
+  int accepted = 0;
+  
+  // Random feasible single-cross replacements.
+  for (
+      int t = 0;
+      t < 200 && accepted < maxAccepted;
+      ++t
+  ) {
+    
+    const arma::uword pos = posDist(gen);
+    const arma::uword next = crossDist(gen);
+    
+    if (selected.count(next)) {
+      continue;
+    }
+    
+    const arma::uword old = plan(pos);
+    
+    const double v =
+      cs.after_swap(
+        s,
+        old,
+        next
+      );
+    
+    if (v <= cs.tol) {
+      
+      cs.apply_swap(
+        s,
+        old,
+        next,
+        v
+      );
+      
+      selected.erase(old);
+      selected.insert(next);
+      
+      plan(pos) = next;
+      
+      ++accepted;
+    }
+  }
+  
+  // If no feasible single swap was possible,
+  // attempt simultaneous two-cross replacements.
+  
+  if (
+      accepted == 0 &&
+        plan.n_elem >= 2 &&
+        cs.crosses.n_rows >= plan.n_elem + 2
+  ) {
+    
+    for (int t = 0; t < 500; ++t) {
+      
+      const arma::uword pos1 = posDist(gen);
+      const arma::uword pos2 = posDist(gen);
+      
+      if (pos1 == pos2) {
+        continue;
+      }
+      
+      const arma::uword new1 = crossDist(gen);
+      const arma::uword new2 = crossDist(gen);
+      
+      if (
+          new1 == new2 ||
+            selected.count(new1) ||
+            selected.count(new2)
+      ) {
+        continue;
+      }
+      
+      const arma::uword old1 = plan(pos1);
+      const arma::uword old2 = plan(pos2);
+      
+      const double newV =
+        cs.after_double_swap(
+          s,
+          old1,
+          new1,
+          old2,
+          new2
+        );
+      
+      if (newV <= cs.tol) {
+        
+        const double midV =
+          cs.after_swap(
+            s,
+            old1,
+            new1
+          );
+        
+        cs.apply_swap(
+          s,
+          old1,
+          new1,
+          midV
+        );
+        
+        cs.apply_swap(
+          s,
+          old2,
+          new2,
+          newV
+        );
+        
+        selected.erase(old1);
+        selected.erase(old2);
+        
+        selected.insert(new1);
+        selected.insert(new2);
+        
+        plan(pos1) = new1;
+        plan(pos2) = new2;
+        
+        break;
+      }
+    }
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Construct a feasible high-gain reference plan
+// -----------------------------------------------------------------------------
+
+static inline arma::uvec build_constrained_umax_plan(
+    const arma::vec& u,
+    const arma::uvec& uOrder,
+    const ConstraintSystem& cs,
+    arma::uword nVar,
+    uint64_t base_seed
+) {
+  
+  // Start with the nVar crosses with highest gain.
+  arma::uvec plan = uOrder.head(nVar);
+  
+  // This is already the unconstrained gain maximum.
+  if (
+      !cs.active() ||
+        cs.initialize(plan).violation <= cs.tol
+  ) {
+    return plan;
+  }
+  
+  std::mt19937 gen(
+      static_cast<uint32_t>(
+        base_seed ^ 0xC44D61A7ULL
+      )
+  );
+  
+  // Attempt to repair the highest-gain plan.
+  bool found =
+    repair_one_plan(
+      plan,
+      cs,
+      gen
+    );
+  
+  // Try alternative starting plans if repair failed.
+  for (
+      int attempt = 0;
+      !found && attempt < 20;
+      ++attempt
+  ) {
+    
+    plan = sampleInt_std(
+      nVar,
+      cs.crosses.n_rows,
+      gen
+    );
+    
+    found =
+      repair_one_plan(
+        plan,
+        cs,
+        gen
+      );
+  }
+  
+  if (!found) {
+    
+    Rcpp::stop(
+      "Cannot construct a jointly feasible mating plan. "
+      "Each bound passed the individual feasibility checks, "
+      "but the constraints may conflict or the swap heuristic "
+      "may be stuck."
+    );
+  }
+  
+  // ---------------------------------------------------------------------------
+  // Improve gain while keeping all constraints feasible.
+  // ---------------------------------------------------------------------------
+  
+  std::unordered_set<arma::uword> selected(
+      plan.begin(),
+      plan.end()
+  );
+  
+  ConstraintState state = cs.initialize(plan);
+  
+  for (
+      arma::uword iteration = 0;
+      iteration < 10 * nVar;
+      ++iteration
+  ) {
+    
+    bool improved = false;
+    
+    // Prefer removing selected crosses with low gain.
+    std::vector<arma::uword> removeOrder(plan.n_elem);
+    
+    std::iota(
+      removeOrder.begin(),
+      removeOrder.end(),
+      arma::uword(0)
+    );
+    
+    std::sort(
+      removeOrder.begin(),
+      removeOrder.end(),
+      [&](arma::uword a, arma::uword b) {
+        return u(plan(a)) < u(plan(b));
+      }
+    );
+    
+    // Candidate insertions are ordered by decreasing gain.
+    for (
+        arma::uword k = 0;
+        k < uOrder.n_elem && !improved;
+        ++k
+    ) {
+      
+      const arma::uword next = uOrder(k);
+      
+      if (selected.count(next)) {
+        continue;
+      }
+      
+      for (arma::uword pos : removeOrder) {
+        
+        const arma::uword old = plan(pos);
+        
+        if (u(next) <= u(old) + cs.tol) {
+          break;
+        }
+        
+        const double v =
+          cs.after_swap(
+            state,
+            old,
+            next
+          );
+        
+        if (v <= cs.tol) {
+          
+          cs.apply_swap(
+            state,
+            old,
+            next,
+            v
+          );
+          
+          selected.erase(old);
+          selected.insert(next);
+          
+          plan(pos) = next;
+          
+          improved = true;
+          break;
+        }
+      }
+    }
+    
+    if (!improved) {
+      break;
+    }
+  }
+  
+  if (cs.initialize(plan).violation > cs.tol) {
+    Rcpp::stop(
+      "Internal error: maximum-gain plan violates constraints."
+    );
+  }
+  
+  return plan;
+}
+
+// -----------------------------------------------------------------------------
+// Repair all mating plans in a population
+// -----------------------------------------------------------------------------
+
+static inline void repair_constraint_plans(
+    arma::umat& Plans,
+    const ConstraintSystem& cs,
+    const arma::uvec& feasibleSeed,
+    uint64_t base_seed
+) {
+  
+  if (!cs.active() || Plans.n_cols == 0) {
+    return;
+  }
+  
+  std::vector<int> usedFallback(
+      static_cast<size_t>(Plans.n_cols),
+      0
+  );
+  
+  ct_parallel_for(
+    0,
+    static_cast<int>(Plans.n_cols),
+    [&](int ii) {
+      
+      const arma::uword planIndex =
+        static_cast<arma::uword>(ii);
+      
+      std::mt19937 gen(
+          static_cast<uint32_t>(
+            base_seed ^
+              (
+                  0xA13B77C19E3779B9ULL +
+                    static_cast<uint64_t>(ii)
+              )
+          )
+      );
+      
+      arma::uvec plan =
+        Plans.col(planIndex);
+      
+      // Repair the current plan.
+      if (!repair_one_plan(plan, cs, gen)) {
+        
+        // If repair fails, start from a known feasible plan.
+        plan = feasibleSeed;
+        
+        // Attempt to introduce feasible variation.
+        diversify_feasible_plan(
+          plan,
+          cs,
+          gen
+        );
+        
+        usedFallback[static_cast<size_t>(ii)] = 1;
+      }
+      
+      Plans.col(planIndex) = plan;
+    }
+  );
+  
+  // Report how many individuals required feasible-seed fallback.
+  const size_t nFallback =
+    std::accumulate(
+      usedFallback.begin(),
+      usedFallback.end(),
+      size_t(0)
+    );
+  
+  if (nFallback > 0) {
+    
+    // Rcpp::Rcout
+    // << "Constraint repair: "
+    // << nFallback
+    // << " individual(s) replaced by feasible-seed variants."
+    // << std::endl;
+  }
+}
+
+
+
 // uniform set-based crossover
 static inline arma::uvec mate_uniform(
     const arma::uvec& parent1,
@@ -1128,7 +1669,7 @@ static inline arma::uvec mutate(
 {
   const arma::uword n = crosses.n_elem;
 
-  if (n == 0 || potCross == 0) {
+  if (n == 0 || potCross <= n) {
     return crosses;
   }
 
@@ -1197,34 +1738,60 @@ static inline std::string plan_key_sorted(const arma::uvec& plan_sorted) {
 }
 
 // Ensure uniqueness by resampling duplicates (cheap and effective)
+// Preserve feasibility while attempting to remove duplicate mating plans.
+// Some constraints may allow only very few distinct feasible plans; in that
+// case duplicates are retained rather than introducing infeasible plans.
 static inline void enforce_unique_population(
     arma::umat& Progeny,
-    arma::uword nVar,
-    arma::uword potCross,
+    const ConstraintSystem& cs,
+    const arma::uvec& feasibleSeed,
     uint64_t base_seed)
 {
   std::unordered_set<std::string> seen;
-  seen.reserve((size_t)Progeny.n_cols * 2);
+  seen.reserve(static_cast<size_t>(Progeny.n_cols) * 2);
+
+  const arma::uword nVar = Progeny.n_rows;
+  const arma::uword potCross = cs.crosses.n_rows;
+
+  // When every candidate is selected (or no variable cross exists),
+  // a second distinct mating plan cannot be constructed.
+  if (nVar == 0 || nVar == potCross) return;
 
   for (arma::uword i = 0; i < Progeny.n_cols; ++i) {
-    int tries = 0;
-    for (;;) {
-      arma::uvec v  = arma::conv_to<arma::uvec>::from(Progeny.col(i));
-      if (v.n_elem != nVar) {
-        // hard reset if corrupted
-        std::mt19937 gen((uint32_t)(base_seed ^ (0xABCDEF0123456789ULL + (uint64_t)i)));
-        Progeny.col(i) = sampleInt_std(nVar, potCross, gen);
-        v = arma::conv_to<arma::uvec>::from(Progeny.col(i));
+    arma::uvec plan = arma::conv_to<arma::uvec>::from(Progeny.col(i));
+
+    if (cs.initialize(plan).violation > 1e-10) {
+      Rcpp::stop("Internal error: nonfeasible plan in uniqueness check.");
+    }
+
+    std::string key = plan_key_sorted(arma::sort(plan));
+    if (seen.insert(key).second) continue;
+
+    std::mt19937 gen(static_cast<uint32_t>(
+        base_seed ^ (0x8F3A2B7C1D9E6A5BULL +
+                     static_cast<uint64_t>(i) * 1315423911ULL)));
+
+    bool found = false;
+    for (int attempt = 0; attempt < 48 && !found; ++attempt) {
+      arma::uvec candidate = (attempt % 4 == 3) ? feasibleSeed : plan;
+
+      if (cs.active()) {
+        // Every accepted change preserves all constraint bounds.
+        diversify_feasible_plan(candidate, cs, gen, 1 + (attempt % 3));
+      } else if (nVar > 0 && potCross > nVar) {
+        candidate = sampleInt_std(nVar, potCross, gen);
       }
 
-      arma::uvec vs = arma::sort(v);
-      std::string key = plan_key_sorted(vs);
-      if (seen.insert(key).second) break;
+      if (cs.initialize(candidate).violation > 1e-10) continue;
 
-      std::mt19937 gen((uint32_t)(base_seed ^ (0x8F3A2B7C1D9E6A5BULL + i * 1315423911u + tries)));
-      Progeny.col(i) = sampleInt_std(nVar, potCross, gen);
-      if (++tries > 64) break;
+      const std::string candidateKey =
+          plan_key_sorted(arma::sort(candidate));
+      if (seen.insert(candidateKey).second) {
+        Progeny.col(i) = candidate;
+        found = true;
+      }
     }
+    // If no distinct feasible plan is found, keep the original duplicate.
   }
 }
 
@@ -1256,7 +1823,14 @@ static inline void pareto_filter_archive(
   const size_t N = U.size();
   if (N == 0) return;
 
+  // Do not keep repeated copies of the same feasible mating plan.
+  std::unordered_set<std::string> seenPlans;
+  seenPlans.reserve(N * 2);
   std::vector<char> keep(N, 1);
+  for (size_t i = 0; i < N; ++i) {
+    const std::string key = plan_key_sorted(arma::sort(plans[i]));
+    if (!seenPlans.insert(key).second) keep[i] = 0;
+  }
   for (size_t i = 0; i < N; ++i) {
     if (!keep[i]) continue;
     for (size_t j = 0; j < N; ++j) {
@@ -1514,6 +2088,10 @@ Rcpp::List cpp_optimal_cross_pareto(const NumericMatrix& Crosses,
                                     arma::vec& ufixed,
                                     const arma::vec& minContr,
                                     const arma::vec& maxContr,
+                                    const arma::mat& A,
+                                    const arma::mat& Afixed,
+                                    const arma::vec& lower,
+                                    const arma::vec& upper,
                                     double probMut=0.01,
                                     arma::uword nMutate=0,
                                     arma::uword nSel=500,
@@ -1547,15 +2125,63 @@ Rcpp::List cpp_optimal_cross_pareto(const NumericMatrix& Crosses,
   }
 
 
-  arma::umat Crosses_mat      = as<arma::umat>(Crosses);
+  // Validate dimensions and population settings before allocating matrices.
+  if (Crosses.ncol() != 2 || fixedCrosses.ncol() != 2 ||
+      G.n_rows != G.n_cols || u.n_elem != potCross ||
+      ufixed.n_elem != fixedRows) {
+    Rcpp::stop("Invalid Crosses, fixedCrosses, G, u, or ufixed dimensions.");
+  }
+  if (nSel < 2 || nPop < 2 || nSel > nPop ||
+      static_cast<double>(nPop) >
+          static_cast<double>(nSel) * (nSel - 1) / 2.0) {
+    Rcpp::stop("Require 2 <= nSel <= nPop <= choose(nSel, 2).");
+  }
+
+  const arma::uword nInd = G.n_cols;
+  for (int i = 0; i < Crosses.nrow(); ++i) {
+    for (int j = 0; j < 2; ++j) {
+      if (!std::isfinite(Crosses(i, j)) || Crosses(i, j) < 1 ||
+          Crosses(i, j) > nInd ||
+          std::floor(Crosses(i, j)) != Crosses(i, j)) {
+        Rcpp::stop("Crosses must contain valid 1-based integer parent indices.");
+      }
+    }
+  }
+  for (int i = 0; i < fixedCrosses.nrow(); ++i) {
+    for (int j = 0; j < 2; ++j) {
+      if (!std::isfinite(fixedCrosses(i, j)) || fixedCrosses(i, j) < 1 ||
+          fixedCrosses(i, j) > nInd ||
+          std::floor(fixedCrosses(i, j)) != fixedCrosses(i, j)) {
+        Rcpp::stop("fixedCrosses must contain valid 1-based integer parent indices.");
+      }
+    }
+  }
+
+  arma::umat Crosses_mat = as<arma::umat>(Crosses);
   arma::umat fixedCrosses_mat = as<arma::umat>(fixedCrosses);
-  Crosses_mat      -= 1;
+  Crosses_mat -= 1;
   fixedCrosses_mat -= 1;
-  arma::uword nInd = G.n_cols;
 
+  // Reject individually impossible parental and cross-level constraints.
+  check_constraint_feasibility(
+    Crosses_mat, fixedCrosses_mat, nCross, nInd,
+    minContr, maxContr, A, Afixed, lower, upper
+  );
 
-  // contribution of fixed plan
-  arma::vec xfixed = calcContr(fixedCrosses_mat, nInd,nCross);
+  // Contribution of fixed crosses and their numerical constraint scores.
+  arma::vec xfixed = calcContr(fixedCrosses_mat, nInd, nCross);
+  arma::mat scoreByConstraint = A.t();
+  arma::vec fixedExtra(A.n_cols, arma::fill::zeros);
+  for (arma::uword f = 0; f < Afixed.n_rows; ++f) {
+    for (arma::uword j = 0; j < A.n_cols; ++j) {
+      fixedExtra(j) += Afixed(f, j) / nCross;
+    }
+  }
+
+  ConstraintSystem constraints{
+    Crosses_mat, scoreByConstraint, minContr, maxContr,
+    lower, upper, xfixed, fixedExtra, nCross, nInd, 1e-12
+  };
   double uMax = 0.0, simMax = 0.0;
 
 
@@ -1584,44 +2210,10 @@ Rcpp::List cpp_optimal_cross_pareto(const NumericMatrix& Crosses,
   arma::uvec uOrder =
     arma::sort_index(u, "descend");
 
-  bool hasContributionConstraints = false;
-
-  for (arma::uword p = 0; p < nInd; ++p) {
-    const bool bindingMinimum =
-      minContr(p) > 1e-12;
-
-    const bool bindingMaximum =
-      std::isfinite(maxContr(p)) &&
-      maxContr(p) < 1.0 - 1e-12;
-
-    if (bindingMinimum || bindingMaximum) {
-      hasContributionConstraints = true;
-      break;
-    }
-  }
-
-  if (hasContributionConstraints) {
-    /*
-     * Construct and locally optimize the highest-u feasible
-     * plan found under the contribution constraints.
-     */
-    uMax_plan =
-      build_constrained_umax_plan(
-        u,
-        uOrder,
-        Crosses_mat,
-        nVar,
-        nCross,
-        nInd,
-        xfixed,
-        minContr,
-        maxContr
-      );
-
-  } else {
-    // Original unconstrained solution.
-    uMax_plan = uOrder.head(nVar);
-  }
+  // High-gain anchor must satisfy parental and all cross-level constraints.
+  uMax_plan = build_constrained_umax_plan(
+    u, uOrder, constraints, nVar, base_seed
+  );
 
   {
     arma::vec x =
@@ -1660,14 +2252,8 @@ Rcpp::List cpp_optimal_cross_pareto(const NumericMatrix& Crosses,
   });
 
   // Repair all initial plans
-  fix_contribution_plans(
-    Progeny,
-    Crosses_mat,
-    minContr,
-    maxContr,
-    xfixed,
-    nCross,
-    nInd,
+  repair_constraint_plans(
+    Progeny, constraints, uMax_plan,
     base_seed ^ 0x1010101010101010ULL
   );
 
@@ -1754,18 +2340,12 @@ Rcpp::List cpp_optimal_cross_pareto(const NumericMatrix& Crosses,
     });
 
     // Repair complete population once
-    fix_contribution_plans(
-      Progeny,
-      Crosses_mat,
-      minContr,
-      maxContr,
-      xfixed,
-      nCross,
-      nInd,
-      base_seed ^
+    repair_constraint_plans(
+    Progeny, constraints, uMax_plan,
+    base_seed ^
         (0x2020202020202020ULL +
         static_cast<uint64_t>(gen))
-    );
+  );
 
     // Evaluate repaired population
     ct_parallel_for(0, (int)nPop, [&](int i) {
@@ -1883,20 +2463,15 @@ Rcpp::List cpp_optimal_cross_pareto(const NumericMatrix& Crosses,
     if (inj < nPop && uMax_plan.n_elem == nVar)       Progeny.col(inj++) = uMax_plan;
 
 
-    enforce_unique_population(Progeny, nVar, potCross, base_seed);
 
-    fix_contribution_plans(
-      Progeny,
-      Crosses_mat,
-      minContr,
-      maxContr,
-      xfixed,
-      nCross,
-      nInd,
-      base_seed ^
+
+    repair_constraint_plans(
+    Progeny, constraints, uMax_plan,
+    base_seed ^
         (0x3030303030303030ULL +
         static_cast<uint64_t>(wi))
-    );
+  );
+    enforce_unique_population(Progeny, constraints, uMax_plan, base_seed);
 
     // eval init (u/sim only)
     ct_parallel_for(0, (int)nPop, [&](int i) {
@@ -1983,19 +2558,13 @@ Rcpp::List cpp_optimal_cross_pareto(const NumericMatrix& Crosses,
                                                        });
 
                                                        // Repair children
-                                                       fix_contribution_plans(
-                                                         Progeny,
-                                                         Crosses_mat,
-                                                         minContr,
-                                                         maxContr,
-                                                         xfixed,
-                                                         nCross,
-                                                         nInd,
-                                                         base_seed ^
+                                                       repair_constraint_plans(
+    Progeny, constraints, uMax_plan,
+    base_seed ^
                                                            (0x4040404040404040ULL +
                                                            static_cast<uint64_t>(wi) * 1000003ULL +
                                                            static_cast<uint64_t>(gen))
-                                                       );
+  );
 
                                                        // Evaluate repaired children
                                                        ct_parallel_for(0, (int)nPop, [&](int i) {
@@ -2124,18 +2693,13 @@ Rcpp::List cpp_optimal_cross_pareto(const NumericMatrix& Crosses,
     Rcpp::stop("Internal error: used != nBig in fused initialization.");
   }
 
-  enforce_unique_population(ProgenyBig, nVar, potCross, base_seed);
 
-  fix_contribution_plans(
-    ProgenyBig,
-    Crosses_mat,
-    minContr,
-    maxContr,
-    xfixed,
-    nCross,
-    nInd,
+
+  repair_constraint_plans(
+    ProgenyBig, constraints, uMax_plan,
     base_seed ^ 0x5050505050505050ULL
   );
+  enforce_unique_population(ProgenyBig, constraints, uMax_plan, base_seed);
 
   // Evaluate big pool with the REAL objective weights (weightu/weightcrossover)
   arma::vec uBig(nBig, arma::fill::zeros);
@@ -2206,18 +2770,13 @@ Rcpp::List cpp_optimal_cross_pareto(const NumericMatrix& Crosses,
   }
 
   // uniqueness might change plans -> re-evaluate
-  enforce_unique_population(Progeny, nVar, potCross, base_seed);
 
-  fix_contribution_plans(
-    Progeny,
-    Crosses_mat,
-    minContr,
-    maxContr,
-    xfixed,
-    nCross,
-    nInd,
+
+  repair_constraint_plans(
+    Progeny, constraints, uMax_plan,
     base_seed ^ 0x6060606060606060ULL
   );
+  enforce_unique_population(Progeny, constraints, uMax_plan, base_seed);
 
   ct_parallel_for(0, (int)nPop, [&](int i) {
     arma::uvec idx = arma::conv_to<arma::uvec>::from(Progeny.col((arma::uword)i));
@@ -2338,18 +2897,12 @@ Rcpp::List cpp_optimal_cross_pareto(const NumericMatrix& Crosses,
     });
 
     // Repair population exactly once
-    fix_contribution_plans(
-      Progeny,
-      Crosses_mat,
-      minContr,
-      maxContr,
-      xfixed,
-      nCross,
-      nInd,
-      base_seed ^
+    repair_constraint_plans(
+    Progeny, constraints, uMax_plan,
+    base_seed ^
         (0x7070707070707070ULL +
         static_cast<uint64_t>(gen))
-    );
+  );
 
     // Evaluate repaired plans
     ct_parallel_for(0, (int)nPop, [&](int i) {
@@ -2454,11 +3007,16 @@ Rcpp::List cpp_optimal_cross_pareto(const NumericMatrix& Crosses,
 
   // Final best plan
   Best = arma::sort(Best);
+  const ConstraintState finalState = constraints.initialize(Best);
+  if (finalState.violation > 1e-10) {
+    Rcpp::stop("Internal error: best Pareto plan violates constraints.");
+  }
   arma::umat outCrossPlan = arma::join_cols(Crosses_mat.rows(Best), fixedCrosses_mat);
 
   // Final Pareto outputs from archive
   Rcpp::DataFrame pareto_df;
   Rcpp::List pareto_crossplans;
+  Rcpp::NumericMatrix pareto_constraint_values;
   {
     const size_t nPF = arch_u.size();
 
@@ -2471,6 +3029,8 @@ Rcpp::List cpp_optimal_cross_pareto(const NumericMatrix& Crosses,
 
     pareto_crossplans = Rcpp::List((int)nPF);
     Rcpp::NumericVector pu((int)nPF), ps((int)nPF);
+    pareto_constraint_values = Rcpp::NumericMatrix(
+      static_cast<int>(nPF), static_cast<int>(A.n_cols));
 
     for (size_t k = 0; k < nPF; ++k) {
       size_t a = ord[k];
@@ -2478,6 +3038,13 @@ Rcpp::List cpp_optimal_cross_pareto(const NumericMatrix& Crosses,
       ps[(int)k] = arch_sim[a];
 
       arma::uvec vv = arma::sort(arch_plans[a]);
+      const ConstraintState st = constraints.initialize(vv);
+      if (st.violation > 1e-10) {
+        Rcpp::stop("Internal error: infeasible plan found in Pareto archive.");
+      }
+      for (arma::uword j = 0; j < A.n_cols; ++j) {
+        pareto_constraint_values(static_cast<int>(k), static_cast<int>(j)) = st.extra(j);
+      }
       arma::umat cp = arma::join_cols(Crosses_mat.rows(vv), fixedCrosses_mat);
       pareto_crossplans[(int)k] = cp + 1;
     }
@@ -2518,6 +3085,9 @@ Rcpp::List cpp_optimal_cross_pareto(const NumericMatrix& Crosses,
     Rcpp::Named("simBest")      = simBest,
     Rcpp::Named("gaTrace")      = gaTrace,
     Rcpp::Named("pareto")       = pareto_df,
-    Rcpp::Named("paretoPlans")  = pareto_crossplans
+    Rcpp::Named("paretoPlans")  = pareto_crossplans,
+    Rcpp::Named("paretoConstraintValues") = pareto_constraint_values,
+    Rcpp::Named("parentContributions") = finalState.parents,
+    Rcpp::Named("constraintValues") = finalState.extra
   );
 }

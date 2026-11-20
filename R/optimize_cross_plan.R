@@ -3,7 +3,8 @@
 #' Selects a crossing plan of \code{ncrosses} crosses by balancing a
 #' user-defined cross criterion against genomic similarity among the
 #' contributing parents. Fixed crosses and upper and lower constraints on
-#' parental contributions can be incorporated directly into the optimisation.
+#' parental contributions or other constraints can be incorporated directly
+#' into the optimisation.
 #'
 #' Ranking crosses solely according to their predicted value may maximise
 #' short-term genetic gain but can increase coancestry among selected parents
@@ -20,10 +21,10 @@
 #' assigned to each parent.
 #'
 #' Because the cross criterion and genomic similarity may be measured on
-#' different scales, the objectives are normalised before optimisation.
-#' CrossingTools provides two strategies for balancing the resulting gain--
-#' diversity objectives. With \code{method = "angle"}, the user specifies a
-#' target angle between 0 and 90 degrees. An angle of 0 degrees gives maximum
+#' different scales, the objectives are normalised for the angle-based
+#' optimisation. CrossingTools provides two strategies for balancing the
+#' gain--diversity objectives. With \code{method = "angle"}, the user specifies
+#' a target angle between 0 and 90 degrees. An angle of 0 degrees gives maximum
 #' emphasis to the cross criterion, whereas an angle of 90 degrees gives
 #' maximum emphasis to reducing genomic similarity and therefore maintaining
 #' diversity. Intermediate angles specify different compromises between the
@@ -39,6 +40,20 @@
 #' Both optimisation strategies search over complete crossing plans rather
 #' than ranking crosses independently. Practical breeding constraints can be
 #' imposed through fixed crosses and minimum or maximum parental contributions.
+#' Additional constraints can be specified through \code{cross.constraints},
+#' allowing the mean of numerical cross properties or the proportion of
+#' individual cross types to be restricted to user-defined intervals.
+#' These constraints can be applied simultaneously with parental contribution
+#' limits and are treated as hard constraints rather than additional
+#' optimisation objectives.
+#'
+#' Numerical constraints can represent any quantitative cross property, such
+#' as expected trait values, expected allele frequencies of QTL, genetic
+#' distances, or crossing costs. Categorical constraints can be used to restrict
+#' the proportions of particular cross types, such as within-family or
+#' between-family crosses. Individual crosses may have numerical values outside
+#' the specified bounds as long as the overall mean satisfies the constraint.
+#'
 #' Crosses that should not be considered can be excluded from
 #' \code{candidate.crosses}.
 #'
@@ -76,6 +91,56 @@
 #'   every parent.
 #' @param method Character string specifying the optimisation method. Must be
 #'   either \code{"angle"} or \code{"pareto"}.
+#' @param cross.constraints Optional named list specifying additional
+#'   constraints on numerical or categorical properties of the selected
+#'   crosses. The default is \code{NULL}, corresponding to no additional
+#'   cross-level constraints. The list may contain the following elements:
+#'   \describe{
+#'     \item{\code{values}}{
+#'       A data frame or matrix with one row per candidate cross and one
+#'       column per cross property. Rows must correspond to the order of
+#'       \code{candidate.crosses}. Columns may contain numeric values,
+#'       character strings, or factors. Numerical columns are interpreted
+#'       as quantitative cross properties, whereas character or factor
+#'       columns define categorical cross types.
+#'     }
+#'     \item{\code{fixed.values}}{
+#'       A data frame or matrix containing the corresponding properties
+#'       of fixed crosses, with one row per cross in \code{fixed.crosses}.
+#'       The columns must match those in \code{values}. This element is
+#'       required when fixed crosses are supplied and may otherwise be
+#'       omitted or set to \code{NULL}.
+#'     }
+#'     \item{\code{bounds}}{
+#'       A named list specifying the constraints to be imposed.
+#'       Each list name must correspond to a column in \code{values}.
+#'       The required format depends on whether the corresponding
+#'       property is numerical or categorical.
+#'     }
+#'   }
+#'
+#'   For numerical properties, each element of \code{bounds} must be a
+#'   named numeric vector of the form
+#'   \code{c(lower = ..., upper = ...)}, specifying the permissible
+#'   interval for the mean property value across the complete crossing
+#'   plan. Bounds are expressed in the original units of the property.
+#'   The values \code{-Inf} and \code{Inf} can be used to specify
+#'   unrestricted lower or upper bounds, respectively.
+#'
+#'   For categorical properties, each element of \code{bounds} must be a
+#'   data frame with columns \code{type}, \code{lower}, and \code{upper}.
+#'   Each row specifies a category and its permissible proportion among
+#'   selected crosses. Category bounds must lie between zero and one.
+#'   Categories not included in the bounds table are not constrained
+#'   directly.
+#'
+#'   Numerical and categorical constraints may be combined.
+#'   Only properties explicitly included in \code{bounds} are constrained.
+#'   Constraints are applied to the complete crossing plan, including
+#'   fixed crosses. The user is responsible for ensuring that each row
+#'   of \code{values} and \code{fixed.values} corresponds to the correct
+#'   cross. All additional constraints must be jointly feasible for
+#'   a valid crossing plan to exist.
 #' @param return.params Logical. Whether to return optimisation diagnostics in
 #'   addition to the selected crossing plan or Pareto solutions.
 #' @param plot Logical. Whether to display the estimated Pareto frontier when
@@ -101,31 +166,57 @@
 #' @param nthreads Positive integer. Number of computational threads.
 #'
 #' @return
-#' For \code{method = "angle"} and \code{return.params = FALSE}, a data frame
-#' with columns \code{parent1} and \code{parent2} describing the selected
-#' crossing plan.
-#'
 #' For \code{method = "angle"} and \code{return.params = TRUE}, a list
 #' containing:
 #' \describe{
 #'   \item{\code{crossPlan}}{The selected crossing plan as a data frame with
 #'   columns \code{parent1} and \code{parent2}.}
-#'   \item{\code{uMax}, \code{simMax}}{The maximum attainable cross criterion
-#'   and the corresponding similarity.}
+#'   \item{\code{uMax}, \code{simMax}}{The cross criterion of the
+#'   high-gain reference plan and its corresponding genomic similarity.
+#'   With active constraints, the reference plan is constructed
+#'   heuristically and is not guaranteed to be the global gain maximum.}
+#'   \item{\code{uMin}, \code{simMin}}{Reference values obtained during
+#'   similarity optimisation, used for normalisation of the objectives.}
 #'   \item{\code{uBest}, \code{simBest}}{The cross criterion and similarity of
 #'   the selected solution.}
 #'   \item{\code{angleBest}, \code{lenBest}}{The angle and length of the
 #'   selected solution in normalised objective space.}
+#'   \item{\code{parentContributions}}{Numeric vector containing the
+#'   proportional contribution of each parent to the selected crossing
+#'   plan, including fixed crosses. Contributions sum to one.
+#'   Parent names are retained when available in \code{G.mat}.}
+#'   \item{\code{constraintValues}}{Named numeric vector containing the
+#'   achieved mean values of numerical constraints and the proportions
+#'   of constrained categorical cross types. Numerical values are
+#'   reported in their original units. An empty vector is returned when
+#'   no additional constraints are specified.}
 #' }
+#'
+#' For \code{target.angle = 0}, the high-gain reference plan is returned
+#' directly without running the genetic algorithm. In this case,
+#' \code{uMax}, \code{simMax}, \code{parentContributions}, and
+#' \code{constraintValues} are returned with \code{crossPlan};
+#' the remaining optimisation diagnostics are not available.
 #'
 #' For \code{method = "pareto"}, a list containing:
 #' \describe{
-#'   \item{\code{pareto.plans}}{A list of Pareto-optimal crossing plans, each
-#'   represented by a data frame with columns \code{parent1} and
-#'   \code{parent2}.}
+#'   \item{\code{pareto.plans}}{A list of non-dominated crossing plans
+#'   identified by the optimisation, each represented by a data frame
+#'   with columns \code{parent1} and \code{parent2}. All returned plans
+#'   satisfy the specified parental and additional cross constraints.}
 #'   \item{\code{pareto.frontier}}{A data frame containing the solution
 #'   identifier \code{pareto.id}, cross criterion \code{u}, and genomic
-#'   similarity \code{sim}.}
+#'   similarity \code{sim}. Each row corresponds to the crossing plan
+#'   at the same position in \code{pareto.plans}.}
+#'   \item{\code{pareto.constraints}}{When \code{return.params = TRUE} and
+#'   additional cross constraints are specified, a data frame containing
+#'   the achieved constraint values for every returned Pareto solution.
+#'   Rows correspond to \code{pareto.frontier} and \code{pareto.plans},
+#'   while columns represent individual numerical constraints or
+#'   constrained categorical cross types. Numerical properties are
+#'   reported in their original units and categorical properties as
+#'   proportions. This element is omitted when no additional cross
+#'   constraints are specified.}
 #' }
 #'
 #' @references
@@ -143,20 +234,23 @@
 
 
 
+
+
 optimize_cross_plan <- function(candidate.crosses,
-                                 fixed.crosses = NULL,
-                                 ncrosses,
-                                 target.angle=0,
-                                 criterion,
-                                 criterion.fixed = NULL,
-                                 G.mat,
-                                 parents.upper=NA,
-                                 parents.lower=NA,
-                                 method = "pareto",
-                                 return.params=FALSE,
-                                 plot=TRUE,
-                                 params = list(),
-                                 nthreads = 4L) {
+                                fixed.crosses = NULL,
+                                ncrosses,
+                                target.angle=0,
+                                criterion,
+                                criterion.fixed = NULL,
+                                G.mat,
+                                parents.upper=NA,
+                                parents.lower=NA,
+                                method = "pareto",
+                                return.params=FALSE,
+                                plot=TRUE,
+                                params = list(),
+                                nthreads = 4L,
+                                cross.constraints = NULL) {
 
   defaults <-
     list(
@@ -267,6 +361,10 @@ optimize_cross_plan <- function(candidate.crosses,
       "appearances than are required in the requested mating plan."
     )
   }
+
+
+
+
 
 
 
@@ -486,6 +584,406 @@ optimize_cross_plan <- function(candidate.crosses,
     )
   }
 
+  #############################################################################
+  # Additional cross constraints
+  #############################################################################
+
+  # Initialize empty constraint matrices.
+  # These remain empty when cross.constraints = NULL.
+
+  A <- matrix(numeric(0), nrow = nrow(crosses2), ncol = 0)
+  Afixed <- matrix(numeric(0), nrow = nrow(fixed.crosses2), ncol = 0)
+
+  lower <- numeric(0)
+  upper <- numeric(0)
+
+  constraint.names <- character(0)
+
+  # Store the original scales so that numerical constraint
+  # values can be returned in their original units.
+  constraint.offset <- numeric(0)
+  constraint.scale <- numeric(0)
+
+
+  if (!is.null(cross.constraints)) {
+
+    ###########################################################################
+    # Validate the list structure
+    ###########################################################################
+
+    if (
+      !is.list(cross.constraints) ||
+      !all(c("values", "bounds") %in% names(cross.constraints))
+    ) {
+      stop(
+        "`cross.constraints` must be a list containing ",
+        "`values` and `bounds`."
+      )
+    }
+
+    values <- cross.constraints$values
+    fixed.values <- cross.constraints$fixed.values
+    bounds <- cross.constraints$bounds
+
+    if (!is.data.frame(values) && !is.matrix(values)) {
+      stop("`cross.constraints$values` must be a data frame or matrix.")
+    }
+
+    values <- as.data.frame(values, stringsAsFactors = FALSE)
+
+    if (
+      nrow(values) != nrow(crosses2) ||
+      is.null(names(values)) ||
+      anyNA(names(values)) ||
+      any(!nzchar(names(values))) ||
+      anyDuplicated(names(values))
+    ) {
+      stop(
+        "`cross.constraints$values` must have one row per candidate ",
+        "cross and unique, non-empty column names."
+      )
+    }
+
+    if (
+      !is.list(bounds) ||
+      is.data.frame(bounds) ||
+      (length(bounds) > 0 &&
+       (is.null(names(bounds)) ||
+        anyNA(names(bounds)) ||
+        any(!nzchar(names(bounds))) ||
+        anyDuplicated(names(bounds)))) ||
+      !all(names(bounds) %in% names(values))
+    ) {
+      stop(
+        "`cross.constraints$bounds` must be a named list ",
+        "corresponding to columns in `values`."
+      )
+    }
+
+
+    ###########################################################################
+    # Handle fixed crosses
+    ###########################################################################
+
+    if (is.null(fixed.values)) {
+
+      if (fixedCount > 0L) {
+        stop(
+          "`cross.constraints$fixed.values` must be supplied ",
+          "when fixed crosses are present."
+        )
+      }
+
+      fixed.values <- values[0, , drop = FALSE]
+    }
+
+    if (!is.data.frame(fixed.values) && !is.matrix(fixed.values)) {
+      stop(
+        "`cross.constraints$fixed.values` must be a data frame or matrix."
+      )
+    }
+
+    fixed.values <- as.data.frame(
+      fixed.values,
+      stringsAsFactors = FALSE
+    )
+
+    if (
+      nrow(fixed.values) != fixedCount ||
+      !setequal(names(fixed.values), names(values)) ||
+      anyDuplicated(names(fixed.values))
+    ) {
+      stop(
+        "`cross.constraints$fixed.values` must have one row per ",
+        "fixed cross and the same columns as `values`."
+      )
+    }
+
+    # Match the order of the candidate constraint columns.
+    fixed.values <- fixed.values[
+      ,
+      names(values),
+      drop = FALSE
+    ]
+
+
+    ###########################################################################
+    # Process every bounded property
+    ###########################################################################
+
+    for (nm in names(bounds)) {
+
+      x <- values[[nm]]
+      xf <- fixed.values[[nm]]
+      b <- bounds[[nm]]
+
+
+      #########################################################################
+      # Numeric constraints
+      #########################################################################
+
+      if (is.numeric(x) && !is.factor(x)) {
+
+        if (
+          !is.numeric(xf) ||
+          anyNA(x) ||
+          anyNA(xf) ||
+          any(!is.finite(x)) ||
+          any(!is.finite(xf))
+        ) {
+          stop(
+            "Numeric constraint `", nm,
+            "` must contain finite numeric values."
+          )
+        }
+
+        # Numeric constraints require a named vector:
+        # c(lower = ..., upper = ...)
+
+        if (
+          !is.numeric(b) ||
+          length(b) != 2L ||
+          !setequal(names(b), c("lower", "upper")) ||
+          anyNA(b)
+        ) {
+          stop(
+            "Bounds for numeric constraint `", nm,
+            "` must be c(lower = ..., upper = ...)."
+          )
+        }
+
+        lo <- unname(b["lower"])
+        hi <- unname(b["upper"])
+
+        if (
+          lo > hi ||
+          lo == Inf ||
+          hi == -Inf
+        ) {
+          stop(
+            "Invalid bounds for numeric constraint `", nm, "`."
+          )
+        }
+
+        # Use both candidate and fixed crosses to determine
+        # the minimum and maximum of the property.
+
+        all.x <- c(x, xf)
+
+        xmin <- min(all.x)
+        xmax <- max(all.x)
+        span <- xmax - xmin
+
+        if (!is.finite(span)) {
+          stop(
+            "Numeric range is too large for constraint `", nm, "`."
+          )
+        }
+
+        # An average of finite values cannot be below xmin or above xmax.
+        # These checks are only necessary conditions for feasibility.
+
+        if (lo > xmax || hi < xmin) {
+          stop(
+            "Numeric constraint `", nm, "` is impossible: ",
+            "the available values range from ", xmin,
+            " to ", xmax, "."
+          )
+        }
+
+        if (span == 0) {
+
+          # All crosses have the same value.
+          # The bound was already checked above.
+          # Use a nonbinding column but retain its name and original value.
+
+          xn <- rep(0, length(x))
+          xfn <- rep(0, length(xf))
+
+          ln <- 0
+          un <- 1
+
+        } else {
+
+          # Normalize each value to the interval [0,1].
+
+          xn <- (x - xmin) / span
+          xfn <- (xf - xmin) / span
+
+          # Apply the same linear transformation to the bounds.
+          # Clamp nonbinding bounds to the attainable score range.
+
+          ln <- if (is.infinite(lo)) {
+            0
+          } else {
+            max(0, (lo - xmin) / span)
+          }
+
+          un <- if (is.infinite(hi)) {
+            1
+          } else {
+            min(1, (hi - xmin) / span)
+          }
+        }
+
+        # Append the normalized property to the C++ matrices.
+
+        A <- cbind(
+          A,
+          matrix(xn, nrow = nrow(crosses2), ncol = 1)
+        )
+
+        Afixed <- cbind(
+          Afixed,
+          matrix(xfn, nrow = fixedCount, ncol = 1)
+        )
+
+        lower <- c(lower, ln)
+        upper <- c(upper, un)
+
+        constraint.names <- c(constraint.names, nm)
+
+        # Needed to transform the result back to the original scale.
+        constraint.offset <- c(constraint.offset, xmin)
+        constraint.scale <- c(constraint.scale, span)
+
+
+        #########################################################################
+        # Categorical constraints
+        #########################################################################
+
+      } else if (is.character(x) || is.factor(x)) {
+
+        if (
+          !(is.character(xf) || is.factor(xf)) ||
+          anyNA(x) ||
+          anyNA(xf) ||
+          any(!nzchar(as.character(x))) ||
+          any(!nzchar(as.character(xf)))
+        ) {
+          stop(
+            "Categorical constraint `", nm,
+            "` contains missing or invalid categories."
+          )
+        }
+
+        # Categorical constraints require a data frame
+        # containing type, lower and upper.
+
+        if (
+          !is.data.frame(b) ||
+          !all(c("type", "lower", "upper") %in% names(b))
+        ) {
+          stop(
+            "Bounds for categorical constraint `", nm,
+            "` must be a data frame with columns ",
+            "`type`, `lower` and `upper`."
+          )
+        }
+
+        types <- as.character(b$type)
+
+        if (
+          length(types) == 0L ||
+          anyNA(types) ||
+          any(!nzchar(types)) ||
+          anyDuplicated(types) ||
+          !is.numeric(b$lower) ||
+          !is.numeric(b$upper) ||
+          anyNA(b$lower) ||
+          anyNA(b$upper) ||
+          any(!is.finite(b$lower)) ||
+          any(!is.finite(b$upper)) ||
+          any(b$lower < 0 | b$lower > 1) ||
+          any(b$upper < 0 | b$upper > 1) ||
+          any(b$lower > b$upper)
+        ) {
+          stop(
+            "Invalid category bounds for constraint `", nm, "`."
+          )
+        }
+
+        # The categories within a classification are mutually exclusive.
+        # Therefore their lower bounds cannot sum to more than 1.
+
+        if (sum(b$lower) > 1 + 1e-12) {
+          stop(
+            "Lower bounds for categorical constraint `", nm,
+            "` sum to more than one."
+          )
+        }
+
+        # If all observed categories have an upper bound,
+        # their permitted proportions must sum to at least 1.
+
+        observed <- unique(c(as.character(x), as.character(xf)))
+
+        if (all(observed %in% types)) {
+
+          if (sum(b$upper[match(observed, types)]) < 1 - 1e-12) {
+            stop(
+              "Upper bounds for categorical constraint `", nm,
+              "` sum to less than one."
+            )
+          }
+        }
+
+        # Convert each constrained category into its own indicator column.
+
+        for (k in seq_along(types)) {
+
+          category <- types[k]
+
+          xn <- as.numeric(as.character(x) == category)
+          xfn <- as.numeric(as.character(xf) == category)
+
+          A <- cbind(
+            A,
+            matrix(xn, nrow = nrow(crosses2), ncol = 1)
+          )
+
+          Afixed <- cbind(
+            Afixed,
+            matrix(xfn, nrow = fixedCount, ncol = 1)
+          )
+
+          lower <- c(lower, b$lower[k])
+          upper <- c(upper, b$upper[k])
+
+          constraint.names <- c(
+            constraint.names,
+            paste0(nm, ".", category)
+          )
+
+          # Categorical indicators already use the original 0/1 scale.
+          constraint.offset <- c(constraint.offset, 0)
+          constraint.scale <- c(constraint.scale, 1)
+        }
+
+      } else {
+
+        stop(
+          "Constraint `", nm,
+          "` must be numeric, character or factor."
+        )
+      }
+    }
+  }
+
+
+  #############################################################################
+  # Finalize constraint names
+  #############################################################################
+
+  constraint.names <- make.unique(constraint.names)
+
+  colnames(A) <- constraint.names
+  colnames(Afixed) <- constraint.names
+
+  names(lower) <- constraint.names
+  names(upper) <- constraint.names
+
+
   if(method=="angle"){
 
     ##  Map names to C++
@@ -499,6 +997,10 @@ optimize_cross_plan <- function(candidate.crosses,
       G             = G,
       minContr      = minContr,
       maxContr      = maxContr,
+      A             = A,
+      Afixed        = Afixed,
+      lower         = lower,
+      upper         = upper,
       probMut       = as.numeric(params$probability.mutate),
       nMutate       = nmutate,
       nSel          = nselect,
@@ -508,7 +1010,21 @@ optimize_cross_plan <- function(candidate.crosses,
       anglePenalty  = as.numeric(params$angle.penalty),
       nThreads      = nThreads
     )
+
     if(return.params){
+
+      # Give parental contributions their original parent names.
+      if (!is.null(rownames(G))) {
+        names(res$parentContributions) <- rownames(G)
+      }
+
+      # Convert numerical constraints back to their original units.
+      # Categorical proportions already have offset 0 and scale 1.
+      res$constraintValues <-
+        res$constraintValues * constraint.scale + constraint.offset
+
+      names(res$constraintValues) <- constraint.names
+
       res$crossPlan <- as.data.frame(res$crossPlan)[,]
       temp <- rbind(crosses2,fixed.crosses2)
       if (is.null(fixed.crosses) || nrow(fixed.crosses)==0){
@@ -558,6 +1074,10 @@ optimize_cross_plan <- function(candidate.crosses,
       G             = G,
       minContr      = minContr,
       maxContr      = maxContr,
+      A             = A,
+      Afixed        = Afixed,
+      lower         = lower,
+      upper         = upper,
       probMut       = as.numeric(params$probability.mutate),
       nMutate       = nmutate,
       nSel          = nselect,
@@ -601,6 +1121,34 @@ optimize_cross_plan <- function(candidate.crosses,
 
       res2 <- list(pareto.plans=paretoPlans, pareto.frontier= pareto)
 
+      # Convert Pareto constraint values back to their original units.
+
+      if (length(constraint.names) > 0L) {
+
+        pareto.constraints <- as.matrix(
+          res$paretoConstraintValues
+        )
+
+        pareto.constraints <- sweep(
+          pareto.constraints,
+          2,
+          constraint.scale,
+          "*"
+        )
+
+        pareto.constraints <- sweep(
+          pareto.constraints,
+          2,
+          constraint.offset,
+          "+"
+        )
+
+        colnames(pareto.constraints) <- constraint.names
+
+        res2$pareto.constraints <- as.data.frame(
+          pareto.constraints
+        )
+      }
 
     }else{
       paretoPlans  <- lapply (res$paretoPlans, function(x){temp <- as.data.frame(x)

@@ -10,12 +10,10 @@
 #'
 #' Segregation (co)variances are calculated analytically from parental marker
 #' genotypes, recombination fractions, and average allele-substitution effects.
-#' For biparental crosses, the available methods follow the analytical
-#' approaches of Lehermeier et al. (2017) and Osthushenrich et al. (2017).
-#' Both provide expressions for doubled haploid (DH) and recombinant
-#' inbred line (RIL) populations after an arbitrary number of intermating
-#' generations. Four-way crosses are calculated using the extension to
-#' multi-parental crosses described by Allier et al. (2019).
+#' Progeny development is modelled as \code{t} rounds of random intermating
+#' followed by \code{s} rounds of selfing. For RILs,
+#' \code{s = Inf} selects the exact asymptotic selfing model.
+#' Four-way crosses use the decomposition of Allier et al. (2019).
 #'
 #' Additive genetic values are expressed as breeding values using centred
 #' marker genotypes, \eqn{M - 2p}, and average allele-substitution effects
@@ -50,9 +48,8 @@
 #'   If \code{p = NULL}, the reference allele frequencies are derived from
 #'   \code{marker.mat}. Its number of rows must equal
 #'   \code{ncol(marker.mat)}.
-#' @param t Integer. Number of additional generations considered before final
-#'   line development. Its interpretation depends on the selected offspring
-#'   type and segregation-variance method.
+#' @param t Non-negative integer. Number of rounds of random mating before
+#'   selfing or line development; zero means no additional random mating.
 #' @param intensity Numeric scalar giving the standardised selection intensity
 #'   used to calculate superior progeny values. The default is 1.
 #' @param type Character. Offspring type, either \code{"DH"} for doubled
@@ -65,13 +62,10 @@
 #'   \code{NULL}, allele frequencies are calculated from \code{marker.mat}.
 #' @param covariance Logical. If \code{TRUE}, also calculate segregation
 #'   covariance matrices among traits for each cross.
-#' @param method Method used to calculate segregation variance. Either
-#'   \code{1} or \code{"lehermeier"} for the Lehermeier et al. (2017) method,
-#'   or \code{2} or \code{"osthushenrich"} for the Osthushenrich et al. (2017)
-#'   method. The latter is currently available only for two-way crosses.
-#'   Four-way crosses are calculated using the multi-parental formulation of
-#'   Allier et al. (2019).
 #' @param nthreads Positive integer. Number of computational threads.
+#' @param s Number of rounds of selfing following random intermating.
+#'   Supply a finite non-negative integer or \code{Inf} for exact infinite
+#'   selfing of RILs. \code{Inf} is not supported for DH.
 #'
 #' @return If neither \code{weights} nor trait covariances are requested, a data
 #'   frame containing the parental identifiers and, for each trait,
@@ -113,20 +107,19 @@
 #'
 #' @export
 
-calc_spv_inbred <- function(crosses, genetic.map, marker.mat, marker.effects, t, intensity=1, type = "DH",
-                            weights = NULL,p=NULL, covariance = FALSE,
-                                   method = 1, nthreads = 4L) {
+calc_spv_inbred <- function(crosses, genetic.map, marker.mat, marker.effects,
+                            t = 0L, s = 0L, intensity = 1, type = "DH",
+                            weights = NULL, p = NULL, covariance = FALSE,
+                            nthreads = 4L) {
 
   marker.effects <- as.matrix(marker.effects)
   effects <- marker.effects
-
   traits <- colnames(marker.effects)
 
   if (is.null(traits)) {
     traits <- paste0("trait", seq_len(ncol(marker.effects)))
   }
 
-  effects <- as.matrix(marker.effects)
 
   if (!is.numeric(intensity) ||
       length(intensity) != 1L ||
@@ -137,9 +130,26 @@ calc_spv_inbred <- function(crosses, genetic.map, marker.mat, marker.effects, t,
   n.Threads <- nthreads
   if(!ncol(crosses) %in% c(2,4)){stop("ncol(crosses) needs to be 2 for two way crosses or 4 for three or four way crosses")}
   crosses_in <- crosses
-  if (!isTRUE(all.equal(t, as.integer(t)))) {
-    stop("t must be an integer.")
+  # t = random-mating rounds; s = subsequent selfing rounds.
+  if (!is.character(type) || length(type) != 1L || is.na(type) ||
+      !type %in% c("DH", "RIL")) {
+    stop("`type` must be 'DH' or 'RIL'.")
   }
+  if (!is.numeric(t) || length(t) != 1L || !is.finite(t) ||
+      t < 0 || t != floor(t) || t > .Machine$integer.max - 3) {
+    stop("`t` must be a non-negative integer within the C++ integer range.")
+  }
+  if (!is.numeric(s) || length(s) != 1L || is.na(s) || s < 0 ||
+      (!is.infinite(s) && (s != floor(s) || s > .Machine$integer.max - 3))) {
+    stop("`s` must be a non-negative integer or Inf.")
+  }
+  if (is.finite(s) && t + s > .Machine$integer.max - 3) {
+    stop("`t + s` is too large for the C++ generation counters.")
+  }
+  if (is.infinite(s) && type == "DH") {
+    stop("`s = Inf` is supported for RIL only, not DH.")
+  }
+
   crosses <- as.matrix(crosses)
 
   if (is.numeric(crosses) || is.integer(crosses)) {
@@ -170,22 +180,11 @@ calc_spv_inbred <- function(crosses, genetic.map, marker.mat, marker.effects, t,
     names(crosses2) <- c("Parent1","Parent2")
   } else {
     names(crosses2) <- c("Parent1","Parent2","Parent3","Parent4")
-    }
+  }
 
   crosses2 <- as.matrix(crosses2)
   storage.mode(crosses2) <- "integer"
   if (anyNA(crosses2)) stop("Internal error: `crosses2` contains NA after conversion.")
-
-  if (is.numeric(method)) {
-    if (method == 1) method <- "lehermeier"
-    else if (method == 2) method <- "osthushenrich"
-    else stop("`method` must be 1 or 2.")
-  } else {
-    method <- match.arg(method, c("lehermeier","osthushenrich"))
-  }
-
-  if(!type %in% c("DH","RIL")){stop("type needs to be one of DH or RIL!")}
-
 
   # ---- Normalize ----
   if (!is.matrix(marker.mat)) marker.mat <- as.matrix(marker.mat)
@@ -252,6 +251,9 @@ calc_spv_inbred <- function(crosses, genetic.map, marker.mat, marker.effects, t,
   if (calculate.simple.index) {
     effects.index <- effects %*% weights
     effects <- cbind(effects, effects.index)
+
+
+    weights <- c(weights, 0.0)  # placeholder for the appended index trait
   }
 
 
@@ -317,157 +319,79 @@ calc_spv_inbred <- function(crosses, genetic.map, marker.mat, marker.effects, t,
   }
   nThreads <- as.integer(n.Threads)
 
-  if(type=="DH"){
-    if(cross.type=="2W"){
-      if (t < 0) {
-        message("For two way crosses t needs to be >= 0, setting t = 0")
-        t <- 0
-      }
-      if (method == "lehermeier") {
-        temp <- cpp_calculate_covariance_lehermeier(
-          Crosses    = crosses2,
-          genMap     = genmap_list,
-          M = marker.mat,
-          U    = effects,
-          t          = as.integer(t),
-          intensity  = intensity,
-          weights    = weights,
-          p = p,
-          covariance = covariance,
-          calcindex  = calculate.index,
-          nThreads   = nThreads
-        )
-      } else {
-        temp <- cpp_calculate_covariance_osthushenrich(
-          Crosses    = crosses2,
-          genMap     = genmap_list,
-          M = marker.mat,
-          U    = effects,
-          t          = as.integer(t),
-          intensity  = intensity,
-          weights    = weights,
-          p = p,
-          covariance = covariance,
-          calcindex  = calculate.index,
-          nThreads   = nThreads
-        )
-      }
+  ###############################################################################
+  # Select segregation variance model
+  ###############################################################################
+
+  # Two-way or four-way crosses are distinguished by ncol(crosses).
+  # t = random intermating, s = selfing; s = Inf selects exact RIL asymptote.
+  if (type == "DH") {
+
+    if (cross.type == "2W") {
+      temp <- cpp_calculate_covariance_dh(
+        Crosses = crosses2, genMap = genmap_list,
+        M = marker.mat, U = effects,
+        t = as.integer(t), s = as.integer(s),
+        intensity = intensity, weights = weights, p = p,
+        covariance = covariance, calcindex = calculate.index,
+        nThreads = nThreads
+      )
+    } else {
+      temp <- cpp_calculate_covariance_allier_dh(
+        Crosses = crosses2, genMap = genmap_list,
+        M = marker.mat, U = effects,
+        t = as.integer(t), s = as.integer(s),
+        intensity = intensity, weights = weights, p = p,
+        covariance = covariance, calcindex = calculate.index,
+        nThreads = nThreads
+      )
     }
 
-    if(cross.type=="4W"){
-      if (t < 1) {
-        message("For four way crosses t needs to be >= 1, setting t = 1")
-        t <- 1
-      }
-      if (method == "lehermeier") {
-        temp <- cpp_calculate_covariance_allier(
-          Crosses    = crosses2,
-          genMap     = genmap_list,
-          M = marker.mat,
-          U    = effects,
-          t          = as.integer(t),
-          intensity  = intensity,
-          weights    = weights,
-          p = p,
-          covariance = covariance,
-          calcindex  = calculate.index,
-          nThreads   = nThreads
-        )
-      } else {
-        print("Method 2 currently not supported for three and four way crosses, reverting to method = 1")
-        temp <- cpp_calculate_covariance_allier(
-          Crosses    = crosses2,
-          genMap     = genmap_list,
-          M = marker.mat,
-          U    = effects,
-          t          = as.integer(t),
-          intensity  = intensity,
-          weights    = weights,
-          p = p,
-          covariance = covariance,
-          calcindex  = calculate.index,
-          nThreads   = nThreads
-        )
-      }
-    }
-  }
+  } else if (is.infinite(s)) {
 
-
-  if(type=="RIL"){
-    if (t < 0) {
-      message("t needs to be >= 0, setting t = 0")
-      t <- 0
-    }
-    if(cross.type=="2W"){
-      if (method == "lehermeier") {
-        temp <- cpp_calculate_covariance_RIL_lehermeier(
-          Crosses    = crosses2,
-          genMap     = genmap_list,
-          M = marker.mat,
-          U    = effects,
-          t          = as.integer(t),
-          intensity  = intensity,
-          weights    = weights,
-          p = p,
-          covariance = covariance,
-          calcindex  = calculate.index,
-          nThreads   = nThreads
-        )
-      } else {
-        temp <- cpp_calculate_covariance_RIL_osthushenrich(
-          Crosses    = crosses2,
-          genMap     = genmap_list,
-          M = marker.mat,
-          U    = effects,
-          t          = as.integer(t),
-          intensity  = intensity,
-          weights    = weights,
-          p = p,
-          covariance = covariance,
-          calcindex  = calculate.index,
-          nThreads   = nThreads
-        )
-      }
+    # Exact infinite-selfing RIL models; no finite-generation approximation.
+    if (cross.type == "2W") {
+      temp <- cpp_calculate_covariance_RIL_osthushenrich(
+        Crosses = crosses2, genMap = genmap_list,
+        M = marker.mat, U = effects,
+        t = as.integer(t),
+        intensity = intensity, weights = weights, p = p,
+        covariance = covariance, calcindex = calculate.index,
+        nThreads = nThreads
+      )
+    } else {
+      temp <- cpp_calculate_covariance_allier_ril_infinite(
+        Crosses = crosses2, genMap = genmap_list,
+        M = marker.mat, U = effects,
+        t = as.integer(t),
+        intensity = intensity, weights = weights, p = p,
+        covariance = covariance, calcindex = calculate.index,
+        nThreads = nThreads  )
     }
 
-    if(cross.type=="4W"){
-      if (t < 1) {
-        message("For four way crosses t needs to be >= 1, setting t = 1")
-        t <- 1
-      }
-      if (method == "lehermeier") {
-        temp <- cpp_calculate_covariance_RIL_allier(
-          Crosses    = crosses2,
-          genMap     = genmap_list,
-          M = marker.mat,
-          U    = effects,
-          t          = as.integer(t),
-          intensity  = intensity,
-          weights    = weights,
-          p = p,
-          covariance = covariance,
-          calcindex  = calculate.index,
-          nThreads   = nThreads
-        )
-      } else {
-        print("Method 2 currently not supported for three and four way crosses, reverting to method = 1")
-        temp <- cpp_calculate_covariance_RIL_allier(
-          Crosses    = crosses2,
-          genMap     = genmap_list,
-          M = marker.mat,
-          U    = effects,
-          t          = as.integer(t),
-          intensity  = intensity,
-          weights    = weights,
-          p = p,
-          covariance = covariance,
-          calcindex  = calculate.index,
-          nThreads   = nThreads
-        )
-      }
+  } else {
+
+    # Exact finite-generation RIL kernels, evaluated by linear recursions.
+    if (cross.type == "2W") {
+      temp <- cpp_calculate_covariance_ril(
+        Crosses = crosses2, genMap = genmap_list,
+        M = marker.mat, U = effects,
+        t = as.integer(t), s = as.integer(s),
+        intensity = intensity, weights = weights, p = p,
+        covariance = covariance, calcindex = calculate.index,
+        nThreads = nThreads
+      )
+    } else {
+      temp <- cpp_calculate_covariance_allier_ril(
+        Crosses = crosses2, genMap = genmap_list,
+        M = marker.mat, U = effects,
+        t = as.integer(t), s = as.integer(s),
+        intensity = intensity, weights = weights, p = p,
+        covariance = covariance, calcindex = calculate.index,
+        nThreads = nThreads
+      )
     }
   }
-
 
 
   ntraits <- ncol(marker.effects)
@@ -552,3 +476,6 @@ calc_spv_inbred <- function(crosses, genetic.map, marker.mat, marker.effects, t,
   out <- cbind(crosses_df, out)
   return(out)
 }
+
+
+
