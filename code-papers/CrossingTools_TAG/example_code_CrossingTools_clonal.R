@@ -147,7 +147,7 @@ GRM_A <- GRM_A + diag(1e-8, nrow(GRM_A))
 
 ridge <- 1e-4 * mean(diag(GRM_A))
 
-GRM_A <- GRM + diag(ridge, nrow(GRM_A))
+GRM_A <- GRM_A + diag(ridge, nrow(GRM_A))
 ###############################################################################
 # Dominance genomic relationship matrix
 ###############################################################################
@@ -178,7 +178,7 @@ GRM_D <- tcrossprod(Z) / ncol(marker_mat)
 
 ridge <- 1e-4 * mean(diag(GRM_D))
 
-GRM_D <- GRM + diag(ridge, nrow(GRM_D))
+GRM_D <- GRM_D + diag(ridge, nrow(GRM_D))
 
 ###############################################################################
 # Fit additive-dominance GBLUP
