@@ -332,13 +332,11 @@ spv <- calc_spv_inbred(
   genetic.map    = map_df,
   marker.mat     = marker_mat,
   marker.effects = alpha,
-  t              = 0,
   intensity      = intensity,
   weights        = dg_index$weights,
   p              = p,
   type           = "DH",
   covariance     = FALSE,
-  method         = 2,
   nthreads       = n_threads
 )
 
@@ -388,7 +386,7 @@ head(ocs_angle)
 
 # Select one Pareto solution according to the breeding objective.
 
-selected_plan_id <- 4000
+selected_plan_id <- 1000
 
 cross_plan <- ocs_pareto$pareto.plans[[selected_plan_id]]
 

@@ -303,8 +303,8 @@ rc2_pop <- randCross(
 )
 
 
-# RC2 parents may be heterozygous: dosages lose haplotype phase.
-# Phased haplotypes preserve linkage needed for segregation variances.
+# RC2 parents are heterozygous.
+# Phased haplotypes are needed for segregation variances.
 
 marker_mat_rc2 <- pullSnpGeno(rc2_pop)
 marker_hap_rc2 <- pullSnpHaplo(rc2_pop)
@@ -345,7 +345,7 @@ candidate_crosses <- make_cross_plan(
 
 head(candidate_crosses)
 
-# Each RC2 individual has two rows in marker_hap_rc2 (2i - 1, 2i).
+# Each RC2 individual has two rows in marker_hap_rc2.
 # Use four indices to specify both parental haplotype pairs for SPV.
 
 candidate_crosses_hap <- data.frame(
@@ -408,13 +408,11 @@ spv <- calc_spv_inbred(
   genetic.map    = map_df,
   marker.mat     = marker_hap_rc2,
   marker.effects = alpha,
-  t              = 1,
   intensity      = intensity,
   weights        = sh_index$weights,
   p              = p_training,
   type           = "DH",
   covariance     = FALSE,
-  method         = 1,
   nthreads       = n_threads
 )
 
@@ -465,7 +463,7 @@ head(ocs_angle)
 
 # Select one Pareto solution according to the breeding objective.
 
-selected_plan_id <- 1000 #example!
+selected_plan_id <- 700 #example!
 
 selected_cross_plan <- ocs_pareto$pareto.plans[[selected_plan_id]]
 

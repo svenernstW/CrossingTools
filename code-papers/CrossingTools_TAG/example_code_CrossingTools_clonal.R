@@ -374,7 +374,7 @@ head(ocs_angle)
 
 # Select one Pareto solution according to the breeding objective.
 
-selected_plan_id <- 3000
+selected_plan_id <- 900
 
 cross_plan <- ocs_pareto$pareto.plans[[selected_plan_id]]
 
